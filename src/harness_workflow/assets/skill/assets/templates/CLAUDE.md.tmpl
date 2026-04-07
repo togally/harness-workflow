@@ -1,0 +1,37 @@
+# CLAUDE.md
+
+本仓库面向 Claude Code 使用统一的文档工作流。
+
+## 优先阅读
+
+1. 在需求分析或方案设计前先读取 `docs/memory/constitution.md`
+2. 在分析、设计、实施、自检前先读取 `docs/context/experience/index.md`
+3. 在执行任何任务前读取 `docs/context/rules/risk-rules.md`
+4. 仅按关键词加载命中的经验文件，不全量读取 `docs/context/experience/`
+5. 详细执行流程请读取 `docs/context/rules/agent-workflow.md`
+6. 如需了解项目事实或开发规范，继续读取 `docs/context/project/仓库概览.md` 与 `docs/context/team/开发规范.md`
+
+## 关键入口
+
+- `docs/README.md`：文档总入口
+- `docs/context/`：团队规范、项目事实、经验索引与执行规则
+- `docs/requirements/`：需求主题工作区
+- `docs/changes/`：进行中的变更工作区与归档
+- `docs/plans/`：共享计划
+- `docs/versions/`：版本快照与归档
+- `docs/runbooks/`：操作手册
+
+## Harness 命令入口
+
+以下场景优先考虑使用 `$harness`：
+
+- 初始化仓库工作流：`harness init`
+- 新建需求主题：`harness requirement`
+- 拆分具体功能点：`harness change`
+- 为 change 制定计划：`harness plan`
+- 冻结版本快照：`harness version`
+
+## 验证要求
+
+- 若仓库提供文档流程 lint，先执行 lint
+- 在声称完成前执行项目现有的测试、构建或校验命令

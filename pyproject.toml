@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harness-workflow"
+version = "0.1.0"
+description = "Harness Engineering workflow CLI and installable Codex skill."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "togally" }
+]
+license = { text = "MIT" }
+keywords = ["harness", "agent", "workflow", "codex", "claude"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.scripts]
+harness = "harness_workflow.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+harness_workflow = [
+  "assets/skill/SKILL.md",
+  "assets/skill/agents/openai.yaml",
+  "assets/skill/assets/templates/*.tmpl",
+  "assets/skill/references/*.md",
+  "assets/skill/scripts/*.py",
+  "assets/skill/tests/*.py",
+]

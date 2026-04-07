@@ -1,0 +1,55 @@
+# Agent 工作流
+
+## 1. 上下文自动加载
+
+每次新会话开始时，在执行任何任务之前：
+
+1. 读取 `docs/memory/constitution.md`
+2. 读取 `docs/context/experience/index.md`，根据用户意图中的关键词匹配相关经验文件
+3. 读取 `docs/context/rules/risk-rules.md`，扫描需求中的高风险关键词
+4. 如果匹配到经验条目，按需加载对应经验文件，不要全量加载
+5. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/仓库概览.md` 与 `docs/context/team/开发规范.md`
+6. 如果是恢复会话，读取对应 `docs/changes/active/<change-id>/session-memory.md`，并补充读取该变更目录下的需求、设计、计划文件
+
+禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
+
+## 2. 执行流程
+
+1. 用最小必要文件集建立上下文
+2. 判断任务是轻微改动还是正式变更
+3. 对正式变更先建立 requirement 或 change 工作区
+4. requirement 规划完成后，拆分成多个可独立交付的 change
+5. change 在进入编码前必须补齐 design 与 plan
+6. plan 中的实施步骤与验证步骤要显式拆开
+7. 默认每个可独立执行的工作步骤由一个 subagent 或一个隔离执行单元完成
+8. 采用增量方式执行改动
+9. 执行验证
+10. 如果任务改变了仓库知识结构，同步更新工作记忆或正式文档
+
+## 3. Harness 生命周期
+
+### requirement
+
+- 用于承载较大的需求主题
+- requirement 完成后，必须拆出多个 change
+
+### change
+
+- 每个 change 只承载一个可独立交付的功能点
+- 每个 change 都要有自己的说明、设计、计划、验收与会话记忆
+
+### plan
+
+- plan 必须服务于具体 change
+- plan 要拆成模型可执行的开发与验证步骤
+
+### version
+
+- version 用于冻结一个阶段快照
+- 已验收的 change 才适合纳入版本
+
+## 4. 记忆规则
+
+- 长期有效规则放在 `docs/memory/`
+- 单次任务状态放在 `docs/changes/active/<change-id>/session-memory.md`
+- 不要把短期任务状态写入长期记忆
