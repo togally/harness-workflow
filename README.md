@@ -268,16 +268,16 @@ harness update --force-managed
 
 ```mermaid
 flowchart TD
-    A["Install / Init<br/>harness install | harness init"] --> B["Language Profile<br/>harness language english | cn"]
-    B --> C["Active Version<br/>harness version"]
-    C --> D["Runtime Route<br/>workflow-runtime.yaml + version meta.yaml"]
-    D --> E["Requirement Review<br/>suggested_skill=brainstorming"]
-    E --> F["Changes Review<br/>suggested_skill=brainstorming"]
-    F --> G["Plan Review<br/>suggested_skill=writing-plans"]
-    G --> H["Ready For Execution<br/>approval_required=true"]
-    H --> I["Executing<br/>suggested_skill=executing-plans"]
-    I --> J["Done<br/>suggested_skill=verification-before-completion"]
-    I --> K["Capture Lessons<br/>session-memory.md + experience index"]
+    A["安装或初始化<br/>harness install / harness init"] --> B["切换语言配置<br/>harness language english / cn"]
+    B --> C["创建或切换版本<br/>harness version / harness active"]
+    C --> D["读取运行态并路由<br/>workflow-runtime.yaml + version meta.yaml"]
+    D --> E["创建并评审需求<br/>harness requirement<br/>suggested_skill=brainstorming"]
+    E --> F["拆分并评审变更<br/>harness change<br/>suggested_skill=brainstorming"]
+    F --> G["生成并评审计划<br/>harness plan / harness next<br/>suggested_skill=writing-plans"]
+    G --> H["进入执行前确认<br/>harness next<br/>approval_required=true"]
+    H --> I["确认后执行实施<br/>harness next --execute<br/>suggested_skill=executing-plans"]
+    I --> J["完成验证与收尾<br/>harness next<br/>suggested_skill=verification-before-completion"]
+    I --> K["沉淀阶段经验<br/>session-memory.md + experience index"]
     K --> D
 ```
 
