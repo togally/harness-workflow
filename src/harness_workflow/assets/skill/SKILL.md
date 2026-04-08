@@ -183,6 +183,7 @@ If not, it can stand alone inside the active version.
 Each `change` should be independently plannable and independently verifiable.
 Each `change` should also accumulate execution knowledge in `session-memory.md`, including what did not work.
 Each completed `change` must include `mvn compile`. If compilation fails, start `harness regression "<issue>"`. If user-provided inputs are needed, fill `regression/required-inputs.md` and wait.
+If the needed debug information is already available on the local machine, collect it first instead of asking the human to inspect it manually.
 
 ## Harness Plan
 
@@ -214,6 +215,7 @@ harness version "v1.0.0" --root /path/to/repo
 This should create `requirements`, `changes`, and `plans` containers under the active version.
 Use versions as the main work container, while `docs/context/` remains repository-level knowledge.
 When a requirement is complete, record successful project startup validation in its `completion.md`. If startup fails, enter regression first.
+Local startup logs, compiler output, and stack traces should be collected by the agent before it asks the human for help.
 
 ## Root Guides
 

@@ -36,6 +36,7 @@ Additional guardrails:
 - Every completed change must include `mvn compile`
 - Every completed requirement must include successful project startup validation
 - If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
+- If startup logs, compile output, test failures, or runtime stack traces are already available locally, the AI should collect and analyze them first
 - If repair needs human-provided configuration, data, accounts, or external dependency details, fill the related change `regression/required-inputs.md` and ask the human to complete it
 
 ## 4. Command Semantics

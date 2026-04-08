@@ -102,6 +102,7 @@ harness next --execute
 - 每个 change 完成前必须执行并记录 `mvn compile`
 - 每个 requirement 完成前必须执行并记录项目启动测试成功
 - 如果编译失败或启动失败，必须先进入 regression；如果需要用户补数据，先填写对应 change 的 `regression/required-inputs.md`
+- 本机可直接获取的调试信息必须先由 AI 自行采集和分析，例如启动日志、编译输出、测试报错；不要先让用户代看本机日志
 
 开始任何 requirement、change、plan 或执行前，先做这一步：
 
@@ -189,6 +190,7 @@ harness next --execute
   - requirement：`completion.md`
 - 如果 `mvn compile` 失败或项目启动失败，不允许绕过工作流继续收尾，必须先进入 `harness regression "<问题描述>"`
 - 如果继续修复前需要用户补充配置、测试数据、账号或外部依赖信息，先填写对应 change 的 `regression/required-inputs.md`，再提示用户补充
+- 本机能够直接采集的启动日志、编译输出、测试失败堆栈，应先由 AI 自己运行并读取；只有确实缺少外部输入时才需要用户填写模板
 
 ### 归档与改名维护
 
@@ -441,6 +443,7 @@ Key rules:
 - Every completed change must execute and record `mvn compile`
 - Every completed requirement must execute and record successful project startup validation
 - If compilation or startup fails, enter regression first; if human input is needed, use the related change `regression/required-inputs.md`
+- Debug information that is available locally must be collected by the AI first, such as startup logs, compile output, and test failures; do not ask the human to inspect local logs before the AI has done that
 - before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
 - then read the current version `meta.yaml` before deciding the next action
 - `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
@@ -502,6 +505,7 @@ When implementation and verification are technically complete but the outcome is
   - requirement: `completion.md`
 - If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"`
 - If repair needs user-provided configuration, test data, accounts, or external dependency details, fill the related change `regression/required-inputs.md` and ask the human to complete it
+- If startup logs, compile output, or stack traces are available on the local machine, the AI should run and read them first; only request human input when the missing information is external to the local workspace
 
 ### Archive And Rename Maintenance
 

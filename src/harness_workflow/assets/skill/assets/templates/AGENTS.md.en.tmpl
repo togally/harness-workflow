@@ -16,7 +16,8 @@ This repository uses the Harness workflow for agent collaboration.
 10. Before each stage starts a concrete task, re-index experience; after each stage completes, check whether new lessons should be captured or fused
 11. If the human is unhappy with a completed result, start `harness regression "<issue>"` first and confirm the problem before creating new work
 12. Every completed change must include `mvn compile`; every completed requirement must include successful project startup validation
-13. If compilation fails, startup fails, or repair needs human input, move into regression and use the related change `regression/required-inputs.md`
+13. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
+14. If compilation fails, startup fails, or repair still needs human input, move into regression and use the related change `regression/required-inputs.md`
 
 ## Main Entry
 
