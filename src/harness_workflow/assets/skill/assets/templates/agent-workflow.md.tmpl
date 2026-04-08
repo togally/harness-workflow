@@ -32,10 +32,13 @@
 11. 执行过程中一旦发现方案走不通，立刻记录到 `session-memory.md` 的“走不通的路”，避免同会话或恢复会话重复试错
 12. 如果被纠正、发现新约束或形成了可复用结论，先更新当前工作记忆，再判断是否需要沉淀到 `docs/context/experience/`
 13. 执行验证
-14. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
-15. 当 workflow 状态缺失或冲突时，停止执行并要求用户运行 `harness active "<version>"` 或修复缺失文件
-16. 每个阶段的任务执行完成后，主动复盘本阶段新增经验，先沉淀到 `session-memory.md`；若已足够成熟，再融合进 `docs/context/experience/` 或正式规则
-17. 如果用户对已完成结果不满意，不要直接返工；先使用 `harness regression "<问题描述>"` 进入回归诊断流，和用户确认是否是真问题，再决定转成新的 requirement 或 change
+14. change 完成前，必须执行并记录 `mvn compile`；requirement 完成前，必须执行并记录项目启动测试成功
+15. 如果编译失败或启动失败，不允许绕过，必须先进入 `harness regression "<问题描述>"`
+16. 如果继续修复前需要用户提供配置、数据、账号或外部依赖信息，先填写当前 change `regression/required-inputs.md` 模板，再提示用户补充
+17. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
+18. 当 workflow 状态缺失或冲突时，停止执行并要求用户运行 `harness active "<version>"` 或修复缺失文件
+19. 每个阶段的任务执行完成后，主动复盘本阶段新增经验，先沉淀到 `session-memory.md`；若已足够成熟，再融合进 `docs/context/experience/` 或正式规则
+20. 如果用户对已完成结果不满意，不要直接返工；先使用 `harness regression "<问题描述>"` 进入回归诊断流，和用户确认是否是真问题，再决定转成新的 requirement 或 change
 
 ## 3. Harness 生命周期
 
@@ -64,6 +67,7 @@
 - regression 用于“先确认是否是真问题”，不是直接返工入口
 - regression 确认前不允许直接开始修代码
 - 确认是真问题后，再转成 requirement 增补或新的 change，回到正常流程
+- regression 历史保留在各自目录和文档中，不长期占用 version 主状态
 
 ## 4. 记忆规则
 

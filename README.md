@@ -99,6 +99,9 @@ harness next --execute
 - `harness rename` 用于正式重命名 version / requirement / change，并同步元数据与主要引用
 - `harness archive` 用于把某个已完成 requirement 及其 linked changes 归档到当前 version 的归档目录中
 - `harness regression` 用于启动“先确认是不是真问题”的回归诊断流，确认后再转成新的 requirement 或 change
+- 每个 change 完成前必须执行并记录 `mvn compile`
+- 每个 requirement 完成前必须执行并记录项目启动测试成功
+- 如果编译失败或启动失败，必须先进入 regression；如果需要用户补数据，先填写对应 change 的 `regression/required-inputs.md`
 
 开始任何 requirement、change、plan 或执行前，先做这一步：
 
@@ -175,6 +178,17 @@ harness next --execute
 - 如果确认是问题，再用 `harness regression --change "<标题>"` 或 `--requirement "<标题>"` 把它转成正式工作项
 - 转换完成后，重新进入正常的 requirement/change/plan/execution 流程
 - 修复完成后，继续按阶段规则沉淀经验
+- regression 的长期留存放在 `docs/versions/active/<version>/regressions/` 目录和对应文档中，不长期占用 version 主状态
+
+### 编译与启动门禁
+
+- 每个 change 完成后的验收必须包含一次 `mvn compile`
+- 每个 requirement 完成后的收尾必须包含项目启动测试成功
+- 默认落点：
+  - change：`acceptance.md`
+  - requirement：`completion.md`
+- 如果 `mvn compile` 失败或项目启动失败，不允许绕过工作流继续收尾，必须先进入 `harness regression "<问题描述>"`
+- 如果继续修复前需要用户补充配置、测试数据、账号或外部依赖信息，先填写对应 change 的 `regression/required-inputs.md`，再提示用户补充
 
 ### 归档与改名维护
 
@@ -276,9 +290,12 @@ flowchart TD
     F --> G["生成并评审计划<br/>harness plan / harness next<br/>suggested_skill=writing-plans"]
     G --> H["进入执行前确认<br/>harness next<br/>approval_required=true"]
     H --> I["确认后执行实施<br/>harness next --execute<br/>suggested_skill=executing-plans"]
-    I --> J["完成验证与收尾<br/>harness next<br/>suggested_skill=verification-before-completion"]
-    I --> K["沉淀阶段经验<br/>session-memory.md + experience index"]
-    K --> D
+    I --> J["change 验收必须含 mvn compile<br/>requirement 收尾必须含启动成功"]
+    J --> K{"编译或启动失败?"}
+    K -->|是| L["进入回归诊断<br/>harness regression <问题描述>"]
+    K -->|否| M["完成验证与收尾<br/>harness next<br/>suggested_skill=verification-before-completion"]
+    M --> N["沉淀阶段经验<br/>session-memory.md + experience index"]
+    N --> D
 ```
 
 #### 回归诊断流
@@ -294,6 +311,8 @@ flowchart TD
     G -->|否| H["harness regression --cancel"]
     G -->|是| D
     E -->|是| I["harness regression --confirm"]
+    I --> I2["如需用户补数据<br/>填写 change/regression/required-inputs.md"]
+    I2 --> J
     I --> J{"转成什么工作项?"}
     J -->|小范围修复| K["harness regression --change"]
     J -->|需求增补| L["harness regression --requirement"]
@@ -419,6 +438,9 @@ Key rules:
 - `harness rename` is the preferred way to rename a version, requirement, or change
 - `harness archive` archives one completed requirement and its linked changes inside the current version
 - `harness regression` starts a regression diagnosis flow so the agent confirms whether something is a real problem before creating new work
+- Every completed change must execute and record `mvn compile`
+- Every completed requirement must execute and record successful project startup validation
+- If compilation or startup fails, enter regression first; if human input is needed, use the related change `regression/required-inputs.md`
 - before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
 - then read the current version `meta.yaml` before deciding the next action
 - `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
@@ -469,6 +491,17 @@ When implementation and verification are technically complete but the outcome is
 - if it is a confirmed problem, convert it into a new `change` or requirement update
 - then return to the normal requirement/change/plan/execution flow
 - after the fix, capture and promote lessons as usual
+- keep regression history inside `docs/versions/active/<version>/regressions/` and its documents instead of leaving it in the main version workflow state forever
+
+### Compile And Startup Gates
+
+- Every completed change must include `mvn compile`
+- Every completed requirement must include successful project startup validation
+- Default evidence locations:
+  - change: `acceptance.md`
+  - requirement: `completion.md`
+- If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"`
+- If repair needs user-provided configuration, test data, accounts, or external dependency details, fill the related change `regression/required-inputs.md` and ask the human to complete it
 
 ### Archive And Rename Maintenance
 
@@ -555,9 +588,12 @@ flowchart TD
     F --> G["Plan Review<br/>suggested_skill=writing-plans"]
     G --> H["Ready For Execution<br/>approval_required=true"]
     H --> I["Executing<br/>suggested_skill=executing-plans"]
-    I --> J["Done<br/>suggested_skill=verification-before-completion"]
-    I --> K["Capture Lessons<br/>session-memory.md + experience index"]
-    K --> D
+    I --> J["Change gate: mvn compile<br/>Requirement gate: successful startup"]
+    J --> K{"Compile or startup failed?"}
+    K -->|Yes| L["Regression diagnosis<br/>harness regression <issue>"]
+    K -->|No| M["Done<br/>suggested_skill=verification-before-completion"]
+    M --> N["Capture Lessons<br/>session-memory.md + experience index"]
+    N --> D
 ```
 
 #### Regression Diagnosis Flow
@@ -573,6 +609,8 @@ flowchart TD
     G -->|No| H["harness regression --cancel"]
     G -->|Yes| D
     E -->|Yes| I["harness regression --confirm"]
+    I --> I2["If human input is needed<br/>fill change/regression/required-inputs.md"]
+    I2 --> J
     I --> J{"Convert into what?"}
     J -->|Focused fix| K["harness regression --change"]
     J -->|Requirement update| L["harness regression --requirement"]

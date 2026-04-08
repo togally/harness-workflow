@@ -15,6 +15,8 @@
 9. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止并提示修复，不允许绕过工作流手工推进
 10. 每个阶段开始执行具体任务前先索引经验；每个阶段完成后都要检查是否有经验值得沉淀或融合
 11. 如果用户对已完成结果不满意，先进入 `harness regression "<问题描述>"`，确认问题后再转成新的 requirement 或 change
+12. 每个 change 完成前必须包含 `mvn compile`；每个 requirement 完成前必须包含项目启动测试成功
+13. 如果编译失败、启动失败，或继续修复前需要用户提供数据，先进入 regression，并填写对应 change `regression/required-inputs.md`
 
 ## 关键入口
 

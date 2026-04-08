@@ -31,6 +31,13 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 - `done`
 - `regression`
 
+Additional guardrails:
+
+- Every completed change must include `mvn compile`
+- Every completed requirement must include successful project startup validation
+- If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
+- If repair needs human-provided configuration, data, accounts, or external dependency details, fill the related change `regression/required-inputs.md` and ask the human to complete it
+
 ## 4. Command Semantics
 
 - `harness version "<name>"`: create or switch a version and make it current
@@ -52,6 +59,7 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 - Do not start coding before routing through workflow state
 - Do not advance work without a confirmed current version
 - During regression flow, do not jump straight back into coding before the human confirms it is a real problem
+- Long-term regression history lives in `docs/versions/active/<version>/regressions/`; it should not permanently occupy the main version workflow state
 - `ff` skips discussion gates, not the final execution confirmation
 - If workflow state is missing, inconsistent, or blocked, the agent must stop and require repair instead of manually simulating the workflow
 - After each stage-level task completes, check whether new lessons should be captured; mature lessons should be fused into `docs/context/experience/` or formal rules

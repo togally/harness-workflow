@@ -54,12 +54,16 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(requirement.returncode, 0, msg=requirement.stderr or requirement.stdout)
         requirement_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "需求" / "在线健康服务"
         self.assertTrue((requirement_dir / "requirement.md").exists())
+        self.assertTrue((requirement_dir / "completion.md").exists())
+        self.assertIn("启动测试", (requirement_dir / "completion.md").read_text(encoding="utf-8"))
         self.assertEqual(self.read_version_meta("v1.0.0")["suggested_skill"], "brainstorming")
 
         change = self.run_cli("change", "在线问诊预约", "--root", str(self.repo), "--requirement", "在线健康服务")
         self.assertEqual(change.returncode, 0, msg=change.stderr or change.stdout)
         change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "变更" / "在线问诊预约"
         self.assertTrue((change_dir / "plan.md").exists())
+        self.assertTrue((change_dir / "regression" / "required-inputs.md").exists())
+        self.assertIn("mvn compile", (change_dir / "acceptance.md").read_text(encoding="utf-8"))
 
         plan = self.run_cli("plan", "在线问诊预约", "--root", str(self.repo))
         self.assertEqual(plan.returncode, 0, msg=plan.stderr or plan.stdout)
@@ -157,7 +161,20 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(runtime["mode"], "normal")
         self.assertEqual(runtime["current_regression"], "")
         meta = self.read_version_meta("v1.0.0")
-        self.assertEqual(meta["regression_status"], "converted")
+        self.assertEqual(meta["regression_status"], "")
+        self.assertEqual(meta["regression_ids"], [])
+        regression_meta = (
+            self.repo
+            / "docs"
+            / "versions"
+            / "active"
+            / "v1.0.0"
+            / "regressions"
+            / "button-effect-is-unsatisfactory"
+            / "meta.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('status: "converted"', regression_meta)
+        self.assertIn('linked_change: "button-interaction-polish"', regression_meta)
 
     def test_rename_updates_version_and_requirement_links(self) -> None:
         self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")

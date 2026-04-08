@@ -84,6 +84,7 @@ Default write locations:
 
 Use `session-memory.md` as the first landing zone. Promote only validated lessons into indexed experience.
 Before each stage starts a concrete task, re-index relevant experience. After each stage completes, capture new lessons and fuse mature experience back into the current requirement, change, plan, or execution approach when useful.
+Regression history should be kept in its own regression directory and documents. Do not keep resolved regressions occupying the main version workflow state longer than necessary.
 
 ## Trigger Hints
 
@@ -181,6 +182,7 @@ If not, it can stand alone inside the active version.
 
 Each `change` should be independently plannable and independently verifiable.
 Each `change` should also accumulate execution knowledge in `session-memory.md`, including what did not work.
+Each completed `change` must include `mvn compile`. If compilation fails, start `harness regression "<issue>"`. If user-provided inputs are needed, fill `regression/required-inputs.md` and wait.
 
 ## Harness Plan
 
@@ -211,6 +213,7 @@ harness version "v1.0.0" --root /path/to/repo
 
 This should create `requirements`, `changes`, and `plans` containers under the active version.
 Use versions as the main work container, while `docs/context/` remains repository-level knowledge.
+When a requirement is complete, record successful project startup validation in its `completion.md`. If startup fails, enter regression first.
 
 ## Root Guides
 

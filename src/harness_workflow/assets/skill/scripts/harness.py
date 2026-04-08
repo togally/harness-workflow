@@ -83,7 +83,19 @@ LANGUAGE_SPECS = {
     },
 }
 
-ITEM_META_ORDER = ["id", "title", "status", "kind", "requirement", "owner", "created_at"]
+ITEM_META_ORDER = [
+    "id",
+    "title",
+    "status",
+    "kind",
+    "requirement",
+    "linked_change",
+    "linked_requirement",
+    "needs_user_input",
+    "input_template",
+    "owner",
+    "created_at",
+]
 
 
 def normalize_language(value: str | None) -> str:
@@ -248,12 +260,14 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         "docs/context/project/project-overview.md": render_template("project-overview.md.tmpl", repo_name, language),
         "docs/context/team/development-standards.md": render_template("development-standards.md.tmpl", repo_name, language),
         "docs/templates/requirement.md": render_template("requirement.md.tmpl", repo_name, language),
+        "docs/templates/requirement-completion.md": render_template("requirement-completion.md.tmpl", repo_name, language),
         "docs/templates/requirement-changes.md": render_template("requirement-changes.md.tmpl", repo_name, language),
         "docs/templates/change.md": render_template("change.md.tmpl", repo_name, language),
         "docs/templates/change-requirement.md": render_template("change-requirement.md.tmpl", repo_name, language),
         "docs/templates/change-design.md": render_template("change-design.md.tmpl", repo_name, language),
         "docs/templates/change-plan.md": render_template("change-plan.md.tmpl", repo_name, language),
         "docs/templates/change-acceptance.md": render_template("change-acceptance.md.tmpl", repo_name, language),
+        "docs/templates/regression-required-inputs.md": render_template("regression-required-inputs.md.tmpl", repo_name, language),
         "docs/templates/session-memory.md": render_template("session-memory.md.tmpl", repo_name, language),
         "docs/templates/regression.md": render_template("regression.md.tmpl", repo_name, language),
         "docs/templates/regression-analysis.md": render_template("regression-analysis.md.tmpl", repo_name, language),
@@ -463,9 +477,9 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
                 "stage": "done",
                 "status": "done",
                 "current_task": "Execution finished. Summarize and verify outcomes",
-                "next_action": "Review the implementation result and archive or continue as needed.",
+                "next_action": "Verify `mvn compile` for each completed change and successful project startup for the completed requirement before closing. If either check fails, start `harness regression \"<issue>\"`.",
                 "suggested_skill": "verification-before-completion",
-                "assistant_prompt": "Run final verification, summarize what changed, and capture any reusable lessons before closing the version.",
+                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
                 "approval_required": False,
             }
         )
@@ -553,6 +567,12 @@ def replace_in_file(path: Path, replacements: dict[str, str]) -> None:
         updated = updated.replace(source, target)
     if updated != text:
         path.write_text(updated, encoding="utf-8")
+
+
+def update_item_meta(path: Path, updates: dict[str, str]) -> None:
+    payload = load_item_meta(path)
+    payload.update(updates)
+    save_item_meta(path, payload)
 
 
 def remap_identifier_list(values: list[object], mapping: dict[str, str]) -> list[str]:
@@ -1100,6 +1120,7 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     replacements = {"ID": resolved_id, "TITLE": requirement_title}
 
     write_if_missing(requirement_dir / "requirement.md", render_template("requirement.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(requirement_dir / "completion.md", render_template("requirement-completion.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(requirement_dir / "changes.md", render_template("requirement-changes.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(requirement_dir / "meta.yaml", render_template("requirement-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
     version_id = str(config["current_version"])
@@ -1149,6 +1170,7 @@ def create_change(root: Path, name: str | None, change_id: str | None = None, ti
     write_if_missing(change_dir / "design.md", render_template("change-design.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(change_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(change_dir / "acceptance.md", render_template("change-acceptance.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(change_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(change_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(change_dir / "meta.yaml", render_template("change-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
 
@@ -1292,6 +1314,14 @@ def regression_action(
         meta["regression_status"] = "confirmed"
         meta["current_task"] = f"Regression {regression_id} confirmed. Decide whether to create a requirement update or change."
         meta["next_action"] = "Run `harness regression --change \"<title>\"` or `harness regression --requirement \"<title>\"`."
+        update_item_meta(
+            regression_dir / "meta.yaml",
+            {
+                "status": "confirmed",
+                "needs_user_input": "false",
+                "input_template": "regression/required-inputs.md",
+            },
+        )
         save_version_meta(root, version_id, meta)
         save_runtime(root, set_regression_mode(runtime, regression_id))
         print(f"Regression confirmed: {regression_id}")
@@ -1300,8 +1330,11 @@ def regression_action(
     if reject:
         meta["regression_status"] = "rejected"
         meta["current_regression"] = ""
+        meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
+        update_item_meta(regression_dir / "meta.yaml", {"status": "rejected"})
         meta = fallback_stage_for_artifacts(meta, [str(item) for item in meta.get("requirement_ids", [])], [str(item) for item in meta.get("change_ids", [])])
         runtime = set_regression_mode(runtime, "")
+        meta["regression_status"] = ""
         persist_workflow_state(root, version_id, meta, runtime)
         print(f"Regression rejected: {regression_id}")
         return 0
@@ -1309,8 +1342,11 @@ def regression_action(
     if cancel:
         meta["regression_status"] = "cancelled"
         meta["current_regression"] = ""
+        meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
+        update_item_meta(regression_dir / "meta.yaml", {"status": "cancelled"})
         meta = fallback_stage_for_artifacts(meta, [str(item) for item in meta.get("requirement_ids", [])], [str(item) for item in meta.get("change_ids", [])])
         runtime = set_regression_mode(runtime, "")
+        meta["regression_status"] = ""
         persist_workflow_state(root, version_id, meta, runtime)
         print(f"Regression cancelled: {regression_id}")
         return 0
@@ -1319,13 +1355,38 @@ def regression_action(
         raise SystemExit("Regression is not confirmed yet. Use `harness regression --confirm` first.")
 
     meta["current_regression"] = ""
-    meta["regression_status"] = "converted"
+    meta["regression_status"] = ""
+    meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
     runtime = set_regression_mode(runtime, "")
     persist_workflow_state(root, version_id, meta, runtime)
 
     if change_title:
-        return create_change(root, change_title)
-    return create_requirement(root, requirement_title)
+        exit_code = create_change(root, change_title)
+        linked_change_id = resolve_artifact_id(change_title, config["language"])
+        update_item_meta(
+            regression_dir / "meta.yaml",
+            {
+                "status": "converted",
+                "linked_change": linked_change_id,
+                "linked_requirement": "",
+                "needs_user_input": "false",
+                "input_template": "regression/required-inputs.md",
+            },
+        )
+        return exit_code
+    exit_code = create_requirement(root, requirement_title)
+    linked_requirement_id = resolve_artifact_id(requirement_title, config["language"])
+    update_item_meta(
+        regression_dir / "meta.yaml",
+        {
+            "status": "converted",
+            "linked_change": "",
+            "linked_requirement": linked_requirement_id,
+            "needs_user_input": "false",
+            "input_template": "regression/required-inputs.md",
+        },
+    )
+    return exit_code
 
 
 def rename_version(root: Path, current_name: str, new_name: str) -> int:

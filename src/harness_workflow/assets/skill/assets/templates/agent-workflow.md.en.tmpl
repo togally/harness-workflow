@@ -26,10 +26,13 @@ If `current_version` is missing, runtime/config disagree, version `meta.yaml` is
 5. Add design and plan before coding a non-trivial change
 6. Record failed paths immediately
 7. Record corrections, constraints, and reusable lessons in working memory first
-8. Verify before claiming completion
-9. When workflow state is missing or inconsistent, stop execution and require `harness active "<version>"` or restoration of the missing workflow files
-10. After each stage-level task completes, review what was learned, capture it in `session-memory.md`, and promote or fuse mature experience into `docs/context/experience/` or formal rules when justified
-11. If the human is dissatisfied with a completed outcome, do not jump straight into rework; start `harness regression "<issue>"` first, confirm whether it is a real problem, then convert it into a requirement update or change if needed
+8. Before calling a change complete, run and record `mvn compile`; before calling a requirement complete, run and record successful project startup validation
+9. If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
+10. If repair needs human-provided configuration, data, accounts, or external dependency details, fill the current change `regression/required-inputs.md` template and ask the human to complete it
+11. Verify before claiming completion
+12. When workflow state is missing or inconsistent, stop execution and require `harness active "<version>"` or restoration of the missing workflow files
+13. After each stage-level task completes, review what was learned, capture it in `session-memory.md`, and promote or fuse mature experience into `docs/context/experience/` or formal rules when justified
+14. If the human is dissatisfied with a completed outcome, do not jump straight into rework; start `harness regression "<issue>"` first, confirm whether it is a real problem, then convert it into a requirement update or change if needed
 
 ## 3. Memory Rules
 
@@ -39,3 +42,4 @@ If `current_version` is missing, runtime/config disagree, version `meta.yaml` is
 - Promote lessons only after validation
 - Re-index experience before each requirement, change, plan, or execution task; capture and consider promotion after each stage completes
 - Regression work is diagnosis-first: confirm the problem before opening new implementation work
+- Regression history should stay in its own directory and documents instead of permanently occupying the main version workflow state
