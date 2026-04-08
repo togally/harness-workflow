@@ -182,6 +182,32 @@ class HarnessCliTest(unittest.TestCase):
         self.assertNotIn("online-health-service", meta["requirement_ids"])
         self.assertNotIn("online-booking", meta["change_ids"])
 
+    def test_regression_flow_can_confirm_and_convert_into_change(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+
+        start = self.run_cli("regression", "Button effect is unsatisfactory", "--root", str(self.repo))
+        self.assertEqual(start.returncode, 0, msg=start.stderr or start.stdout)
+        regression_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "regressions" / "button-effect-is-unsatisfactory"
+        self.assertTrue((regression_dir / "regression.md").exists())
+
+        status = self.run_cli("status", "--root", str(self.repo))
+        self.assertIn("mode: regression", status.stdout)
+        self.assertIn("current_regression: button-effect-is-unsatisfactory", status.stdout)
+
+        confirm = self.run_cli("regression", "--confirm", "--root", str(self.repo))
+        self.assertEqual(confirm.returncode, 0, msg=confirm.stderr or confirm.stdout)
+
+        convert = self.run_cli("regression", "--change", "Button Interaction Polish", "--root", str(self.repo))
+        self.assertEqual(convert.returncode, 0, msg=convert.stderr or convert.stdout)
+        change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "button-interaction-polish"
+        self.assertTrue((change_dir / "change.md").exists())
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["mode"], "normal")
+        self.assertEqual(runtime["current_regression"], "")
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["regression_status"], "converted")
+
     def test_rename_updates_version_and_requirement_links(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
         self.run_cli("version", "v1.0.0", "--root", str(self.repo))

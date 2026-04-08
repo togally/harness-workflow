@@ -14,6 +14,7 @@
 8. 如需了解项目事实或开发规范，继续读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
 9. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止并提示修复，不允许绕过工作流手工推进
 10. 每个阶段开始执行具体任务前先索引经验；每个阶段完成后都要检查是否有经验值得沉淀或融合
+11. 如果用户对已完成结果不满意，先进入 `harness regression "<问题描述>"`，确认问题后再转成新的 requirement 或 change
 
 ## 关键入口
 
@@ -34,6 +35,7 @@
 - 新建需求主题：`harness requirement "需求标题"`
 - 拆分具体功能点：`harness change "变更标题"`
 - 为 change 制定计划：`harness plan "变更标题"`
+- 启动回归诊断：`harness regression "问题描述"`
 - 正式改名：`harness rename requirement|change|version "<old>" "<new>"`
 - 归档已完成需求：`harness archive "需求标题"`
 

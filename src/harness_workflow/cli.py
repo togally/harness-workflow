@@ -7,6 +7,7 @@ from harness_workflow.core import (
     archive_requirement,
     create_change,
     create_plan,
+    create_regression,
     create_requirement,
     create_version,
     init_repo,
@@ -14,6 +15,7 @@ from harness_workflow.core import (
     rename_change,
     rename_requirement,
     rename_version,
+    regression_action,
     set_active_version,
     set_language,
     update_repo,
@@ -103,6 +105,16 @@ def build_parser() -> argparse.ArgumentParser:
     rename_parser.add_argument("--root", default=".", help="Repository root.")
     rename_parser.add_argument("--version", default="", help="Optional explicit version name for requirement/change renames.")
 
+    regression_parser = subparsers.add_parser("regression", help="Start or advance a regression confirmation flow.")
+    regression_parser.add_argument("title", nargs="?", help="Start a regression with this title.")
+    regression_parser.add_argument("--root", default=".", help="Repository root.")
+    regression_parser.add_argument("--status", action="store_true", help="Show the current regression state.")
+    regression_parser.add_argument("--confirm", action="store_true", help="Confirm that the current regression is a real problem.")
+    regression_parser.add_argument("--reject", action="store_true", help="Mark the current regression as not a real problem.")
+    regression_parser.add_argument("--cancel", action="store_true", help="Cancel the current regression flow.")
+    regression_parser.add_argument("--change", dest="change_title", default="", help="Convert the confirmed regression into a new change.")
+    regression_parser.add_argument("--requirement", dest="requirement_title", default="", help="Convert the confirmed regression into a new requirement update.")
+
     return parser
 
 
@@ -151,6 +163,18 @@ def main() -> int:
         if args.kind == "requirement":
             return rename_requirement(root, args.current, args.new, version_name=args.version)
         return rename_change(root, args.current, args.new, version_name=args.version)
+    if args.command == "regression":
+        if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title]):
+            return create_regression(root, args.title)
+        return regression_action(
+            root,
+            status_only=args.status,
+            confirm=args.confirm,
+            reject=args.reject,
+            cancel=args.cancel,
+            change_title=args.change_title,
+            requirement_title=args.requirement_title,
+        )
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

@@ -5,7 +5,7 @@
 - Workflow rules live under `docs/context/rules/`
 - Runtime state lives in `docs/context/rules/workflow-runtime.yaml`
 - Each version keeps local state in `docs/versions/active/<version>/meta.yaml`
-- Before any requirement, change, plan, or execution work, the agent must route through runtime state first
+- Before any requirement, change, plan, execution, or regression work, the agent must route through runtime state first
 
 ## 2. Routing Order
 
@@ -29,6 +29,7 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 - `ready_for_execution`
 - `executing`
 - `done`
+- `regression`
 
 ## 4. Command Semantics
 
@@ -37,6 +38,10 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 - `harness use "<name>"`: switch the current version
 - `harness rename version|requirement|change "<old>" "<new>"`: rename work artifacts while keeping metadata aligned
 - `harness archive "<requirement>"`: archive one completed requirement and its linked changes
+- `harness regression "<issue>"`: start a regression diagnosis flow
+- `harness regression --confirm|--reject|--cancel`: advance the current regression diagnosis
+- `harness regression --change "<title>"`: convert a confirmed regression into a new change
+- `harness regression --requirement "<title>"`: convert a confirmed regression into a requirement update
 - `harness status`: show current runtime state
 - `harness next`: advance to the next stage
 - `harness next --execute`: confirm execution when already ready
@@ -46,6 +51,7 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 
 - Do not start coding before routing through workflow state
 - Do not advance work without a confirmed current version
+- During regression flow, do not jump straight back into coding before the human confirms it is a real problem
 - `ff` skips discussion gates, not the final execution confirmation
 - If workflow state is missing, inconsistent, or blocked, the agent must stop and require repair instead of manually simulating the workflow
 - After each stage-level task completes, check whether new lessons should be captured; mature lessons should be fused into `docs/context/experience/` or formal rules

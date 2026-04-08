@@ -5,7 +5,7 @@
 - 工作流规则统一放在 `docs/context/rules/`
 - 运行态统一记录在 `docs/context/rules/workflow-runtime.yaml`
 - 每个 version 的局部状态统一记录在 `docs/versions/active/<version>/meta.yaml`
-- Agent 在开始 requirement、change、plan、execution 前，必须先读取运行态并定位当前 version
+- Agent 在开始 requirement、change、plan、execution、regression 前，必须先读取运行态并定位当前 version
 
 ## 2. 路由顺序
 
@@ -29,6 +29,7 @@
 - `ready_for_execution`：已到执行前确认点
 - `executing`：已确认执行，进入代码实施
 - `done`：本 version 已完成
+- `regression`：进入问题确认流，先判断是不是真问题，再决定是否转换成新的 requirement 或 change
 
 ## 4. 命令语义
 
@@ -37,6 +38,10 @@
 - `harness use "<name>"`：切换当前工作 version
 - `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据
 - `harness archive "<requirement>"`：归档某个已完成 requirement 及其 linked changes
+- `harness regression "<问题描述>"`：启动回归确认流
+- `harness regression --confirm|--reject|--cancel`：推进当前回归诊断
+- `harness regression --change "<标题>"`：将已确认问题转成新的 change
+- `harness regression --requirement "<标题>"`：将已确认问题转成新的 requirement 增补
 - `harness status`：查看当前运行态
 - `harness next`：推进到下一阶段
 - `harness next --execute`：在 `ready_for_execution` 阶段确认执行
@@ -46,6 +51,7 @@
 
 - 不允许跳过运行态路由直接开始写代码
 - 不允许在未确认当前 version 的情况下推进 requirement 或 change
+- 回归阶段不允许直接跳回编码，必须先和用户确认是否是真问题
 - `ff` 只跳过讨论，不跳过最终执行确认
 - 如果 workflow 状态缺失、冲突或阻塞，Agent 必须停止工作并要求修复，不允许手工模拟流程继续推进
 - 每个阶段的任务完成后，必须检查是否产生了可沉淀经验；成熟经验应融合进 `docs/context/experience/` 或正式规则

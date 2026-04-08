@@ -8,7 +8,7 @@ description: "Use when Codex needs to operate a repository with a Harness Engine
 ## Overview
 
 Operate a repository through explicit work artifacts instead of ad-hoc chat.
-Use this skill to initialize a harness-enabled repository and then drive work through `language -> version -> requirement/change -> plan -> execution`, while capturing lessons during execution so the next session starts smarter.
+Use this skill to initialize a harness-enabled repository and then drive work through `language -> version -> requirement/change -> plan -> execution`, with regression diagnosis available when completed results need to be challenged, while capturing lessons during execution so the next session starts smarter.
 
 ## Command Model
 
@@ -32,8 +32,11 @@ Use these subcommands conceptually:
    Rename a version, requirement, or change while keeping metadata aligned.
 9. `harness archive <requirement>`
    Move one completed requirement and its linked changes into the current version archive.
+10. `harness regression <issue>`
+   Start a regression diagnosis flow, confirm whether a complaint is a real problem, and only then convert it into a new requirement update or change.
 
 Default rule: do not go from large requirement directly into implementation. Split into `change` first.
+Regression rule: do not go from dissatisfaction directly into rework. Confirm the problem first, then convert it into formal work.
 
 ## Command Resolution
 

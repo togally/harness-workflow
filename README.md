@@ -19,6 +19,12 @@
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
+如果要强制覆盖本机旧安装：
+
+```bash
+pipx install --force git+https://github.com/togally/harness-workflow.git
+```
+
 也可以使用 `pip`：
 
 ```bash
@@ -68,6 +74,9 @@ harness plan "在线问诊预约"
 harness rename requirement "在线健康服务" "无人机任务编排"
 harness archive "无人机任务编排"
 harness active "v1.0.0"
+harness regression "按钮交互动效不符合预期"
+harness regression --confirm
+harness regression --change "优化按钮交互反馈"
 harness status
 harness next
 harness ff
@@ -89,6 +98,7 @@ harness next --execute
 - `harness active "<version>"` 用于显式修复或切换当前活动 version
 - `harness rename` 用于正式重命名 version / requirement / change，并同步元数据与主要引用
 - `harness archive` 用于把某个已完成 requirement 及其 linked changes 归档到当前 version 的归档目录中
+- `harness regression` 用于启动“先确认是不是真问题”的回归诊断流，确认后再转成新的 requirement 或 change
 
 开始任何 requirement、change、plan 或执行前，先做这一步：
 
@@ -146,10 +156,25 @@ harness next --execute
 - `harness active "<version>"`：显式设置当前活动 version，修复 runtime/config 路由
 - `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据与主要引用
 - `harness archive "<requirement>"`：将某个 requirement 及其 linked changes 归档到当前 version 的 `archive/` 或 `归档/`
+- `harness regression "<问题描述>"`：启动回归确认流
+- `harness regression --confirm|--reject|--cancel`：推进当前回归诊断
+- `harness regression --change "<标题>"`：将已确认问题转成新的 change
+- `harness regression --requirement "<标题>"`：将已确认问题转成新的 requirement 增补
 - `harness status`：查看当前运行态与建议 skill
 - `harness next`：按当前状态推进下一步
 - `harness ff`：跳过中间讨论阶段，直接到执行前确认
 - `harness next --execute`：在 `ready_for_execution` 阶段确认执行
+
+### 回归流程
+
+当智能体已经完成开发和验证，但效果仍不达标、设计体验不满意、或者用户怀疑某个实现方向有问题时，不要直接返工。先进入回归诊断流：
+
+- `harness regression "<问题描述>"`：创建回归工作区，进入问题确认阶段
+- 先和用户收敛“不满意点”与预期行为，再判断是否是真问题
+- 如果不是问题，解释原理并继续确认是否取消回归
+- 如果确认是问题，再用 `harness regression --change "<标题>"` 或 `--requirement "<标题>"` 把它转成正式工作项
+- 转换完成后，重新进入正常的 requirement/change/plan/execution 流程
+- 修复完成后，继续按阶段规则沉淀经验
 
 ### 归档与改名维护
 
@@ -204,6 +229,12 @@ pipx upgrade harness-workflow
 pip install --upgrade git+https://github.com/togally/harness-workflow.git
 ```
 
+如果使用 `pipx` 且希望强制重装当前来源：
+
+```bash
+pipx install --force git+https://github.com/togally/harness-workflow.git
+```
+
 同步项目：
 
 ```bash
@@ -231,7 +262,9 @@ harness update --force-managed
 - 检查活动 version 路由是否完整；若缺失或冲突，会提示你先运行 `harness active "<version>"`
 - 修复因手工改 version / requirement / change 文件夹名导致的常见元数据漂移
 
-### 业务流图
+### 中文流程图
+
+#### 正常交付流
 
 ```mermaid
 flowchart TD
@@ -246,6 +279,27 @@ flowchart TD
     I --> J["Done<br/>suggested_skill=verification-before-completion"]
     I --> K["Capture Lessons<br/>session-memory.md + experience index"]
     K --> D
+```
+
+#### 回归诊断流
+
+```mermaid
+flowchart TD
+    A["发现效果不达标或体验不满意"] --> B["harness regression <问题描述>"]
+    B --> C["读取 workflow-runtime.yaml + version meta.yaml"]
+    C --> D["与用户收敛问题点<br/>suggested_skill=brainstorming"]
+    D --> E{"确认是真问题吗?"}
+    E -->|否| F["解释原理并确认是否取消"]
+    F --> G{"继续回归?"}
+    G -->|否| H["harness regression --cancel"]
+    G -->|是| D
+    E -->|是| I["harness regression --confirm"]
+    I --> J{"转成什么工作项?"}
+    J -->|小范围修复| K["harness regression --change"]
+    J -->|需求增补| L["harness regression --requirement"]
+    K --> M["回到正常 requirement/change/plan/execution 流"]
+    L --> M
+    M --> N["修复完成后沉淀经验"]
 ```
 
 ### 推荐结构
@@ -292,6 +346,12 @@ It provides:
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
+To force a reinstall from the same source:
+
+```bash
+pipx install --force git+https://github.com/togally/harness-workflow.git
+```
+
 or:
 
 ```bash
@@ -334,6 +394,9 @@ harness plan "Online Booking"
 harness rename requirement "Online Health Service" "Customer Health Service"
 harness archive "Customer Health Service"
 harness active "v1.0.0"
+harness regression "Button interaction feels wrong"
+harness regression --confirm
+harness regression --change "Polish Button Interaction"
 harness status
 harness next
 harness ff
@@ -355,6 +418,7 @@ Key rules:
 - `harness active "<version>"` explicitly repairs or switches the active version route
 - `harness rename` is the preferred way to rename a version, requirement, or change
 - `harness archive` archives one completed requirement and its linked changes inside the current version
+- `harness regression` starts a regression diagnosis flow so the agent confirms whether something is a real problem before creating new work
 - before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
 - then read the current version `meta.yaml` before deciding the next action
 - `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
@@ -385,10 +449,26 @@ Command roles:
 - `harness active "<version>"`
 - `harness rename version|requirement|change "<old>" "<new>"`
 - `harness archive "<requirement>"`
+- `harness regression "<issue>"`
+- `harness regression --confirm|--reject|--cancel`
+- `harness regression --change "<title>"`
+- `harness regression --requirement "<title>"`
 - `harness status`
 - `harness next`
 - `harness ff`
 - `harness next --execute`
+
+### Regression Flow
+
+When implementation and verification are technically complete but the outcome is still unsatisfactory, do not jump straight into ad-hoc rework. Start a regression diagnosis flow first:
+
+- `harness regression "<issue>"`
+- discuss the observed problem with the human and confirm expected behavior
+- determine whether it is a real problem or a misunderstanding
+- if it is not a problem, explain the rationale and either continue discussion or cancel
+- if it is a confirmed problem, convert it into a new `change` or requirement update
+- then return to the normal requirement/change/plan/execution flow
+- after the fix, capture and promote lessons as usual
 
 ### Archive And Rename Maintenance
 
@@ -434,6 +514,12 @@ pipx upgrade harness-workflow
 harness update
 ```
 
+If you want to force reinstall from GitHub instead of upgrading the existing pipx package in place:
+
+```bash
+pipx install --force git+https://github.com/togally/harness-workflow.git
+```
+
 Preview only:
 
 ```bash
@@ -453,4 +539,44 @@ It also repairs common identifier drift after manual folder renames for versions
 
 ```bash
 python3 tools/lint_harness_repo.py --root . --strict-agents --strict-claude
+```
+
+### English Flowcharts
+
+#### Normal Delivery Flow
+
+```mermaid
+flowchart TD
+    A["Install / Init<br/>harness install | harness init"] --> B["Language Profile<br/>harness language english | cn"]
+    B --> C["Active Version<br/>harness version"]
+    C --> D["Runtime Route<br/>workflow-runtime.yaml + version meta.yaml"]
+    D --> E["Requirement Review<br/>suggested_skill=brainstorming"]
+    E --> F["Changes Review<br/>suggested_skill=brainstorming"]
+    F --> G["Plan Review<br/>suggested_skill=writing-plans"]
+    G --> H["Ready For Execution<br/>approval_required=true"]
+    H --> I["Executing<br/>suggested_skill=executing-plans"]
+    I --> J["Done<br/>suggested_skill=verification-before-completion"]
+    I --> K["Capture Lessons<br/>session-memory.md + experience index"]
+    K --> D
+```
+
+#### Regression Diagnosis Flow
+
+```mermaid
+flowchart TD
+    A["Outcome is unsatisfactory or a design result feels wrong"] --> B["harness regression <issue>"]
+    B --> C["Read workflow-runtime.yaml + version meta.yaml"]
+    C --> D["Discuss the issue with the human<br/>suggested_skill=brainstorming"]
+    D --> E{"Confirmed real problem?"}
+    E -->|No| F["Explain the rationale and confirm whether to cancel"]
+    F --> G{"Continue regression?"}
+    G -->|No| H["harness regression --cancel"]
+    G -->|Yes| D
+    E -->|Yes| I["harness regression --confirm"]
+    I --> J{"Convert into what?"}
+    J -->|Focused fix| K["harness regression --change"]
+    J -->|Requirement update| L["harness regression --requirement"]
+    K --> M["Return to the normal requirement/change/plan/execution flow"]
+    L --> M
+    M --> N["Capture lessons after the fix"]
 ```

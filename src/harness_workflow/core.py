@@ -32,6 +32,8 @@ LANGUAGE_ALIASES = {
 DEFAULT_RUNTIME = {
     "current_version": "",
     "executing_version": "",
+    "mode": "normal",
+    "current_regression": "",
     "active_versions": {},
 }
 DEFAULT_VERSION_META = {
@@ -50,6 +52,9 @@ DEFAULT_VERSION_META = {
     "pending_tasks": [],
     "requirement_ids": [],
     "change_ids": [],
+    "regression_ids": [],
+    "current_regression": "",
+    "regression_status": "",
 }
 WORKFLOW_SEQUENCE = [
     "requirement_review",
@@ -64,6 +69,7 @@ LANGUAGE_SPECS = {
         "requirements_dir": "requirements",
         "changes_dir": "changes",
         "plans_dir": "plans",
+        "regressions_dir": "regressions",
         "archive_dir": "archive",
         "version_memory": "version-memory.md",
     },
@@ -71,6 +77,7 @@ LANGUAGE_SPECS = {
         "requirements_dir": "需求",
         "changes_dir": "变更",
         "plans_dir": "计划",
+        "regressions_dir": "回归",
         "archive_dir": "归档",
         "version_memory": "版本记忆.md",
     },
@@ -256,6 +263,10 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         "docs/templates/change-plan.md": render_template("change-plan.md.tmpl", repo_name, language),
         "docs/templates/change-acceptance.md": render_template("change-acceptance.md.tmpl", repo_name, language),
         "docs/templates/session-memory.md": render_template("session-memory.md.tmpl", repo_name, language),
+        "docs/templates/regression.md": render_template("regression.md.tmpl", repo_name, language),
+        "docs/templates/regression-analysis.md": render_template("regression-analysis.md.tmpl", repo_name, language),
+        "docs/templates/regression-decision.md": render_template("regression-decision.md.tmpl", repo_name, language),
+        "docs/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
         "docs/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
         "docs/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
         "tools/lint_harness_repo.py": SKILL_ROOT.joinpath("scripts", "lint_harness_repo.py").read_text(encoding="utf-8"),
@@ -347,6 +358,7 @@ def resolve_version_layout(root: Path, version_id: str, language: str) -> dict[s
         "requirements_dir": version_dir / spec["requirements_dir"],
         "changes_dir": version_dir / spec["changes_dir"],
         "plans_dir": version_dir / spec["plans_dir"],
+        "regressions_dir": version_dir / spec["regressions_dir"],
         "archive_dir": version_dir / spec["archive_dir"],
         "version_memory": version_dir / spec["version_memory"],
     }
@@ -573,6 +585,8 @@ def sync_runtime_version(root: Path, version_id: str, meta: dict[str, object], r
         "current_artifact_id": str(meta.get("current_artifact_id", "")),
         "suggested_skill": str(meta.get("suggested_skill", "")),
         "approval_required": bool(meta.get("approval_required", False)),
+        "current_regression": str(meta.get("current_regression", "")),
+        "regression_status": str(meta.get("regression_status", "")),
     }
     runtime_payload["active_versions"] = active_versions
     return runtime_payload
@@ -582,6 +596,17 @@ def persist_workflow_state(root: Path, version_id: str, meta: dict[str, object],
     save_version_meta(root, version_id, meta)
     runtime["current_version"] = version_id
     save_runtime(root, sync_runtime_version(root, version_id, meta, runtime))
+
+
+def regression_workspace_dir(root: Path, version_id: str, language: str, regression_id: str) -> Path:
+    return resolve_version_layout(root, version_id, language)["regressions_dir"] / regression_id
+
+
+def set_regression_mode(runtime: dict[str, object], regression_id: str = "") -> dict[str, object]:
+    payload = dict(runtime)
+    payload["mode"] = "regression" if regression_id else "normal"
+    payload["current_regression"] = regression_id
+    return payload
 
 
 def select_focus_change(meta: dict[str, object]) -> str:
@@ -714,6 +739,16 @@ def resolve_change_reference(changes_dir: Path, reference: str, language: str) -
     return None
 
 
+def resolve_regression_reference(regressions_dir: Path, reference: str, language: str) -> Path | None:
+    direct = regressions_dir / reference
+    if direct.exists():
+        return direct
+    derived = regressions_dir / resolve_artifact_id(reference, language)
+    if derived.exists():
+        return derived
+    return None
+
+
 def append_change_to_requirement(requirement_dir: Path, change_id: str, title: str) -> None:
     change_map = requirement_dir / "changes.md"
     if not change_map.exists():
@@ -841,6 +876,9 @@ def repair_identifier_drift(root: Path, config: dict[str, str], runtime: dict[st
         actual_change_ids = []
         if layout["changes_dir"].exists():
             actual_change_ids = sorted(path.name for path in layout["changes_dir"].iterdir() if path.is_dir() and (path / "meta.yaml").exists())
+        actual_regression_ids = []
+        if layout["regressions_dir"].exists():
+            actual_regression_ids = sorted(path.name for path in layout["regressions_dir"].iterdir() if path.is_dir() and (path / "meta.yaml").exists())
 
         if layout["changes_dir"].exists():
             for change_dir in sorted(path for path in layout["changes_dir"].iterdir() if path.is_dir()):
@@ -873,10 +911,21 @@ def repair_identifier_drift(root: Path, config: dict[str, str], runtime: dict[st
         version_meta = load_version_meta(root, version_id)
         tracked_requirements = [item for item in remap_identifier_list(list(version_meta.get("requirement_ids", [])), requirement_map) if item in actual_requirement_ids]
         tracked_changes = [item for item in remap_identifier_list(list(version_meta.get("change_ids", [])), change_map) if item in actual_change_ids]
+        tracked_regressions = [str(item) for item in version_meta.get("regression_ids", []) if str(item) in actual_regression_ids]
         if tracked_requirements != list(version_meta.get("requirement_ids", [])) or tracked_changes != list(version_meta.get("change_ids", [])):
             actions.append(f"{'would reconcile' if check else 'reconciled'} deleted requirement/change references for {version_id}")
             version_meta["requirement_ids"] = tracked_requirements
             version_meta["change_ids"] = tracked_changes
+        if tracked_regressions != [str(item) for item in version_meta.get("regression_ids", [])]:
+            actions.append(f"{'would reconcile' if check else 'reconciled'} deleted regression references for {version_id}")
+            version_meta["regression_ids"] = tracked_regressions
+        if str(version_meta.get("current_regression", "")) and str(version_meta.get("current_regression", "")) not in actual_regression_ids:
+            actions.append(f"{'would clear' if check else 'cleared'} missing current regression for {version_id}")
+            version_meta["current_regression"] = ""
+            if not tracked_regressions:
+                version_meta["regression_status"] = ""
+            if not check and str(runtime.get("current_regression", "")) not in actual_regression_ids:
+                runtime = set_regression_mode(runtime, "")
 
         current_kind = str(version_meta.get("current_artifact_kind", ""))
         current_id = str(version_meta.get("current_artifact_id", ""))
@@ -1040,6 +1089,7 @@ def create_version(root: Path, version_name: str) -> int:
     layout["requirements_dir"].mkdir(parents=True, exist_ok=True)
     layout["changes_dir"].mkdir(parents=True, exist_ok=True)
     layout["plans_dir"].mkdir(parents=True, exist_ok=True)
+    layout["regressions_dir"].mkdir(parents=True, exist_ok=True)
     layout["archive_dir"].mkdir(parents=True, exist_ok=True)
 
     replacements = {"VERSION_ID": version_id}
@@ -1201,6 +1251,120 @@ def create_plan(root: Path, change_name: str) -> int:
     print(f"Plan file: {candidate / 'plan.md'}")
     print("Use writing-plans to expand this file into model-executable development and verification steps.")
     return 0
+
+
+def create_regression(root: Path, name: str | None, regression_id: str | None = None, title: str | None = None) -> int:
+    config, runtime = ensure_workflow_state(root)
+    version_id = require_active_version_id(root, config, runtime)
+    repo_name = root.name
+    regression_title, resolved_id = resolve_title_and_id(name, regression_id, title, config["language"])
+    layout = resolve_version_layout(root, version_id, config["language"])
+    regression_dir = layout["regressions_dir"] / resolved_id
+    created: list[str] = []
+    skipped: list[str] = []
+    replacements = {"ID": resolved_id, "TITLE": regression_title}
+
+    write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
+
+    meta = load_version_meta(root, version_id)
+    regression_ids = [str(item) for item in meta.get("regression_ids", [])]
+    if resolved_id not in regression_ids:
+        regression_ids.append(resolved_id)
+    meta.update(
+        {
+            "current_regression": resolved_id,
+            "regression_status": "analysis",
+            "regression_ids": regression_ids,
+            "current_task": f"Analyze regression {resolved_id}",
+            "next_action": "Confirm whether this is a real problem. Use `harness regression --confirm`, `--reject`, or `--cancel`.",
+            "suggested_skill": "brainstorming",
+            "assistant_prompt": f"Use brainstorming to analyze regression {resolved_id}, determine whether it is a real issue, discuss with the user, and stop for confirmation before creating new work.",
+            "approval_required": True,
+        }
+    )
+    runtime = set_regression_mode(runtime, resolved_id)
+    persist_workflow_state(root, version_id, meta, runtime)
+
+    print(f"Regression workspace: {regression_dir}")
+    for path in created:
+        print(f"- created {path}")
+    for path in skipped:
+        print(f"- skipped {path}")
+    return 0
+
+
+def regression_action(
+    root: Path,
+    *,
+    status_only: bool = False,
+    confirm: bool = False,
+    reject: bool = False,
+    cancel: bool = False,
+    change_title: str = "",
+    requirement_title: str = "",
+) -> int:
+    config, runtime = ensure_workflow_state(root)
+    version_id = require_active_version_id(root, config, runtime)
+    meta = load_version_meta(root, version_id)
+    regression_id = str(meta.get("current_regression", "") or runtime.get("current_regression", "")).strip()
+    if not regression_id:
+        raise SystemExit("No active regression. Start one with `harness regression \"<issue>\"` first.")
+    regression_dir = regression_workspace_dir(root, version_id, config["language"], regression_id)
+    if not regression_dir.exists():
+        raise SystemExit(f"Regression does not exist: {regression_id}")
+
+    if status_only:
+        print(f"current_regression: {regression_id}")
+        print(f"regression_status: {meta.get('regression_status', '') or 'analysis'}")
+        print(f"regression_path: {regression_dir}")
+        return 0
+
+    chosen = sum(bool(value) for value in [confirm, reject, cancel, bool(change_title), bool(requirement_title)])
+    if chosen != 1:
+        raise SystemExit("Choose exactly one regression action: --confirm, --reject, --cancel, --change, or --requirement.")
+
+    if confirm:
+        meta["regression_status"] = "confirmed"
+        meta["current_task"] = f"Regression {regression_id} confirmed. Decide whether to create a requirement update or change."
+        meta["next_action"] = "Run `harness regression --change \"<title>\"` or `harness regression --requirement \"<title>\"`."
+        save_version_meta(root, version_id, meta)
+        save_runtime(root, set_regression_mode(runtime, regression_id))
+        print(f"Regression confirmed: {regression_id}")
+        return 0
+
+    if reject:
+        meta["regression_status"] = "rejected"
+        meta["current_regression"] = ""
+        meta = fallback_stage_for_artifacts(meta, [str(item) for item in meta.get("requirement_ids", [])], [str(item) for item in meta.get("change_ids", [])])
+        runtime = set_regression_mode(runtime, "")
+        persist_workflow_state(root, version_id, meta, runtime)
+        print(f"Regression rejected: {regression_id}")
+        return 0
+
+    if cancel:
+        meta["regression_status"] = "cancelled"
+        meta["current_regression"] = ""
+        meta = fallback_stage_for_artifacts(meta, [str(item) for item in meta.get("requirement_ids", [])], [str(item) for item in meta.get("change_ids", [])])
+        runtime = set_regression_mode(runtime, "")
+        persist_workflow_state(root, version_id, meta, runtime)
+        print(f"Regression cancelled: {regression_id}")
+        return 0
+
+    if str(meta.get("regression_status", "")) != "confirmed":
+        raise SystemExit("Regression is not confirmed yet. Use `harness regression --confirm` first.")
+
+    meta["current_regression"] = ""
+    meta["regression_status"] = "converted"
+    runtime = set_regression_mode(runtime, "")
+    persist_workflow_state(root, version_id, meta, runtime)
+
+    if change_title:
+        return create_change(root, change_title)
+    return create_requirement(root, requirement_title)
 
 
 def rename_version(root: Path, current_name: str, new_name: str) -> int:
@@ -1404,6 +1568,8 @@ def workflow_status(root: Path) -> int:
     current_version = str(runtime.get("current_version", "") or config.get("current_version", ""))
     print(f"current_version: {current_version or '(none)'}")
     print(f"executing_version: {runtime.get('executing_version', '') or '(none)'}")
+    print(f"mode: {runtime.get('mode', 'normal')}")
+    print(f"current_regression: {runtime.get('current_regression', '') or '(none)'}")
     blockers = workflow_blockers(root, config, runtime)
     if blockers:
         print("workflow_blockers:")
@@ -1416,6 +1582,7 @@ def workflow_status(root: Path) -> int:
         print(f"current_task: {meta.get('current_task', '') or '(none)'}")
         print(f"next_action: {meta.get('next_action', '') or '(none)'}")
         print(f"current_artifact: {meta.get('current_artifact_kind', '')}:{meta.get('current_artifact_id', '')}".rstrip(":"))
+        print(f"regression_status: {meta.get('regression_status', '') or '(none)'}")
         print(f"suggested_skill: {meta.get('suggested_skill', '') or '(none)'}")
         print(f"approval_required: {bool(meta.get('approval_required', False))}")
     return 0
@@ -1423,6 +1590,8 @@ def workflow_status(root: Path) -> int:
 
 def workflow_next(root: Path, execute: bool = False) -> int:
     config, runtime = ensure_workflow_state(root)
+    if str(runtime.get("mode", "normal")) == "regression":
+        raise SystemExit("Regression flow is active. Resolve it with `harness regression --confirm`, `--reject`, `--cancel`, `--change`, or `--requirement` first.")
     current_version = require_active_version_id(root, config, runtime)
     meta = load_version_meta(root, current_version)
     meta = apply_stage_transition(meta, execute=execute)
@@ -1434,6 +1603,8 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 
 def workflow_fast_forward(root: Path) -> int:
     config, runtime = ensure_workflow_state(root)
+    if str(runtime.get("mode", "normal")) == "regression":
+        raise SystemExit("Regression flow is active. Resolve it before fast-forwarding the normal workflow.")
     current_version = require_active_version_id(root, config, runtime)
     meta = apply_stage_transition(load_version_meta(root, current_version), fast_forward=True)
     runtime["executing_version"] = ""
