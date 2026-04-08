@@ -35,6 +35,7 @@ class HarnessCliTest(unittest.TestCase):
         result = self.run_cli("install", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertTrue((self.repo / ".codex" / "skills" / "harness" / "SKILL.md").exists())
+        self.assertTrue((self.repo / ".claude" / "skills" / "harness" / "SKILL.md").exists())
         self.assertTrue((self.repo / "docs" / "requirements" / "active").exists())
         self.assertTrue((self.repo / "AGENTS.md").exists())
         self.assertTrue((self.repo / "CLAUDE.md").exists())
@@ -99,20 +100,25 @@ class HarnessCliTest(unittest.TestCase):
         self.run_cli("install", "--root", str(self.repo))
         session_memory = self.repo / "docs" / "templates" / "session-memory.md"
         session_memory.unlink()
-        skill_file = self.repo / ".codex" / "skills" / "harness" / "SKILL.md"
-        skill_file.write_text("tampered skill\n", encoding="utf-8")
+        codex_skill = self.repo / ".codex" / "skills" / "harness" / "SKILL.md"
+        claude_skill = self.repo / ".claude" / "skills" / "harness" / "SKILL.md"
+        codex_skill.write_text("tampered codex skill\n", encoding="utf-8")
+        claude_skill.write_text("tampered claude skill\n", encoding="utf-8")
 
         check = self.run_cli("update", "--root", str(self.repo), "--check")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
         self.assertIn("would refresh .codex/skills/harness", check.stdout)
+        self.assertIn("would refresh .claude/skills/harness", check.stdout)
         self.assertIn("missing docs/templates/session-memory.md", check.stdout)
         self.assertFalse(session_memory.exists())
-        self.assertEqual(skill_file.read_text(encoding="utf-8"), "tampered skill\n")
+        self.assertEqual(codex_skill.read_text(encoding="utf-8"), "tampered codex skill\n")
+        self.assertEqual(claude_skill.read_text(encoding="utf-8"), "tampered claude skill\n")
 
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertTrue(session_memory.exists())
-        self.assertIn("# Harness", skill_file.read_text(encoding="utf-8"))
+        self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))
+        self.assertIn("# Harness", claude_skill.read_text(encoding="utf-8"))
 
     def test_update_skips_modified_managed_files_unless_forced(self) -> None:
         self.run_cli("install", "--root", str(self.repo))

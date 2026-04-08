@@ -49,6 +49,13 @@ def _copy_tree(source: Path, target: Path) -> None:
         shutil.copy2(path, destination)
 
 
+def _project_skill_targets(root: Path) -> list[Path]:
+    return [
+        root / ".codex" / "skills" / "harness",
+        root / ".claude" / "skills" / "harness",
+    ]
+
+
 def _managed_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -131,11 +138,11 @@ def _refresh_managed_state(
 
 
 def _install_local_skill(root: Path) -> None:
-    target = root / ".codex" / "skills" / "harness"
-    if target.exists():
-        shutil.rmtree(target)
-    target.mkdir(parents=True, exist_ok=True)
-    _copy_tree(SKILL_ROOT, target)
+    for target in _project_skill_targets(root):
+        if target.exists():
+            shutil.rmtree(target)
+        target.mkdir(parents=True, exist_ok=True)
+        _copy_tree(SKILL_ROOT, target)
 
 
 def ensure_harness_root(root: Path) -> None:
@@ -279,9 +286,11 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
 
     if check:
         actions.append("would refresh .codex/skills/harness")
+        actions.append("would refresh .claude/skills/harness")
     else:
         _install_local_skill(root)
         actions.append("refreshed .codex/skills/harness")
+        actions.append("refreshed .claude/skills/harness")
 
     for relative, content in managed_contents.items():
         path = root / relative

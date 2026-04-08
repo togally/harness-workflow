@@ -5,7 +5,7 @@
 它提供两层能力：
 
 - 全局 CLI：安装后可直接使用 `harness`
-- 本地 skill：执行 `harness install` 后，会把 `harness` skill、根入口文件和 `docs/` 工作流骨架安装到当前项目
+- 本地 skill：执行 `harness install` 后，会把 `harness` skill 同时安装到 Codex 与 Claude Code 的项目级目录，并写入根入口文件和 `docs/` 工作流骨架
 - 项目内经验沉淀：默认提供 `session-memory`、`experience/index` 与规则文档，让项目在开发过程中持续积累经验
 
 ## 安装
@@ -32,7 +32,8 @@ harness install
 
 这会默认完成：
 
-- 安装本地 `/.codex/skills/harness`
+- 安装项目级 `/.codex/skills/harness`
+- 安装项目级 `/.claude/skills/harness`
 - 生成 `AGENTS.md` 和 `CLAUDE.md`（仅在缺失时创建）
 - 初始化 `docs/` 下的 harness 工作流目录
 - 写入 `tools/lint_harness_repo.py`
@@ -80,7 +81,8 @@ harness update
 
 这会默认执行两类同步：
 
-- 刷新 `.codex/skills/harness`，让项目本地 skill 跟随当前已安装的 CLI 版本
+- 刷新 `.codex/skills/harness`，让 Codex 项目级 skill 跟随当前已安装的 CLI 版本
+- 刷新 `.claude/skills/harness`，让 Claude Code 项目级 skill 跟随当前已安装的 CLI 版本
 - 同步 `docs/`、`AGENTS.md`、`CLAUDE.md`、`tools/lint_harness_repo.py` 等受管文件
 
 ### 检查将发生什么
@@ -177,6 +179,7 @@ docs/
 - `AGENTS.md`
 - `CLAUDE.md`
 - `.codex/skills/harness/`
+- `.claude/skills/harness/`
 - `.codex/harness/managed-files.json`
 
 ## 验证

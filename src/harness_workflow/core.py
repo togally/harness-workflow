@@ -70,6 +70,13 @@ def _copy_tree(source: Path, target: Path) -> None:
         shutil.copy2(path, destination)
 
 
+def _project_skill_targets(root: Path) -> list[Path]:
+    return [
+        root / ".codex" / "skills" / "harness",
+        root / ".claude" / "skills" / "harness",
+    ]
+
+
 def _managed_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -154,16 +161,19 @@ def _refresh_managed_state(
     return state
 
 
-def install_local_skill(root: Path, force: bool = False) -> Path:
-    target = root / ".codex" / "skills" / "harness"
-    if target.exists():
-        if force:
-            shutil.rmtree(target)
-        else:
-            return target
-    target.mkdir(parents=True, exist_ok=True)
-    _copy_tree(Path(str(SKILL_ROOT)), target)
-    return target
+def install_local_skills(root: Path, force: bool = False) -> list[Path]:
+    installed: list[Path] = []
+    for target in _project_skill_targets(root):
+        if target.exists():
+            if force:
+                shutil.rmtree(target)
+            else:
+                installed.append(target)
+                continue
+        target.mkdir(parents=True, exist_ok=True)
+        _copy_tree(Path(str(SKILL_ROOT)), target)
+        installed.append(target)
+    return installed
 
 
 def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
@@ -188,8 +198,10 @@ def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
 
 
 def install_repo(root: Path, force_skill: bool = False) -> int:
-    skill_path = install_local_skill(root, force=force_skill)
-    print(f"Installed local skill: {skill_path}")
+    skill_paths = install_local_skills(root, force=force_skill)
+    print("Installed local skills:")
+    for skill_path in skill_paths:
+        print(f"- {skill_path}")
     return init_repo(root, write_agents=True, write_claude=True)
 
 
@@ -205,9 +217,11 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
 
     if check:
         actions.append("would refresh .codex/skills/harness")
+        actions.append("would refresh .claude/skills/harness")
     else:
-        install_local_skill(root, force=True)
+        install_local_skills(root, force=True)
         actions.append("refreshed .codex/skills/harness")
+        actions.append("refreshed .claude/skills/harness")
 
     for relative, content in managed_contents.items():
         path = root / relative
