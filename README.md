@@ -9,7 +9,7 @@
 - 全局 CLI：安装后可直接使用 `harness`
 - 双端项目级 skill：`harness install` 会同时安装到 `.codex/skills/harness` 与 `.claude/skills/harness`
 - 版本主容器工作流：`version` 是 requirement / change / plan 的主工作容器
-- 项目级经验沉淀：通过 `session-memory.md`、`experience/index.md` 与规则文档持续累积知识
+- 规则驱动的协作流：通过 `workflow-runtime.yaml`、version `meta.yaml`、`development-flow.md` 与规则文档驱动 requirement/change/plan/execution 协作
 
 ### 安装
 
@@ -65,6 +65,10 @@ harness requirement "在线健康服务"
 harness change "在线问诊预约" --requirement "在线健康服务"
 harness change "修复登录按钮样式"
 harness plan "在线问诊预约"
+harness status
+harness next
+harness ff
+harness next --execute
 ```
 
 要点：
@@ -73,6 +77,50 @@ harness plan "在线问诊预约"
 - `requirement` 和 `change` 都创建在当前激活的 version 下
 - `change` 可以独立存在，不要求必须挂 requirement
 - `context/` 仍然是仓库级知识库，不归属某个 version
+
+开始任何 requirement、change、plan 或执行前，先做这一步：
+
+1. 读取 `docs/context/rules/workflow-runtime.yaml`
+2. 找到 `current_version`
+3. 读取该 version 的 `meta.yaml`
+4. 确认当前 `stage`、`current_task`、`next_action`
+5. 如果 `suggested_skill` 非空，优先按它组织协作
+
+### 规则驱动协作流
+
+`harness` 当前不是直接替你调用 superpowers，而是把“现在该用哪个 skill、该做什么、是否要停下来审核”写进 version 状态。
+
+关键文件：
+
+- `docs/context/rules/development-flow.md`
+- `docs/context/rules/workflow-runtime.yaml`
+- `docs/versions/active/<version>/meta.yaml`
+
+其中 version `meta.yaml` 会记录：
+
+- `stage`
+- `current_task`
+- `next_action`
+- `suggested_skill`
+- `assistant_prompt`
+- `approval_required`
+
+当前阶段与建议 skill 的默认映射：
+
+- `requirement_review` -> `brainstorming`
+- `changes_review` -> `brainstorming`
+- `plan_review` -> `writing-plans`
+- `ready_for_execution` -> 等待人工确认，不自动执行
+- `executing` -> `executing-plans`
+- `done` -> `verification-before-completion`
+
+命令职责：
+
+- `harness use "<version>"`：切换当前 version
+- `harness status`：查看当前运行态与建议 skill
+- `harness next`：按当前状态推进下一步
+- `harness ff`：跳过中间讨论阶段，直接到执行前确认
+- `harness next --execute`：在 `ready_for_execution` 阶段确认执行
 
 ### 升级指南
 
@@ -124,20 +172,15 @@ harness update --force-managed
 flowchart TD
     A["Install / Init<br/>harness install | harness init"] --> B["Language Profile<br/>harness language english | cn"]
     B --> C["Active Version<br/>harness version"]
-    C --> D["Repository Context<br/>docs/context + docs/memory"]
-    C --> E["Requirement<br/>harness requirement"]
-    C --> F["Standalone Change<br/>harness change"]
-    E --> G["Split Into Changes"]
-    G --> H["Change Workspace"]
-    F --> H
-    H --> I["Design + Plan"]
-    I --> J["Execute + Verify"]
-    J --> K["Capture Lessons<br/>session-memory.md"]
-    K --> L{"Reusable?"}
-    L -- "Yes" --> M["Promote To Experience Index"]
-    L -- "No" --> N["Keep In Working Memory"]
-    M --> D
-    N --> D
+    C --> D["Runtime Route<br/>workflow-runtime.yaml + version meta.yaml"]
+    D --> E["Requirement Review<br/>suggested_skill=brainstorming"]
+    E --> F["Changes Review<br/>suggested_skill=brainstorming"]
+    F --> G["Plan Review<br/>suggested_skill=writing-plans"]
+    G --> H["Ready For Execution<br/>approval_required=true"]
+    H --> I["Executing<br/>suggested_skill=executing-plans"]
+    I --> J["Done<br/>suggested_skill=verification-before-completion"]
+    I --> K["Capture Lessons<br/>session-memory.md + experience index"]
+    K --> D
 ```
 
 ### 推荐结构
@@ -149,6 +192,8 @@ docs/
 │   ├── project/
 │   ├── experience/
 │   └── rules/
+│       ├── workflow-runtime.yaml
+│       └── development-flow.md
 ├── memory/
 ├── versions/
 │   ├── active/
@@ -173,7 +218,7 @@ It provides:
 - a global `harness` CLI
 - project-local skills for both Codex and Claude Code
 - a version-centered workspace model
-- built-in lesson capture and repository memory
+- a rule-driven collaboration flow powered by workflow runtime, version meta, and development flow rules
 
 ### Install
 
@@ -220,6 +265,10 @@ harness requirement "Online Health Service"
 harness change "Online Booking" --requirement "online-health-service"
 harness change "Quick Login UI Fix"
 harness plan "Online Booking"
+harness status
+harness next
+harness ff
+harness next --execute
 ```
 
 Key rules:
@@ -228,6 +277,26 @@ Key rules:
 - requirements and changes live under the active version
 - changes may exist without a requirement
 - `docs/context/` stays repository-level and should not be version-scoped
+- before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
+- then read the current version `meta.yaml` before deciding the next action
+- `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
+
+Suggested workflow mapping:
+
+- `requirement_review` -> `brainstorming`
+- `changes_review` -> `brainstorming`
+- `plan_review` -> `writing-plans`
+- `ready_for_execution` -> wait for explicit approval
+- `executing` -> `executing-plans`
+- `done` -> `verification-before-completion`
+
+Command roles:
+
+- `harness use "<version>"`
+- `harness status`
+- `harness next`
+- `harness ff`
+- `harness next --execute`
 
 ### Upgrade
 

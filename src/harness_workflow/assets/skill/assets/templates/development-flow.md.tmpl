@@ -1,0 +1,43 @@
+# 研发流程
+
+## 1. 核心原则
+
+- 工作流规则统一放在 `docs/context/rules/`
+- 运行态统一记录在 `docs/context/rules/workflow-runtime.yaml`
+- 每个 version 的局部状态统一记录在 `docs/versions/active/<version>/meta.yaml`
+- Agent 在开始 requirement、change、plan、execution 前，必须先读取运行态并定位当前 version
+
+## 2. 路由顺序
+
+执行任何工作前：
+
+1. 读取 `docs/context/rules/workflow-runtime.yaml`
+2. 找到 `current_version`
+3. 读取当前 version 的 `meta.yaml`
+4. 确认当前 `stage`、`status`、`current_task`
+5. 只有在状态允许时才继续执行
+
+## 3. 阶段定义
+
+- `idle`：version 已创建，但还未进入正式评审阶段
+- `requirement_review`：需求初稿已生成，等待审核与讨论
+- `changes_review`：changes 已拆分，等待审核与讨论
+- `plan_review`：plan 已生成，等待审核与讨论
+- `ready_for_execution`：已到执行前确认点
+- `executing`：已确认执行，进入代码实施
+- `done`：本 version 已完成
+
+## 4. 命令语义
+
+- `harness version "<name>"`：创建或切换 version，并将其设为当前工作 version
+- `harness use "<name>"`：切换当前工作 version
+- `harness status`：查看当前运行态
+- `harness next`：推进到下一阶段
+- `harness next --execute`：在 `ready_for_execution` 阶段确认执行
+- `harness ff`：跳过中间审核阶段，直接推进到执行前确认点
+
+## 5. 约束
+
+- 不允许跳过运行态路由直接开始写代码
+- 不允许在未确认当前 version 的情况下推进 requirement 或 change
+- `ff` 只跳过讨论，不跳过最终执行确认

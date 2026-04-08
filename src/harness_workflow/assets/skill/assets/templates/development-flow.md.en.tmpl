@@ -1,0 +1,43 @@
+# Development Flow
+
+## 1. Core Principle
+
+- Workflow rules live under `docs/context/rules/`
+- Runtime state lives in `docs/context/rules/workflow-runtime.yaml`
+- Each version keeps local state in `docs/versions/active/<version>/meta.yaml`
+- Before any requirement, change, plan, or execution work, the agent must route through runtime state first
+
+## 2. Routing Order
+
+Before doing any work:
+
+1. Read `docs/context/rules/workflow-runtime.yaml`
+2. Find `current_version`
+3. Read the current version `meta.yaml`
+4. Confirm `stage`, `status`, and `current_task`
+5. Continue only if the state allows it
+
+## 3. Stage Definitions
+
+- `idle`
+- `requirement_review`
+- `changes_review`
+- `plan_review`
+- `ready_for_execution`
+- `executing`
+- `done`
+
+## 4. Command Semantics
+
+- `harness version "<name>"`: create or switch a version and make it current
+- `harness use "<name>"`: switch the current version
+- `harness status`: show current runtime state
+- `harness next`: advance to the next stage
+- `harness next --execute`: confirm execution when already ready
+- `harness ff`: fast-forward to the final execution confirmation gate
+
+## 5. Guardrails
+
+- Do not start coding before routing through workflow state
+- Do not advance work without a confirmed current version
+- `ff` skips discussion gates, not the final execution confirmation

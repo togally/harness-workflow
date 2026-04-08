@@ -12,6 +12,10 @@ from harness_workflow.core import (
     install_repo,
     set_language,
     update_repo,
+    use_version,
+    workflow_fast_forward,
+    workflow_next,
+    workflow_status,
 )
 
 
@@ -40,6 +44,20 @@ def build_parser() -> argparse.ArgumentParser:
     language_parser = subparsers.add_parser("language", help="Switch the repository language profile.")
     language_parser.add_argument("language", help="Language profile: english or cn.")
     language_parser.add_argument("--root", default=".", help="Repository root.")
+
+    use_parser = subparsers.add_parser("use", help="Switch the current active version.")
+    use_parser.add_argument("version", help="Version name.")
+    use_parser.add_argument("--root", default=".", help="Repository root.")
+
+    status_parser = subparsers.add_parser("status", help="Show the current workflow runtime state.")
+    status_parser.add_argument("--root", default=".", help="Repository root.")
+
+    next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
+    next_parser.add_argument("--root", default=".", help="Repository root.")
+    next_parser.add_argument("--execute", action="store_true", help="Confirm execution when already ready_for_execution.")
+
+    ff_parser = subparsers.add_parser("ff", help="Fast-forward workflow stages until execution confirmation.")
+    ff_parser.add_argument("--root", default=".", help="Repository root.")
 
     req_parser = subparsers.add_parser("requirement", help="Create a requirement inside the active version.")
     req_parser.add_argument("title", nargs="?", help="Requirement title.")
@@ -80,6 +98,14 @@ def main() -> int:
         return update_repo(root, check=args.check, force_managed=args.force_managed)
     if args.command == "language":
         return set_language(root, args.language)
+    if args.command == "use":
+        return use_version(root, args.version)
+    if args.command == "status":
+        return workflow_status(root)
+    if args.command == "next":
+        return workflow_next(root, execute=args.execute)
+    if args.command == "ff":
+        return workflow_fast_forward(root)
     if args.command == "requirement":
         return create_requirement(root, args.title, requirement_id=args.id, title=args.title_flag)
     if args.command == "change":
