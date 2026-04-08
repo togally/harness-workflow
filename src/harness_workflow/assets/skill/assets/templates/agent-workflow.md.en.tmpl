@@ -29,7 +29,7 @@ If `current_version` is missing, runtime/config disagree, version `meta.yaml` is
 8. Before calling a change complete, run and record `mvn compile`; before calling a requirement complete, run and record successful project startup validation
 9. If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
 10. If startup logs, compile output, test failures, or stack traces are locally available, the AI must collect and analyze them first instead of asking the human to inspect them
-11. If repair still needs human-provided configuration, data, accounts, or external dependency details, fill the current change `regression/required-inputs.md` template and ask the human to complete it
+11. If repair still needs human-provided configuration, data, accounts, or external dependency details, the AI must fill the current change `regression/required-inputs.md` template first and only then ask the human to complete it; do not skip the template and ask ad hoc questions in chat
 12. Verify before claiming completion
 13. When workflow state is missing or inconsistent, stop execution and require `harness active "<version>"` or restoration of the missing workflow files
 14. After each stage-level task completes, review what was learned, capture it in `session-memory.md`, and promote or fuse mature experience into `docs/context/experience/` or formal rules when justified

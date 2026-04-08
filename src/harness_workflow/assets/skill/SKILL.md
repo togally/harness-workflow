@@ -182,7 +182,7 @@ If not, it can stand alone inside the active version.
 
 Each `change` should be independently plannable and independently verifiable.
 Each `change` should also accumulate execution knowledge in `session-memory.md`, including what did not work.
-Each completed `change` must include `mvn compile`. If compilation fails, start `harness regression "<issue>"`. If user-provided inputs are needed, fill `regression/required-inputs.md` and wait.
+Each completed `change` must include `mvn compile`. If compilation fails, start `harness regression "<issue>"`. If user-provided inputs are needed, fill `regression/required-inputs.md` first and only then ask the human to complete it.
 If the needed debug information is already available on the local machine, collect it first instead of asking the human to inspect it manually.
 
 ## Harness Plan

@@ -19,4 +19,4 @@ This repository uses the Harness workflow for Claude Code.
 13. If the human is unhappy with a completed result, start `harness regression "<issue>"` first, confirm whether it is a real problem, then convert it into new work
 14. Every completed change must execute and record `mvn compile`; every completed requirement must execute and record successful project startup validation
 15. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
-16. If compilation fails, startup fails, or repair still needs human input, move into regression and use the related change `regression/required-inputs.md`
+16. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it

@@ -189,7 +189,7 @@ harness next --execute
   - change：`acceptance.md`
   - requirement：`completion.md`
 - 如果 `mvn compile` 失败或项目启动失败，不允许绕过工作流继续收尾，必须先进入 `harness regression "<问题描述>"`
-- 如果继续修复前需要用户补充配置、测试数据、账号或外部依赖信息，先填写对应 change 的 `regression/required-inputs.md`，再提示用户补充
+- 如果继续修复前需要用户补充配置、测试数据、账号或外部依赖信息，必须先填写对应 change 的 `regression/required-inputs.md`，再提示用户补充；不要跳过模板直接在对话里临时发问
 - 本机能够直接采集的启动日志、编译输出、测试失败堆栈，应先由 AI 自己运行并读取；只有确实缺少外部输入时才需要用户填写模板
 
 ### 归档与改名维护
@@ -313,7 +313,7 @@ flowchart TD
     G -->|否| H["harness regression --cancel"]
     G -->|是| D
     E -->|是| I["harness regression --confirm"]
-    I --> I2["如需用户补数据<br/>填写 change/regression/required-inputs.md"]
+    I --> I2["如需用户补数据<br/>先填写 change/regression/required-inputs.md"]
     I2 --> J
     I --> J{"转成什么工作项?"}
     J -->|小范围修复| K["harness regression --change"]
@@ -504,7 +504,7 @@ When implementation and verification are technically complete but the outcome is
   - change: `acceptance.md`
   - requirement: `completion.md`
 - If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"`
-- If repair needs user-provided configuration, test data, accounts, or external dependency details, fill the related change `regression/required-inputs.md` and ask the human to complete it
+- If repair needs user-provided configuration, test data, accounts, or external dependency details, the AI must fill the related change `regression/required-inputs.md` first and only then ask the human to complete it; do not skip the template and ask ad hoc questions in chat
 - If startup logs, compile output, or stack traces are available on the local machine, the AI should run and read them first; only request human input when the missing information is external to the local workspace
 
 ### Archive And Rename Maintenance
@@ -613,7 +613,7 @@ flowchart TD
     G -->|No| H["harness regression --cancel"]
     G -->|Yes| D
     E -->|Yes| I["harness regression --confirm"]
-    I --> I2["If human input is needed<br/>fill change/regression/required-inputs.md"]
+    I --> I2["If human input is needed<br/>fill change/regression/required-inputs.md first"]
     I2 --> J
     I --> J{"Convert into what?"}
     J -->|Focused fix| K["harness regression --change"]

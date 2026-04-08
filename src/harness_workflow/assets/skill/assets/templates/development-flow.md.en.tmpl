@@ -37,7 +37,7 @@ Additional guardrails:
 - Every completed requirement must include successful project startup validation
 - If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
 - If startup logs, compile output, test failures, or runtime stack traces are already available locally, the AI should collect and analyze them first
-- If repair needs human-provided configuration, data, accounts, or external dependency details, fill the related change `regression/required-inputs.md` and ask the human to complete it
+- If repair needs human-provided configuration, data, accounts, or external dependency details, the AI must fill the related change `regression/required-inputs.md` first and only then ask the human to complete it; do not skip the template and ask ad hoc questions in chat
 
 ## 4. Command Semantics
 
