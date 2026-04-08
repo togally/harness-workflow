@@ -12,6 +12,7 @@
 6. 仅按关键词加载命中的经验文件，不全量读取 `docs/context/experience/`
 7. 详细执行流程请读取 `docs/context/rules/agent-workflow.md` 与 `docs/context/rules/development-flow.md`
 8. 如需了解项目事实或开发规范，继续读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
+9. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止并提示修复，不允许绕过工作流手工推进
 
 ## 关键入口
 
@@ -28,6 +29,7 @@
 - 初始化仓库工作流：`harness init`
 - 切换语言：`harness language english|cn`
 - 切换或创建版本：`harness version "v1.0.0"`
+- 显式修复当前活动版本：`harness active "v1.0.0"`
 - 新建需求主题：`harness requirement "需求标题"`
 - 拆分具体功能点：`harness change "变更标题"`
 - 为 change 制定计划：`harness plan "变更标题"`
@@ -36,3 +38,4 @@
 
 - 若仓库提供文档流程 lint，先执行 lint
 - 在声称完成前执行项目现有的测试、构建或校验命令
+- 如果工作流状态缺失或冲突，先停止并要求用户运行 `harness active "<version>"` 或修复缺失文件

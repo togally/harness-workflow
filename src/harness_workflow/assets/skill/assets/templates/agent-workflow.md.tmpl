@@ -14,6 +14,7 @@
 8. 如果是恢复会话，继续读取当前 change 目录下的 `session-memory.md`、需求、设计与计划文件
 
 禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
+如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，必须立即停止并提示用户先修复 workflow 状态，不允许手工拼装一个“类似流程”继续推进。
 
 ## 2. 执行流程
 
@@ -31,6 +32,7 @@
 12. 如果被纠正、发现新约束或形成了可复用结论，先更新当前工作记忆，再判断是否需要沉淀到 `docs/context/experience/`
 13. 执行验证
 14. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
+15. 当 workflow 状态缺失或冲突时，停止执行并要求用户运行 `harness active "<version>"` 或修复缺失文件
 
 ## 3. Harness 生命周期
 

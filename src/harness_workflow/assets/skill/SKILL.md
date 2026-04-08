@@ -20,11 +20,13 @@ Use these subcommands conceptually:
    Switch the repository language profile for generated templates and localized artifact directories.
 3. `harness version <name>`
    Create or switch the active version container.
-4. `harness requirement <title>`
+4. `harness active <name>`
+   Explicitly repair or switch the active version route when runtime state is missing or inconsistent.
+5. `harness requirement <title>`
    Create a requirement inside the active version, then use `brainstorming` with the developer to refine it and split it into multiple `change` units.
-5. `harness change <title>`
+6. `harness change <title>`
    Create one concrete, independently deliverable change.
-6. `harness plan <change>`
+7. `harness plan <change>`
    Use `writing-plans` to turn one change into a model-executable implementation plan.
 
 Default rule: do not go from large requirement directly into implementation. Split into `change` first.
@@ -46,6 +48,15 @@ If the global CLI is unavailable, fall back to the installed project-local skill
 
 Do not assume there is a repository-local `scripts/harness.py` in the target project root.
 If neither the global CLI nor the installed local skill script exists, stop and report the missing harness installation instead of hand-creating the workflow structure.
+
+If workflow state is missing or inconsistent, stop immediately instead of improvising a parallel workflow by hand. Typical blockers include:
+
+- missing `current_version`
+- disagreement between `workflow-runtime.yaml` and harness config
+- missing version `meta.yaml`
+- a blocked stage with no confirmed next action
+
+In those cases, direct the developer to repair the route with `harness active "<version>"` or restore the missing workflow files before continuing.
 
 ## Built-In Lesson Capture
 
@@ -111,6 +122,12 @@ Before creating requirements or changes, create or switch a version:
 
 ```bash
 harness version "v1.0.0" --root /path/to/repo
+```
+
+If the active route is broken, repair it with:
+
+```bash
+harness active "v1.0.0" --root /path/to/repo
 ```
 
 Optionally switch language:

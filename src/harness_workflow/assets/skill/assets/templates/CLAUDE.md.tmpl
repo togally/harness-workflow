@@ -14,6 +14,7 @@
 8. 如需了解项目事实或开发规范，继续读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
 9. 当任务过程中出现纠错、失败方案或新约束时，先更新当前 change 的 `session-memory.md`
 10. 任务完成前，主动判断是否需要将稳定经验沉淀到 `docs/context/experience/`
+11. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止并要求修复，不允许绕过 workflow 自行手工推进
 
 ## 关键入口
 
@@ -30,6 +31,7 @@
 - 初始化仓库工作流：`harness init`
 - 切换语言：`harness language english|cn`
 - 切换或创建版本：`harness version "v1.0.0"`
+- 显式修复当前活动版本：`harness active "v1.0.0"`
 - 新建需求主题：`harness requirement "需求标题"`
 - 拆分具体功能点：`harness change "变更标题"`
 - 为 change 制定计划：`harness plan "变更标题"`

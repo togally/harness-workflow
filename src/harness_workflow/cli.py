@@ -10,6 +10,7 @@ from harness_workflow.core import (
     create_version,
     init_repo,
     install_repo,
+    set_active_version,
     set_language,
     update_repo,
     use_version,
@@ -48,6 +49,10 @@ def build_parser() -> argparse.ArgumentParser:
     use_parser = subparsers.add_parser("use", help="Switch the current active version.")
     use_parser.add_argument("version", help="Version name.")
     use_parser.add_argument("--root", default=".", help="Repository root.")
+
+    active_parser = subparsers.add_parser("active", help="Explicitly set the current active version.")
+    active_parser.add_argument("version", help="Version name.")
+    active_parser.add_argument("--root", default=".", help="Repository root.")
 
     status_parser = subparsers.add_parser("status", help="Show the current workflow runtime state.")
     status_parser.add_argument("--root", default=".", help="Repository root.")
@@ -100,6 +105,8 @@ def main() -> int:
         return set_language(root, args.language)
     if args.command == "use":
         return use_version(root, args.version)
+    if args.command == "active":
+        return set_active_version(root, args.version)
     if args.command == "status":
         return workflow_status(root)
     if args.command == "next":

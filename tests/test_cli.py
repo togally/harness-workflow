@@ -130,6 +130,15 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertEqual(self.read_runtime()["current_version"], "v1.0.0")
 
+    def test_active_switches_current_version(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("version", "v1.1.0", "--root", str(self.repo))
+        result = self.run_cli("active", "v1.0.0", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Current active version set to v1.0.0", result.stdout)
+        self.assertEqual(self.read_runtime()["current_version"], "v1.0.0")
+
     def test_cn_language_uses_cn_templates_and_directories(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
         self.run_cli("language", "cn", "--root", str(self.repo))
@@ -176,6 +185,24 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue(session_memory.exists())
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))
         self.assertIn("# Harness", claude_skill.read_text(encoding="utf-8"))
+
+    def test_update_reports_missing_active_version(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        (self.repo / ".codex" / "harness" / "config.json").write_text(
+            json.dumps({"language": "english", "current_version": ""}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").write_text(
+            json.dumps({"current_version": "", "executing_version": "", "active_versions": {}}, ensure_ascii=False, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = self.run_cli("update", "--root", str(self.repo), "--check")
+        self.assertEqual(result.returncode, 1, msg=result.stderr or result.stdout)
+        self.assertIn("workflow action required:", result.stdout)
+        self.assertIn('harness active "v1.0.0"', result.stdout)
 
     def test_installed_skill_uses_global_harness_commands(self) -> None:
         self.run_cli("install", "--root", str(self.repo))

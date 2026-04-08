@@ -65,6 +65,7 @@ harness requirement "在线健康服务"
 harness change "在线问诊预约" --requirement "在线健康服务"
 harness change "修复登录按钮样式"
 harness plan "在线问诊预约"
+harness active "v1.0.0"
 harness status
 harness next
 harness ff
@@ -83,6 +84,7 @@ harness next --execute
 - `requirement` 和 `change` 都创建在当前激活的 version 下
 - `change` 可以独立存在，不要求必须挂 requirement
 - `context/` 仍然是仓库级知识库，不归属某个 version
+- `harness active "<version>"` 用于显式修复或切换当前活动 version
 
 开始任何 requirement、change、plan 或执行前，先做这一步：
 
@@ -91,6 +93,18 @@ harness next --execute
 3. 读取该 version 的 `meta.yaml`
 4. 确认当前 `stage`、`current_task`、`next_action`
 5. 如果 `suggested_skill` 非空，优先按它组织协作
+
+如果出现以下任一情况，必须立即停止，不允许绕过工作流继续推进：
+
+- `current_version` 缺失
+- `workflow-runtime.yaml` 与 config 中的活动 version 不一致
+- 当前 version 的 `meta.yaml` 缺失
+- 流程卡住，无法确认当前阶段或下一步
+
+此时应先修复状态，再继续工作。优先动作是：
+
+- `harness active "<version>"`
+- 或请用户修复/重建缺失的 workflow 文件
 
 ### 规则驱动协作流
 
@@ -123,6 +137,7 @@ harness next --execute
 命令职责：
 
 - `harness use "<version>"`：切换当前 version
+- `harness active "<version>"`：显式设置当前活动 version，修复 runtime/config 路由
 - `harness status`：查看当前运行态与建议 skill
 - `harness next`：按当前状态推进下一步
 - `harness ff`：跳过中间讨论阶段，直接到执行前确认
@@ -171,6 +186,7 @@ harness update --force-managed
 - 刷新 `.claude/skills/harness`
 - 根据当前语言配置同步受管模板与入口文件
 - 跳过你已经修改过的受管文件，除非显式使用 `--force-managed`
+- 检查活动 version 路由是否完整；若缺失或冲突，会提示你先运行 `harness active "<version>"`
 
 ### 业务流图
 
@@ -271,6 +287,7 @@ harness requirement "Online Health Service"
 harness change "Online Booking" --requirement "online-health-service"
 harness change "Quick Login UI Fix"
 harness plan "Online Booking"
+harness active "v1.0.0"
 harness status
 harness next
 harness ff
@@ -289,9 +306,19 @@ Key rules:
 - requirements and changes live under the active version
 - changes may exist without a requirement
 - `docs/context/` stays repository-level and should not be version-scoped
+- `harness active "<version>"` explicitly repairs or switches the active version route
 - before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
 - then read the current version `meta.yaml` before deciding the next action
 - `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
+
+If any workflow state is missing or inconsistent, stop immediately and do not improvise a manual fallback workflow:
+
+- missing `current_version`
+- runtime/config disagreement on the active version
+- missing version `meta.yaml`
+- blocked stage where the next action cannot be confirmed
+
+Repair the route first with `harness active "<version>"` or by restoring the missing workflow files.
 
 Suggested workflow mapping:
 
@@ -305,6 +332,7 @@ Suggested workflow mapping:
 Command roles:
 
 - `harness use "<version>"`
+- `harness active "<version>"`
 - `harness status`
 - `harness next`
 - `harness ff`
@@ -331,6 +359,8 @@ Force managed files:
 ```bash
 harness update --force-managed
 ```
+
+`harness update` also checks workflow routing integrity. If the active version is missing or inconsistent, it stops with an explicit `harness active "<version>"` repair hint.
 
 ### Verify
 

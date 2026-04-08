@@ -14,6 +14,7 @@ Before starting work in a new session:
 8. If resuming a version/change, read the relevant `session-memory.md`
 
 Do not bulk-load the whole `docs/context/` tree.
+If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask the human to repair workflow state. Do not improvise a parallel manual flow.
 
 ## 2. Execution Flow
 
@@ -25,6 +26,7 @@ Do not bulk-load the whole `docs/context/` tree.
 6. Record failed paths immediately
 7. Record corrections, constraints, and reusable lessons in working memory first
 8. Verify before claiming completion
+9. When workflow state is missing or inconsistent, stop execution and require `harness active "<version>"` or restoration of the missing workflow files
 
 ## 3. Memory Rules
 

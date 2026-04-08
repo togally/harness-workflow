@@ -488,10 +488,78 @@ def resolve_version_layout(root: Path, version_id: str, language: str) -> dict[s
     }
 
 
+def list_existing_versions(root: Path) -> list[str]:
+    active_dir = root / "docs" / "versions" / "active"
+    if not active_dir.exists():
+        return []
+    return sorted(path.name for path in active_dir.iterdir() if path.is_dir())
+
+
+def active_version_instruction(root: Path, version_id: str = "") -> str:
+    if version_id:
+        return f'Run `harness active "{version_id}"`.'
+    version_ids = list_existing_versions(root)
+    if len(version_ids) == 1:
+        return f'Run `harness active "{version_ids[0]}"`.'
+    if version_ids:
+        choices = ", ".join(f"`{item}`" for item in version_ids)
+        return f"Run `harness active <version>` for one of: {choices}."
+    return "Run `harness version <name>` first."
+
+
+def workflow_blockers(root: Path, config: dict[str, str], runtime: dict[str, object]) -> list[str]:
+    blockers: list[str] = []
+    version_ids = list_existing_versions(root)
+    if not version_ids:
+        return blockers
+
+    runtime_version = str(runtime.get("current_version", "")).strip()
+    config_version = str(config.get("current_version", "")).strip()
+
+    if runtime_version != config_version:
+        if runtime_version and config_version:
+            blockers.append(
+                f"workflow runtime points to `{runtime_version}` but harness config points to `{config_version}`. "
+                f"{active_version_instruction(root)}"
+            )
+        else:
+            missing_side = "workflow runtime" if not runtime_version else "harness config"
+            selected = config_version or runtime_version
+            blockers.append(
+                f"{missing_side} is missing the active version while `{selected}` exists elsewhere. "
+                f"{active_version_instruction(root, selected)}"
+            )
+
+    effective_version = runtime_version or config_version
+    if not effective_version:
+        blockers.append(f"workflow routing has no active version. {active_version_instruction(root)}")
+        return blockers
+
+    if effective_version not in version_ids:
+        blockers.append(
+            f"active version `{effective_version}` does not exist under `docs/versions/active/`. "
+            f"{active_version_instruction(root)}"
+        )
+        return blockers
+
+    if not version_meta_path(root, effective_version).exists():
+        blockers.append(
+            f"active version `{effective_version}` is missing `meta.yaml`. Restore or recreate the version, then "
+            f"{active_version_instruction(root, effective_version)}"
+        )
+    return blockers
+
+
+def require_active_version_id(root: Path, config: dict[str, str], runtime: dict[str, object] | None = None) -> str:
+    runtime_payload = dict(runtime or load_runtime(root))
+    blockers = workflow_blockers(root, config, runtime_payload)
+    if blockers:
+        raise SystemExit(f"Workflow is blocked: {blockers[0]}")
+    return str(runtime_payload.get("current_version", "") or config.get("current_version", "")).strip()
+
+
 def current_version_layout(root: Path, config: dict[str, str]) -> dict[str, Path]:
-    current_version = config.get("current_version", "").strip()
-    if not current_version:
-        raise SystemExit("No active version selected. Run `harness version <name>` first.")
+    current_version = require_active_version_id(root, config)
     return resolve_version_layout(root, current_version, config["language"])
 
 
@@ -548,6 +616,7 @@ def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
 def update_repo(root: Path, check: bool = False, force_managed: bool = False) -> int:
     config = ensure_harness_root(root)
     language = config["language"]
+    runtime = load_runtime(root)
     for directory in _required_dirs(root):
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -604,6 +673,11 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
         if not (root / WORKFLOW_RUNTIME_PATH).exists():
             save_runtime(root, dict(DEFAULT_RUNTIME))
             actions.append("created docs/context/rules/workflow-runtime.yaml")
+            runtime = load_runtime(root)
+
+    blockers = workflow_blockers(root, config, runtime)
+    for blocker in blockers:
+        actions.append(f"workflow action required: {blocker}")
 
     print("Update summary:")
     for action in actions:
@@ -611,6 +685,10 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     if check:
         print("")
         print("No files were changed.")
+    if blockers:
+        print("")
+        print("Workflow is blocked until the active version is explicitly repaired.")
+        return 1
     return 0
 
 
@@ -793,7 +871,7 @@ def create_plan(root: Path, change_name: str) -> int:
     return 0
 
 
-def use_version(root: Path, version_name: str) -> int:
+def set_active_version(root: Path, version_name: str) -> int:
     config, runtime = ensure_workflow_state(root)
     version_id = version_name.strip()
     if not version_meta_path(root, version_id).exists():
@@ -802,8 +880,12 @@ def use_version(root: Path, version_name: str) -> int:
     save_config(root, config)
     meta = load_version_meta(root, version_id)
     persist_workflow_state(root, version_id, meta, runtime)
-    print(f"Current version switched to {version_id}")
+    print(f"Current active version set to {version_id}")
     return 0
+
+
+def use_version(root: Path, version_name: str) -> int:
+    return set_active_version(root, version_name)
 
 
 def workflow_status(root: Path) -> int:
@@ -811,6 +893,11 @@ def workflow_status(root: Path) -> int:
     current_version = str(runtime.get("current_version", "") or config.get("current_version", ""))
     print(f"current_version: {current_version or '(none)'}")
     print(f"executing_version: {runtime.get('executing_version', '') or '(none)'}")
+    blockers = workflow_blockers(root, config, runtime)
+    if blockers:
+        print("workflow_blockers:")
+        for blocker in blockers:
+            print(f"- {blocker}")
     if current_version:
         meta = load_version_meta(root, current_version)
         print(f"stage: {meta.get('stage', 'idle')}")
@@ -825,9 +912,7 @@ def workflow_status(root: Path) -> int:
 
 def workflow_next(root: Path, execute: bool = False) -> int:
     config, runtime = ensure_workflow_state(root)
-    current_version = str(config.get("current_version", "") or runtime.get("current_version", ""))
-    if not current_version:
-        raise SystemExit("No active version selected. Run `harness version <name>` or `harness use <name>` first.")
+    current_version = require_active_version_id(root, config, runtime)
     meta = load_version_meta(root, current_version)
     meta = apply_stage_transition(meta, execute=execute)
     runtime["executing_version"] = current_version if meta.get("stage") == "executing" else ""
@@ -838,9 +923,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 
 def workflow_fast_forward(root: Path) -> int:
     config, runtime = ensure_workflow_state(root)
-    current_version = str(config.get("current_version", "") or runtime.get("current_version", ""))
-    if not current_version:
-        raise SystemExit("No active version selected. Run `harness version <name>` or `harness use <name>` first.")
+    current_version = require_active_version_id(root, config, runtime)
     meta = apply_stage_transition(load_version_meta(root, current_version), fast_forward=True)
     runtime["executing_version"] = ""
     persist_workflow_state(root, current_version, meta, runtime)
@@ -869,6 +952,10 @@ def main() -> int:
     use_parser = subparsers.add_parser("use", help="Switch the current active version.")
     use_parser.add_argument("version", help="Version name.")
     use_parser.add_argument("--root", default=".", help="Repository root.")
+
+    active_parser = subparsers.add_parser("active", help="Explicitly set the current active version.")
+    active_parser.add_argument("version", help="Version name.")
+    active_parser.add_argument("--root", default=".", help="Repository root.")
 
     status_parser = subparsers.add_parser("status", help="Show the current workflow runtime state.")
     status_parser.add_argument("--root", default=".", help="Repository root.")
@@ -914,6 +1001,8 @@ def main() -> int:
         return set_language(root, args.language)
     if args.command == "use":
         return use_version(root, args.version)
+    if args.command == "active":
+        return set_active_version(root, args.version)
     if args.command == "status":
         return workflow_status(root)
     if args.command == "next":

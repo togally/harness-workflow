@@ -17,6 +17,8 @@ Before doing any work:
 4. Confirm `stage`, `status`, and `current_task`
 5. Continue only if the state allows it
 
+If `current_version` is missing, version `meta.yaml` is missing, or runtime/config disagree, stop immediately and require `harness active "<version>"` before continuing. Do not bypass workflow with a manual fallback process.
+
 ## 3. Stage Definitions
 
 - `idle`
@@ -30,6 +32,7 @@ Before doing any work:
 ## 4. Command Semantics
 
 - `harness version "<name>"`: create or switch a version and make it current
+- `harness active "<name>"`: explicitly repair or switch the active version route
 - `harness use "<name>"`: switch the current version
 - `harness status`: show current runtime state
 - `harness next`: advance to the next stage
@@ -41,3 +44,4 @@ Before doing any work:
 - Do not start coding before routing through workflow state
 - Do not advance work without a confirmed current version
 - `ff` skips discussion gates, not the final execution confirmation
+- If workflow state is missing, inconsistent, or blocked, the agent must stop and require repair instead of manually simulating the workflow
