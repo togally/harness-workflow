@@ -71,6 +71,12 @@ harness ff
 harness next --execute
 ```
 
+命令入口约定：
+
+- 优先使用全局 `harness` CLI
+- 如果全局 CLI 不可用，再回退到 `.codex/skills/harness/scripts/harness.py` 或 `.claude/skills/harness/scripts/harness.py`
+- 不要假设目标项目根目录存在 `scripts/harness.py`
+
 要点：
 
 - `version` 是主工作容器
@@ -270,6 +276,12 @@ harness next
 harness ff
 harness next --execute
 ```
+
+Command resolution:
+
+- Prefer the global `harness` CLI
+- If it is unavailable, fall back to `.codex/skills/harness/scripts/harness.py` or `.claude/skills/harness/scripts/harness.py`
+- Do not assume the target repository has a root-level `scripts/harness.py`
 
 Key rules:
 

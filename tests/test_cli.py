@@ -177,6 +177,14 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))
         self.assertIn("# Harness", claude_skill.read_text(encoding="utf-8"))
 
+    def test_installed_skill_uses_global_harness_commands(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        skill_text = (self.repo / ".codex" / "skills" / "harness" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("harness requirement", skill_text)
+        self.assertNotIn("python3 scripts/harness.py", skill_text)
+        self.assertIn("python3 tools/lint_harness_repo.py", skill_text)
+        self.assertNotIn("python3 scripts/lint_harness_repo.py", skill_text)
+
 
 if __name__ == "__main__":
     unittest.main()

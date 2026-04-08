@@ -29,6 +29,24 @@ Use these subcommands conceptually:
 
 Default rule: do not go from large requirement directly into implementation. Split into `change` first.
 
+## Command Resolution
+
+Prefer the global `harness` CLI when it is available.
+
+```bash
+harness install
+harness version "v1.0.0"
+harness requirement "Online Health Service"
+```
+
+If the global CLI is unavailable, fall back to the installed project-local skill script:
+
+- Codex: `.codex/skills/harness/scripts/harness.py`
+- Claude Code: `.claude/skills/harness/scripts/harness.py`
+
+Do not assume there is a repository-local `scripts/harness.py` in the target project root.
+If neither the global CLI nor the installed local skill script exists, stop and report the missing harness installation instead of hand-creating the workflow structure.
+
 ## Built-In Lesson Capture
 
 Harness includes experience accumulation by default. Do not treat this as a separate workflow.
@@ -74,7 +92,7 @@ Typical user wording includes:
 Initialize the repository with:
 
 ```bash
-python3 scripts/harness.py init --root /path/to/repo --write-agents --write-claude
+harness install --root /path/to/repo
 ```
 
 This should create:
@@ -92,19 +110,19 @@ For repositories that already have `doc/`, bridge legacy documents instead of fo
 Before creating requirements or changes, create or switch a version:
 
 ```bash
-python3 scripts/harness.py version "v1.0.0" --root /path/to/repo
+harness version "v1.0.0" --root /path/to/repo
 ```
 
 Optionally switch language:
 
 ```bash
-python3 scripts/harness.py language cn --root /path/to/repo
+harness language cn --root /path/to/repo
 ```
 
 Create a requirement workspace with:
 
 ```bash
-python3 scripts/harness.py requirement "Online Health Service" --root /path/to/repo
+harness requirement "Online Health Service" --root /path/to/repo
 ```
 
 Then:
@@ -120,7 +138,7 @@ Use requirement workspaces for themes, not for single-file tweaks.
 Create one concrete change with:
 
 ```bash
-python3 scripts/harness.py change "Online Booking" --root /path/to/repo [--requirement <requirement-title-or-id>]
+harness change "Online Booking" --root /path/to/repo [--requirement <requirement-title-or-id>]
 ```
 
 This creates a change workspace containing:
@@ -162,7 +180,7 @@ For non-trivial execution, use `subagent-driven-development` or `executing-plans
 Create or switch an active version container with:
 
 ```bash
-python3 scripts/harness.py version "v1.0.0" --root /path/to/repo
+harness version "v1.0.0" --root /path/to/repo
 ```
 
 This should create `requirements`, `changes`, and `plans` containers under the active version.
@@ -187,7 +205,7 @@ Root guides should also remind the agent to read indexed experience before worki
 Validate the repository after changes:
 
 ```bash
-python3 scripts/lint_harness_repo.py --root /path/to/repo --strict-agents --strict-claude
+python3 tools/lint_harness_repo.py --root /path/to/repo --strict-agents --strict-claude
 ```
 
 Validate the skill itself:
