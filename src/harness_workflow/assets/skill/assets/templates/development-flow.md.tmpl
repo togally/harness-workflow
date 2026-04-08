@@ -15,7 +15,8 @@
 2. 找到 `current_version`
 3. 读取当前 version 的 `meta.yaml`
 4. 确认当前 `stage`、`status`、`current_task`
-5. 只有在状态允许时才继续执行
+5. 索引 `docs/context/experience/index.md`，加载与当前任务最相关的成熟经验
+6. 只有在状态允许时才继续执行
 
 如果缺少 `current_version`、当前 version `meta.yaml`、或 runtime/config 不一致，立即停止，并要求用户先用 `harness active "<version>"` 修复当前活动 version。不要绕过 workflow 手工推进。
 
@@ -34,6 +35,8 @@
 - `harness version "<name>"`：创建或切换 version，并将其设为当前工作 version
 - `harness active "<name>"`：显式修复或切换当前活动 version
 - `harness use "<name>"`：切换当前工作 version
+- `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据
+- `harness archive "<requirement>"`：归档某个已完成 requirement 及其 linked changes
 - `harness status`：查看当前运行态
 - `harness next`：推进到下一阶段
 - `harness next --execute`：在 `ready_for_execution` 阶段确认执行
@@ -45,3 +48,4 @@
 - 不允许在未确认当前 version 的情况下推进 requirement 或 change
 - `ff` 只跳过讨论，不跳过最终执行确认
 - 如果 workflow 状态缺失、冲突或阻塞，Agent 必须停止工作并要求修复，不允许手工模拟流程继续推进
+- 每个阶段的任务完成后，必须检查是否产生了可沉淀经验；成熟经验应融合进 `docs/context/experience/` 或正式规则

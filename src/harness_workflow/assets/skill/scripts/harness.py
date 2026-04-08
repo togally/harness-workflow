@@ -64,15 +64,19 @@ LANGUAGE_SPECS = {
         "requirements_dir": "requirements",
         "changes_dir": "changes",
         "plans_dir": "plans",
+        "archive_dir": "archive",
         "version_memory": "version-memory.md",
     },
     "cn": {
         "requirements_dir": "需求",
         "changes_dir": "变更",
         "plans_dir": "计划",
+        "archive_dir": "归档",
         "version_memory": "版本记忆.md",
     },
 }
+
+ITEM_META_ORDER = ["id", "title", "status", "kind", "requirement", "owner", "created_at"]
 
 
 def normalize_language(value: str | None) -> str:
@@ -484,8 +488,110 @@ def resolve_version_layout(root: Path, version_id: str, language: str) -> dict[s
         "requirements_dir": version_dir / spec["requirements_dir"],
         "changes_dir": version_dir / spec["changes_dir"],
         "plans_dir": version_dir / spec["plans_dir"],
+        "archive_dir": version_dir / spec["archive_dir"],
         "version_memory": version_dir / spec["version_memory"],
     }
+
+
+def load_item_meta(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    payload: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        value = value.strip()
+        if value.startswith('"') and value.endswith('"'):
+            try:
+                payload[key.strip()] = json.loads(value)
+            except json.JSONDecodeError:
+                payload[key.strip()] = value.strip('"')
+        else:
+            payload[key.strip()] = value
+    return payload
+
+
+def save_item_meta(path: Path, payload: dict[str, str]) -> None:
+    ordered_keys = [key for key in ITEM_META_ORDER if key in payload] + [key for key in payload if key not in ITEM_META_ORDER]
+    lines = [f"{key}: {json.dumps(str(payload.get(key, '')), ensure_ascii=False)}" for key in ordered_keys]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def replace_in_file(path: Path, replacements: dict[str, str]) -> None:
+    if not path.exists() or not replacements:
+        return
+    text = path.read_text(encoding="utf-8")
+    updated = text
+    for source, target in replacements.items():
+        updated = updated.replace(source, target)
+    if updated != text:
+        path.write_text(updated, encoding="utf-8")
+
+
+def remap_identifier_list(values: list[object], mapping: dict[str, str]) -> list[str]:
+    return [mapping.get(str(value), str(value)) for value in values]
+
+
+def remap_meta_strings(meta: dict[str, object], replacements: dict[str, str]) -> dict[str, object]:
+    payload = dict(meta)
+    for field in ("current_task", "next_action", "assistant_prompt"):
+        current = str(payload.get(field, ""))
+        for source, target in replacements.items():
+            current = current.replace(source, target)
+        payload[field] = current
+    return payload
+
+
+def fallback_stage_for_artifacts(meta: dict[str, object], requirement_ids: list[str], change_ids: list[str]) -> dict[str, object]:
+    payload = dict(meta)
+    if change_ids:
+        focus_change = change_ids[-1]
+        payload.update(
+            {
+                "status": "in_progress",
+                "stage": "changes_review",
+                "current_task": f"Review change {focus_change}",
+                "next_action": "Discuss the change list and confirm the active change, then run `harness next`.",
+                "current_artifact_kind": "change",
+                "current_artifact_id": focus_change,
+                "suggested_skill": "brainstorming",
+                "assistant_prompt": f"Use brainstorming to refine change {focus_change}, fill the change document, and stop for human review.",
+                "approval_required": True,
+            }
+        )
+        return payload
+    if requirement_ids:
+        focus_requirement = requirement_ids[-1]
+        payload.update(
+            {
+                "status": "in_progress",
+                "stage": "requirement_review",
+                "current_task": f"Review requirement {focus_requirement}",
+                "next_action": "Discuss and confirm the requirement, then run `harness next` to move into change design.",
+                "current_artifact_kind": "requirement",
+                "current_artifact_id": focus_requirement,
+                "suggested_skill": "brainstorming",
+                "assistant_prompt": f"Use brainstorming to draft and refine requirement {focus_requirement} in its document, then stop for human review.",
+                "approval_required": True,
+            }
+        )
+        return payload
+    payload.update(
+        {
+            "status": "in_progress",
+            "stage": "idle",
+            "current_task": "Create or review the first requirement",
+            "next_action": "Run `harness requirement <title>` to begin requirement drafting.",
+            "current_artifact_kind": "",
+            "current_artifact_id": "",
+            "suggested_skill": "",
+            "assistant_prompt": "",
+            "approval_required": False,
+        }
+    )
+    return payload
 
 
 def list_existing_versions(root: Path) -> list[str]:
@@ -573,6 +679,16 @@ def resolve_requirement_reference(requirements_dir: Path, reference: str, langua
     return None
 
 
+def resolve_change_reference(changes_dir: Path, reference: str, language: str) -> Path | None:
+    direct = changes_dir / reference
+    if direct.exists():
+        return direct
+    derived = changes_dir / resolve_artifact_id(reference, language)
+    if derived.exists():
+        return derived
+    return None
+
+
 def append_change_to_requirement(requirement_dir: Path, change_id: str, title: str) -> None:
     change_map = requirement_dir / "changes.md"
     if not change_map.exists():
@@ -585,6 +701,176 @@ def append_change_to_requirement(requirement_dir: Path, change_id: str, title: s
         else:
             text = text.rstrip() + "\n" + line
         change_map.write_text(text.rstrip() + "\n", encoding="utf-8")
+
+
+def rebuild_runtime_index(root: Path, runtime: dict[str, object]) -> dict[str, object]:
+    payload = dict(runtime)
+    payload["active_versions"] = {}
+    for version_id in list_existing_versions(root):
+        if version_meta_path(root, version_id).exists():
+            payload = sync_runtime_version(root, version_id, load_version_meta(root, version_id), payload)
+    return payload
+
+
+def repair_identifier_drift(root: Path, config: dict[str, str], runtime: dict[str, object], check: bool) -> tuple[dict[str, str], dict[str, object], list[str]]:
+    actions: list[str] = []
+    version_map: dict[str, str] = {}
+    versions_root = root / "docs" / "versions" / "active"
+    version_ids = list_existing_versions(root)
+
+    for field in ("current_version",):
+        current_value = str(config.get(field, "")).strip()
+        if current_value and current_value not in version_ids and version_ids:
+            fallback = next((candidate for candidate in runtime.get("active_versions", {}) if candidate in version_ids), version_ids[0])
+            actions.append(f"{'would roll back' if check else 'rolled back'} active version {current_value} -> {fallback}")
+            if not check:
+                config[field] = fallback
+    for field in ("current_version", "executing_version"):
+        current_value = str(runtime.get(field, "")).strip()
+        if current_value and current_value not in version_ids:
+            fallback = ""
+            if field == "current_version" and version_ids:
+                fallback = next((candidate for candidate in runtime.get("active_versions", {}) if candidate in version_ids), version_ids[0])
+            actions.append(
+                f"{'would roll back' if check else 'rolled back'} runtime {field} {current_value} -> {fallback or '(none)'}"
+            )
+            if not check:
+                runtime[field] = fallback
+
+    for version_dir in sorted(path for path in versions_root.iterdir() if path.is_dir()):
+        meta_path = version_dir / "meta.yaml"
+        if not meta_path.exists():
+            continue
+        meta = load_version_meta(root, version_dir.name)
+        old_id = str(meta.get("id", "")).strip()
+        if old_id and old_id != version_dir.name:
+            version_map[old_id] = version_dir.name
+            actions.append(f"{'would repair' if check else 'repaired'} version id {old_id} -> {version_dir.name}")
+            if not check:
+                if str(meta.get("title", "")) == old_id:
+                    meta["title"] = version_dir.name
+                meta["id"] = version_dir.name
+                save_version_meta(root, version_dir.name, meta)
+
+    if version_map:
+        current_version = str(config.get("current_version", ""))
+        executing_version = str(runtime.get("executing_version", ""))
+        if current_version in version_map:
+            config["current_version"] = version_map[current_version]
+        if str(runtime.get("current_version", "")) in version_map:
+            runtime["current_version"] = version_map[str(runtime.get("current_version", ""))]
+        if executing_version in version_map:
+            runtime["executing_version"] = version_map[executing_version]
+
+    for version_dir in sorted(path for path in versions_root.iterdir() if path.is_dir()):
+        if not (version_dir / "meta.yaml").exists():
+            continue
+        version_id = version_dir.name
+        layout = resolve_version_layout(root, version_id, config["language"])
+        requirement_map: dict[str, str] = {}
+        change_map: dict[str, str] = {}
+
+        if layout["requirements_dir"].exists():
+            for requirement_dir in sorted(path for path in layout["requirements_dir"].iterdir() if path.is_dir()):
+                meta_path = requirement_dir / "meta.yaml"
+                if not meta_path.exists():
+                    continue
+                meta = load_item_meta(meta_path)
+                old_id = meta.get("id", "").strip()
+                if old_id and old_id != requirement_dir.name:
+                    requirement_map[old_id] = requirement_dir.name
+                    actions.append(f"{'would repair' if check else 'repaired'} requirement id {old_id} -> {requirement_dir.name}")
+                    if not check:
+                        meta["id"] = requirement_dir.name
+                        save_item_meta(meta_path, meta)
+
+        if layout["changes_dir"].exists():
+            for change_dir in sorted(path for path in layout["changes_dir"].iterdir() if path.is_dir()):
+                meta_path = change_dir / "meta.yaml"
+                if not meta_path.exists():
+                    continue
+                meta = load_item_meta(meta_path)
+                old_id = meta.get("id", "").strip()
+                if old_id and old_id != change_dir.name:
+                    change_map[old_id] = change_dir.name
+                    actions.append(f"{'would repair' if check else 'repaired'} change id {old_id} -> {change_dir.name}")
+                    if not check:
+                        meta["id"] = change_dir.name
+                        save_item_meta(meta_path, meta)
+
+        if requirement_map or change_map:
+            version_meta = load_version_meta(root, version_id)
+            version_meta["requirement_ids"] = remap_identifier_list(list(version_meta.get("requirement_ids", [])), requirement_map)
+            version_meta["change_ids"] = remap_identifier_list(list(version_meta.get("change_ids", [])), change_map)
+            if str(version_meta.get("current_artifact_kind", "")) == "requirement":
+                version_meta["current_artifact_id"] = requirement_map.get(str(version_meta.get("current_artifact_id", "")), str(version_meta.get("current_artifact_id", "")))
+            if str(version_meta.get("current_artifact_kind", "")) in {"change", "plan"}:
+                version_meta["current_artifact_id"] = change_map.get(str(version_meta.get("current_artifact_id", "")), str(version_meta.get("current_artifact_id", "")))
+            version_meta = remap_meta_strings(version_meta, {**requirement_map, **change_map})
+            if not check:
+                save_version_meta(root, version_id, version_meta)
+
+        actual_requirement_ids = []
+        if layout["requirements_dir"].exists():
+            actual_requirement_ids = sorted(path.name for path in layout["requirements_dir"].iterdir() if path.is_dir() and (path / "meta.yaml").exists())
+        actual_change_ids = []
+        if layout["changes_dir"].exists():
+            actual_change_ids = sorted(path.name for path in layout["changes_dir"].iterdir() if path.is_dir() and (path / "meta.yaml").exists())
+
+        if layout["changes_dir"].exists():
+            for change_dir in sorted(path for path in layout["changes_dir"].iterdir() if path.is_dir()):
+                meta_path = change_dir / "meta.yaml"
+                if not meta_path.exists():
+                    continue
+                meta = load_item_meta(meta_path)
+                requirement_ref = meta.get("requirement", "").strip()
+                if requirement_ref in requirement_map:
+                    actions.append(
+                        f"{'would repair' if check else 'repaired'} change requirement link {requirement_ref} -> {requirement_map[requirement_ref]}"
+                    )
+                    if not check:
+                        meta["requirement"] = requirement_map[requirement_ref]
+                        save_item_meta(meta_path, meta)
+                        replace_in_file(change_dir / "change.md", {requirement_ref: requirement_map[requirement_ref]})
+                elif requirement_ref and requirement_ref not in actual_requirement_ids:
+                    actions.append(
+                        f"{'would clear' if check else 'cleared'} missing requirement link {requirement_ref} from change {change_dir.name}"
+                    )
+                    if not check:
+                        meta["requirement"] = "None"
+                        save_item_meta(meta_path, meta)
+                        replace_in_file(change_dir / "change.md", {requirement_ref: "None"})
+
+        if change_map and layout["requirements_dir"].exists():
+            for requirement_dir in sorted(path for path in layout["requirements_dir"].iterdir() if path.is_dir()):
+                replace_in_file(requirement_dir / "changes.md", change_map)
+
+        version_meta = load_version_meta(root, version_id)
+        tracked_requirements = [item for item in remap_identifier_list(list(version_meta.get("requirement_ids", [])), requirement_map) if item in actual_requirement_ids]
+        tracked_changes = [item for item in remap_identifier_list(list(version_meta.get("change_ids", [])), change_map) if item in actual_change_ids]
+        if tracked_requirements != list(version_meta.get("requirement_ids", [])) or tracked_changes != list(version_meta.get("change_ids", [])):
+            actions.append(f"{'would reconcile' if check else 'reconciled'} deleted requirement/change references for {version_id}")
+            version_meta["requirement_ids"] = tracked_requirements
+            version_meta["change_ids"] = tracked_changes
+
+        current_kind = str(version_meta.get("current_artifact_kind", ""))
+        current_id = str(version_meta.get("current_artifact_id", ""))
+        current_missing = (
+            (current_kind == "requirement" and current_id and current_id not in tracked_requirements)
+            or (current_kind in {"change", "plan"} and current_id and current_id not in tracked_changes)
+            or (str(version_meta.get("stage", "")) in {"plan_review", "ready_for_execution", "executing", "done"} and not tracked_changes)
+            or (not tracked_requirements and not tracked_changes and str(version_meta.get("stage", "")) != "idle")
+        )
+        if current_missing:
+            actions.append(f"{'would roll back' if check else 'rolled back'} workflow state for {version_id} after deleted artifacts")
+            version_meta = fallback_stage_for_artifacts(version_meta, tracked_requirements, tracked_changes)
+
+        if not check:
+            save_version_meta(root, version_id, version_meta)
+
+    if not check:
+        runtime = rebuild_runtime_index(root, runtime)
+    return config, runtime, actions
 
 
 def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
@@ -675,6 +961,12 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
             actions.append("created docs/context/rules/workflow-runtime.yaml")
             runtime = load_runtime(root)
 
+    config, runtime, repair_actions = repair_identifier_drift(root, config, runtime, check)
+    actions.extend(repair_actions)
+    if not check:
+        save_config(root, config)
+        save_runtime(root, runtime)
+
     blockers = workflow_blockers(root, config, runtime)
     for blocker in blockers:
         actions.append(f"workflow action required: {blocker}")
@@ -715,6 +1007,7 @@ def create_version(root: Path, version_name: str) -> int:
     layout["requirements_dir"].mkdir(parents=True, exist_ok=True)
     layout["changes_dir"].mkdir(parents=True, exist_ok=True)
     layout["plans_dir"].mkdir(parents=True, exist_ok=True)
+    layout["archive_dir"].mkdir(parents=True, exist_ok=True)
 
     replacements = {"VERSION_ID": version_id}
     write_if_missing(layout["version_dir"] / "README.md", render_template("version-readme.md.tmpl", repo_name, config["language"], replacements), created, skipped)
@@ -871,6 +1164,185 @@ def create_plan(root: Path, change_name: str) -> int:
     return 0
 
 
+def rename_version(root: Path, current_name: str, new_name: str) -> int:
+    config, runtime = ensure_workflow_state(root)
+    old_id = current_name.strip()
+    new_id = new_name.strip()
+    if not old_id or not new_id:
+        raise SystemExit("Both current and new version names are required.")
+    old_dir = root / "docs" / "versions" / "active" / old_id
+    new_dir = root / "docs" / "versions" / "active" / new_id
+    if not old_dir.exists():
+        raise SystemExit(f"Version does not exist: {old_id}")
+    if new_dir.exists():
+        raise SystemExit(f"Target version already exists: {new_id}")
+
+    shutil.move(str(old_dir), str(new_dir))
+    meta = load_version_meta(root, new_id)
+    meta["id"] = new_id
+    meta["title"] = new_id
+    meta = remap_meta_strings(meta, {old_id: new_id})
+    save_version_meta(root, new_id, meta)
+
+    if str(config.get("current_version", "")) == old_id:
+        config["current_version"] = new_id
+    if str(runtime.get("current_version", "")) == old_id:
+        runtime["current_version"] = new_id
+    if str(runtime.get("executing_version", "")) == old_id:
+        runtime["executing_version"] = new_id
+    save_config(root, config)
+    runtime = rebuild_runtime_index(root, runtime)
+    save_runtime(root, runtime)
+    print(f"Version renamed: {old_id} -> {new_id}")
+    return 0
+
+
+def rename_requirement(root: Path, current_name: str, new_name: str, version_name: str = "") -> int:
+    config, runtime = ensure_workflow_state(root)
+    version_id = version_name.strip() or require_active_version_id(root, config, runtime)
+    layout = resolve_version_layout(root, version_id, config["language"])
+    requirement_dir = resolve_requirement_reference(layout["requirements_dir"], current_name, config["language"])
+    if not requirement_dir:
+        raise SystemExit(f"Requirement does not exist: {current_name}")
+
+    meta_path = requirement_dir / "meta.yaml"
+    item_meta = load_item_meta(meta_path)
+    old_id = item_meta.get("id", requirement_dir.name) or requirement_dir.name
+    old_title = item_meta.get("title", old_id) or old_id
+    new_title, new_id = resolve_title_and_id(new_name, None, None, config["language"])
+    target_dir = layout["requirements_dir"] / new_id
+    if target_dir.exists():
+        raise SystemExit(f"Target requirement already exists: {new_id}")
+
+    shutil.move(str(requirement_dir), str(target_dir))
+    item_meta["id"] = new_id
+    item_meta["title"] = new_title
+    save_item_meta(target_dir / "meta.yaml", item_meta)
+    replace_in_file(target_dir / "requirement.md", {old_title: new_title, old_id: new_id})
+
+    if layout["changes_dir"].exists():
+        for change_dir in sorted(path for path in layout["changes_dir"].iterdir() if path.is_dir()):
+            change_meta_path = change_dir / "meta.yaml"
+            if not change_meta_path.exists():
+                continue
+            change_meta = load_item_meta(change_meta_path)
+            if change_meta.get("requirement", "") == old_id:
+                change_meta["requirement"] = new_id
+                save_item_meta(change_meta_path, change_meta)
+                replace_in_file(change_dir / "change.md", {old_id: new_id, old_title: new_title})
+
+    version_meta = load_version_meta(root, version_id)
+    version_meta["requirement_ids"] = remap_identifier_list(list(version_meta.get("requirement_ids", [])), {old_id: new_id})
+    if str(version_meta.get("current_artifact_kind", "")) == "requirement":
+        version_meta["current_artifact_id"] = {old_id: new_id}.get(str(version_meta.get("current_artifact_id", "")), str(version_meta.get("current_artifact_id", "")))
+    version_meta = remap_meta_strings(version_meta, {old_id: new_id, old_title: new_title})
+    save_version_meta(root, version_id, version_meta)
+    runtime = rebuild_runtime_index(root, runtime)
+    save_runtime(root, runtime)
+    print(f"Requirement renamed: {old_id} -> {new_id}")
+    return 0
+
+
+def rename_change(root: Path, current_name: str, new_name: str, version_name: str = "") -> int:
+    config, runtime = ensure_workflow_state(root)
+    version_id = version_name.strip() or require_active_version_id(root, config, runtime)
+    layout = resolve_version_layout(root, version_id, config["language"])
+    change_dir = resolve_change_reference(layout["changes_dir"], current_name, config["language"])
+    if not change_dir:
+        raise SystemExit(f"Change does not exist: {current_name}")
+
+    meta_path = change_dir / "meta.yaml"
+    item_meta = load_item_meta(meta_path)
+    old_id = item_meta.get("id", change_dir.name) or change_dir.name
+    old_title = item_meta.get("title", old_id) or old_id
+    new_title, new_id = resolve_title_and_id(new_name, None, None, config["language"])
+    target_dir = layout["changes_dir"] / new_id
+    if target_dir.exists():
+        raise SystemExit(f"Target change already exists: {new_id}")
+
+    shutil.move(str(change_dir), str(target_dir))
+    item_meta["id"] = new_id
+    item_meta["title"] = new_title
+    save_item_meta(target_dir / "meta.yaml", item_meta)
+    replace_in_file(target_dir / "change.md", {old_title: new_title, old_id: new_id})
+
+    requirement_ref = item_meta.get("requirement", "").strip()
+    if requirement_ref:
+        requirement_dir = resolve_requirement_reference(layout["requirements_dir"], requirement_ref, config["language"])
+        if requirement_dir:
+            replace_in_file(requirement_dir / "changes.md", {old_id: new_id, old_title: new_title})
+
+    version_meta = load_version_meta(root, version_id)
+    version_meta["change_ids"] = remap_identifier_list(list(version_meta.get("change_ids", [])), {old_id: new_id})
+    if str(version_meta.get("current_artifact_kind", "")) in {"change", "plan"}:
+        version_meta["current_artifact_id"] = {old_id: new_id}.get(str(version_meta.get("current_artifact_id", "")), str(version_meta.get("current_artifact_id", "")))
+    version_meta = remap_meta_strings(version_meta, {old_id: new_id, old_title: new_title})
+    save_version_meta(root, version_id, version_meta)
+    runtime = rebuild_runtime_index(root, runtime)
+    save_runtime(root, runtime)
+    print(f"Change renamed: {old_id} -> {new_id}")
+    return 0
+
+
+def archive_requirement(root: Path, requirement_name: str, version_name: str = "") -> int:
+    config, runtime = ensure_workflow_state(root)
+    version_id = version_name.strip() or require_active_version_id(root, config, runtime)
+    layout = resolve_version_layout(root, version_id, config["language"])
+    requirement_dir = resolve_requirement_reference(layout["requirements_dir"], requirement_name, config["language"])
+    if not requirement_dir:
+        raise SystemExit(f"Requirement does not exist: {requirement_name}")
+
+    requirement_id = requirement_dir.name
+    archive_root = layout["archive_dir"]
+    archive_root.mkdir(parents=True, exist_ok=True)
+    archive_requirement_dir = archive_root / requirement_id
+    if archive_requirement_dir.exists():
+        raise SystemExit(f"Archive target already exists: {archive_requirement_dir}")
+
+    linked_changes: list[Path] = []
+    if layout["changes_dir"].exists():
+        for change_dir in sorted(path for path in layout["changes_dir"].iterdir() if path.is_dir()):
+            change_meta = load_item_meta(change_dir / "meta.yaml")
+            if change_meta.get("requirement", "") == requirement_id:
+                linked_changes.append(change_dir)
+
+    shutil.move(str(requirement_dir), str(archive_root))
+    archived_requirement_dir = archive_root / requirement_id
+    archived_changes_dir = archived_requirement_dir / language_spec(config["language"])["changes_dir"]
+    archived_changes_dir.mkdir(parents=True, exist_ok=True)
+    archived_change_ids: list[str] = []
+    for change_dir in linked_changes:
+        archived_change_ids.append(change_dir.name)
+        shutil.move(str(change_dir), str(archived_changes_dir))
+
+    version_meta = load_version_meta(root, version_id)
+    version_meta["requirement_ids"] = [item for item in remap_identifier_list(list(version_meta.get("requirement_ids", [])), {}) if item != requirement_id]
+    version_meta["change_ids"] = [item for item in remap_identifier_list(list(version_meta.get("change_ids", [])), {}) if item not in archived_change_ids]
+    current_kind = str(version_meta.get("current_artifact_kind", ""))
+    current_id = str(version_meta.get("current_artifact_id", ""))
+    if (current_kind == "requirement" and current_id == requirement_id) or (
+        current_kind in {"change", "plan"} and current_id in archived_change_ids
+    ):
+        version_meta["current_artifact_kind"] = ""
+        version_meta["current_artifact_id"] = ""
+        version_meta["current_task"] = "Archived completed work. Select the next active requirement or change."
+        version_meta["next_action"] = "Run `harness status` to review remaining active work, or create a new requirement."
+    if not version_meta["requirement_ids"] and not version_meta["change_ids"] and str(version_meta.get("stage", "")) not in {"executing", "done"}:
+        version_meta["stage"] = "idle"
+        version_meta["status"] = "in_progress"
+        version_meta["current_task"] = "Create or review the next requirement"
+        version_meta["next_action"] = "Run `harness requirement <title>` to begin requirement drafting."
+        version_meta["suggested_skill"] = ""
+        version_meta["assistant_prompt"] = ""
+        version_meta["approval_required"] = False
+    save_version_meta(root, version_id, version_meta)
+    runtime = rebuild_runtime_index(root, runtime)
+    save_runtime(root, runtime)
+    print(f"Archived requirement: {requirement_id}")
+    print(f"Archive path: {archived_requirement_dir}")
+    return 0
+
+
 def set_active_version(root: Path, version_name: str) -> int:
     config, runtime = ensure_workflow_state(root)
     version_id = version_name.strip()
@@ -990,6 +1462,18 @@ def main() -> int:
     version_parser.add_argument("--root", default=".", help="Repository root.")
     version_parser.add_argument("--id", dest="id_flag", help="Legacy version id flag.")
 
+    archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement and its linked changes inside a version.")
+    archive_parser.add_argument("requirement", help="Requirement title or id.")
+    archive_parser.add_argument("--root", default=".", help="Repository root.")
+    archive_parser.add_argument("--version", default="", help="Optional explicit version name.")
+
+    rename_parser = subparsers.add_parser("rename", help="Rename a version, requirement, or change.")
+    rename_parser.add_argument("kind", choices=["version", "requirement", "change"], help="Artifact kind.")
+    rename_parser.add_argument("current", help="Current title or id.")
+    rename_parser.add_argument("new", help="New title or id.")
+    rename_parser.add_argument("--root", default=".", help="Repository root.")
+    rename_parser.add_argument("--version", default="", help="Optional explicit version name for requirement/change renames.")
+
     args = parser.parse_args()
     root = Path(args.root).resolve()
 
@@ -1023,6 +1507,14 @@ def main() -> int:
         if not version_name:
             raise SystemExit("A version name is required.")
         return create_version(root, version_name)
+    if args.command == "archive":
+        return archive_requirement(root, args.requirement, version_name=args.version)
+    if args.command == "rename":
+        if args.kind == "version":
+            return rename_version(root, args.current, args.new)
+        if args.kind == "requirement":
+            return rename_requirement(root, args.current, args.new, version_name=args.version)
+        return rename_change(root, args.current, args.new, version_name=args.version)
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

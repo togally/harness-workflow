@@ -13,6 +13,7 @@ This repository uses the Harness workflow for agent collaboration.
 7. Read `docs/context/rules/agent-workflow.md` and `docs/context/rules/development-flow.md`
 8. Read `docs/context/project/project-overview.md` and `docs/context/team/development-standards.md` as needed
 9. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask for repair instead of improvising a manual fallback flow
+10. Before each stage starts a concrete task, re-index experience; after each stage completes, check whether new lessons should be captured or fused
 
 ## Main Entry
 
@@ -25,6 +26,8 @@ This repository uses the Harness workflow for agent collaboration.
 - `harness requirement "<title>"`
 - `harness change "<title>"`
 - `harness plan "<change>"`
+- `harness rename version|requirement|change "<old>" "<new>"`
+- `harness archive "<requirement>"`
 - `harness update`
 
 If workflow state is missing or inconsistent, stop and require `harness active "<version>"` or restoration of the missing workflow files before continuing.

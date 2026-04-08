@@ -65,6 +65,8 @@ harness requirement "在线健康服务"
 harness change "在线问诊预约" --requirement "在线健康服务"
 harness change "修复登录按钮样式"
 harness plan "在线问诊预约"
+harness rename requirement "在线健康服务" "无人机任务编排"
+harness archive "无人机任务编排"
 harness active "v1.0.0"
 harness status
 harness next
@@ -85,6 +87,8 @@ harness next --execute
 - `change` 可以独立存在，不要求必须挂 requirement
 - `context/` 仍然是仓库级知识库，不归属某个 version
 - `harness active "<version>"` 用于显式修复或切换当前活动 version
+- `harness rename` 用于正式重命名 version / requirement / change，并同步元数据与主要引用
+- `harness archive` 用于把某个已完成 requirement 及其 linked changes 归档到当前 version 的归档目录中
 
 开始任何 requirement、change、plan 或执行前，先做这一步：
 
@@ -92,7 +96,8 @@ harness next --execute
 2. 找到 `current_version`
 3. 读取该 version 的 `meta.yaml`
 4. 确认当前 `stage`、`current_task`、`next_action`
-5. 如果 `suggested_skill` 非空，优先按它组织协作
+5. 索引 `docs/context/experience/index.md`，加载与当前任务最相关的成熟经验
+6. 如果 `suggested_skill` 非空，优先按它组织协作
 
 如果出现以下任一情况，必须立即停止，不允许绕过工作流继续推进：
 
@@ -109,6 +114,7 @@ harness next --execute
 ### 规则驱动协作流
 
 `harness` 当前不是直接替你调用 superpowers，而是把“现在该用哪个 skill、该做什么、是否要停下来审核”写进 version 状态。
+另外有一条默认经验规则：每个阶段开始执行具体任务前，都先索引经验；每个阶段完成后，都要检查是否有经验值得沉淀，成熟经验应主动融合进当前 requirement/change/plan/execution。
 
 关键文件：
 
@@ -138,10 +144,46 @@ harness next --execute
 
 - `harness use "<version>"`：切换当前 version
 - `harness active "<version>"`：显式设置当前活动 version，修复 runtime/config 路由
+- `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据与主要引用
+- `harness archive "<requirement>"`：将某个 requirement 及其 linked changes 归档到当前 version 的 `archive/` 或 `归档/`
 - `harness status`：查看当前运行态与建议 skill
 - `harness next`：按当前状态推进下一步
 - `harness ff`：跳过中间讨论阶段，直接到执行前确认
 - `harness next --execute`：在 `ready_for_execution` 阶段确认执行
+
+### 归档与改名维护
+
+推荐优先使用正式命令：
+
+```bash
+harness rename version "v1.0.0" "release-1"
+harness rename requirement "online-health-service" "customer-health-service"
+harness rename change "online-booking" "customer-booking"
+harness archive "customer-health-service"
+```
+
+归档规则：
+
+- 归档是 version 内部行为，不是把整个 version 挪到 `docs/versions/archive/`
+- 归档后结构会变成 `当前 version/archive/<requirement>/changes/<change>/...`
+- requirement 原目录会被清理
+- 与该 requirement 关联的 change 及其 `plan.md`、`design.md`、`acceptance.md`、`session-memory.md` 会一起移入归档目录
+- version `meta.yaml` 里的 `requirement_ids`、`change_ids` 和当前焦点状态会同步清理
+
+改名维护规则：
+
+- 想完整改名时，优先用 `harness rename`
+- 如果你手动改了 version / requirement / change 文件夹名，再执行 `harness update`
+- 如果你删除了 version / requirement / change，再执行 `harness update`
+- `harness update` 会尽量修复：
+  - version `meta.yaml`
+  - requirement / change `meta.yaml`
+  - runtime/config 中的当前 version 路由
+  - change 对 requirement 的元数据引用
+- `harness update` 也会在删除后回退状态：
+  - 当前 version 被删时，回退到仍然存在的活动 version
+  - 当前 requirement / change / plan 被删时，回退到仍然存在的 requirement / change，或回退到 `idle`
+- `harness update` 不会替你重写整篇业务文档正文，因此手工改名后仍建议人工快速复查文档标题和描述
 
 ### 升级指南
 
@@ -187,6 +229,7 @@ harness update --force-managed
 - 根据当前语言配置同步受管模板与入口文件
 - 跳过你已经修改过的受管文件，除非显式使用 `--force-managed`
 - 检查活动 version 路由是否完整；若缺失或冲突，会提示你先运行 `harness active "<version>"`
+- 修复因手工改 version / requirement / change 文件夹名导致的常见元数据漂移
 
 ### 业务流图
 
@@ -222,10 +265,11 @@ docs/
 │   │   └── v1.0.0/
 │   │       ├── README.md
 │   │       ├── version-memory.md / 版本记忆.md
+│   │       ├── archive/ 或 归档/
 │   │       ├── requirements/ 或 需求/
 │   │       ├── changes/ 或 变更/
 │   │       └── plans/ 或 计划/
-│   └── archive/
+│   └── archive/                     # 整个 version 的仓库级归档位
 ├── decisions/
 ├── runbooks/
 └── templates/
@@ -287,6 +331,8 @@ harness requirement "Online Health Service"
 harness change "Online Booking" --requirement "online-health-service"
 harness change "Quick Login UI Fix"
 harness plan "Online Booking"
+harness rename requirement "Online Health Service" "Customer Health Service"
+harness archive "Customer Health Service"
 harness active "v1.0.0"
 harness status
 harness next
@@ -307,9 +353,13 @@ Key rules:
 - changes may exist without a requirement
 - `docs/context/` stays repository-level and should not be version-scoped
 - `harness active "<version>"` explicitly repairs or switches the active version route
+- `harness rename` is the preferred way to rename a version, requirement, or change
+- `harness archive` archives one completed requirement and its linked changes inside the current version
 - before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
 - then read the current version `meta.yaml` before deciding the next action
 - `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
+- before each stage-level task, re-index `docs/context/experience/index.md` and load mature lessons relevant to the task
+- after each stage-level task, capture new lessons and fuse mature experience into the current work when applicable
 
 If any workflow state is missing or inconsistent, stop immediately and do not improvise a manual fallback workflow:
 
@@ -333,10 +383,46 @@ Command roles:
 
 - `harness use "<version>"`
 - `harness active "<version>"`
+- `harness rename version|requirement|change "<old>" "<new>"`
+- `harness archive "<requirement>"`
 - `harness status`
 - `harness next`
 - `harness ff`
 - `harness next --execute`
+
+### Archive And Rename Maintenance
+
+Preferred maintenance commands:
+
+```bash
+harness rename version "v1.0.0" "release-1"
+harness rename requirement "online-health-service" "customer-health-service"
+harness rename change "online-booking" "customer-booking"
+harness archive "customer-health-service"
+```
+
+Archive behavior:
+
+- archiving happens inside the current version, not by moving the whole version into `docs/versions/archive/`
+- archived output becomes `<current-version>/archive/<requirement>/changes/<change>/...`
+- the original active requirement and linked change folders are removed after archiving
+- linked `plan.md`, `design.md`, `acceptance.md`, and `session-memory.md` move with each archived change
+- version `meta.yaml` is cleaned up so archived requirements and changes no longer appear as active work
+
+Rename maintenance:
+
+- use `harness rename` for a complete rename with metadata updates
+- if you manually rename version / requirement / change folders, run `harness update`
+- if you manually delete version / requirement / change folders, run `harness update`
+- `harness update` repairs common identifier drift in:
+  - version `meta.yaml`
+  - requirement / change `meta.yaml`
+  - runtime/config active-version routing
+  - change-to-requirement metadata links
+- `harness update` also rolls workflow state back after deletions:
+  - if the current version was deleted, it falls back to a remaining active version
+  - if the current requirement / change / plan was deleted, it falls back to the nearest remaining workable stage or to `idle`
+- `harness update` does not rewrite arbitrary business prose, so manually renamed work should still get a quick human review
 
 ### Upgrade
 
@@ -361,6 +447,7 @@ harness update --force-managed
 ```
 
 `harness update` also checks workflow routing integrity. If the active version is missing or inconsistent, it stops with an explicit `harness active "<version>"` repair hint.
+It also repairs common identifier drift after manual folder renames for versions, requirements, and changes.
 
 ### Verify
 

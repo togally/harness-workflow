@@ -4,12 +4,16 @@ import argparse
 from pathlib import Path
 
 from harness_workflow.core import (
+    archive_requirement,
     create_change,
     create_plan,
     create_requirement,
     create_version,
     init_repo,
     install_repo,
+    rename_change,
+    rename_requirement,
+    rename_version,
     set_active_version,
     set_language,
     update_repo,
@@ -87,6 +91,18 @@ def build_parser() -> argparse.ArgumentParser:
     version_parser.add_argument("--root", default=".", help="Repository root.")
     version_parser.add_argument("--id", dest="id_flag", help="Legacy version id flag.")
 
+    archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement and its linked changes inside a version.")
+    archive_parser.add_argument("requirement", help="Requirement title or id.")
+    archive_parser.add_argument("--root", default=".", help="Repository root.")
+    archive_parser.add_argument("--version", default="", help="Optional explicit version name.")
+
+    rename_parser = subparsers.add_parser("rename", help="Rename a version, requirement, or change.")
+    rename_parser.add_argument("kind", choices=["version", "requirement", "change"], help="Artifact kind.")
+    rename_parser.add_argument("current", help="Current title or id.")
+    rename_parser.add_argument("new", help="New title or id.")
+    rename_parser.add_argument("--root", default=".", help="Repository root.")
+    rename_parser.add_argument("--version", default="", help="Optional explicit version name for requirement/change renames.")
+
     return parser
 
 
@@ -127,6 +143,14 @@ def main() -> int:
         if not version_name:
             raise SystemExit("A version name is required.")
         return create_version(root, version_name)
+    if args.command == "archive":
+        return archive_requirement(root, args.requirement, version_name=args.version)
+    if args.command == "rename":
+        if args.kind == "version":
+            return rename_version(root, args.current, args.new)
+        if args.kind == "requirement":
+            return rename_requirement(root, args.current, args.new, version_name=args.version)
+        return rename_change(root, args.current, args.new, version_name=args.version)
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

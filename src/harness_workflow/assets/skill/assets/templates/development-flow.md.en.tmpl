@@ -15,7 +15,8 @@ Before doing any work:
 2. Find `current_version`
 3. Read the current version `meta.yaml`
 4. Confirm `stage`, `status`, and `current_task`
-5. Continue only if the state allows it
+5. Re-index `docs/context/experience/index.md` and load the most relevant mature experience for the current task
+6. Continue only if the state allows it
 
 If `current_version` is missing, version `meta.yaml` is missing, or runtime/config disagree, stop immediately and require `harness active "<version>"` before continuing. Do not bypass workflow with a manual fallback process.
 
@@ -34,6 +35,8 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 - `harness version "<name>"`: create or switch a version and make it current
 - `harness active "<name>"`: explicitly repair or switch the active version route
 - `harness use "<name>"`: switch the current version
+- `harness rename version|requirement|change "<old>" "<new>"`: rename work artifacts while keeping metadata aligned
+- `harness archive "<requirement>"`: archive one completed requirement and its linked changes
 - `harness status`: show current runtime state
 - `harness next`: advance to the next stage
 - `harness next --execute`: confirm execution when already ready
@@ -45,3 +48,4 @@ If `current_version` is missing, version `meta.yaml` is missing, or runtime/conf
 - Do not advance work without a confirmed current version
 - `ff` skips discussion gates, not the final execution confirmation
 - If workflow state is missing, inconsistent, or blocked, the agent must stop and require repair instead of manually simulating the workflow
+- After each stage-level task completes, check whether new lessons should be captured; mature lessons should be fused into `docs/context/experience/` or formal rules

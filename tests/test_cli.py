@@ -164,6 +164,125 @@ class HarnessCliTest(unittest.TestCase):
         change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "quick-login-ui-fix"
         self.assertTrue((change_dir / "change.md").exists())
 
+    def test_archive_moves_requirement_and_linked_changes_into_version_archive(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
+
+        result = self.run_cli("archive", "Online Health Service", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+
+        archive_requirement = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "archive" / "online-health-service"
+        self.assertTrue((archive_requirement / "requirement.md").exists())
+        self.assertTrue((archive_requirement / "changes" / "online-booking" / "plan.md").exists())
+        self.assertFalse((self.repo / "docs" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service").exists())
+        self.assertFalse((self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking").exists())
+        meta = self.read_version_meta("v1.0.0")
+        self.assertNotIn("online-health-service", meta["requirement_ids"])
+        self.assertNotIn("online-booking", meta["change_ids"])
+
+    def test_rename_updates_version_and_requirement_links(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
+
+        version_result = self.run_cli("rename", "version", "v1.0.0", "release-1", "--root", str(self.repo))
+        self.assertEqual(version_result.returncode, 0, msg=version_result.stderr or version_result.stdout)
+        self.assertTrue((self.repo / "docs" / "versions" / "active" / "release-1").exists())
+        self.assertEqual(self.read_runtime()["current_version"], "release-1")
+
+        requirement_result = self.run_cli(
+            "rename",
+            "requirement",
+            "Online Health Service",
+            "Customer Health Service",
+            "--root",
+            str(self.repo),
+        )
+        self.assertEqual(requirement_result.returncode, 0, msg=requirement_result.stderr or requirement_result.stdout)
+        requirement_dir = self.repo / "docs" / "versions" / "active" / "release-1" / "requirements" / "customer-health-service"
+        self.assertTrue((requirement_dir / "requirement.md").exists())
+        self.assertFalse((self.repo / "docs" / "versions" / "active" / "release-1" / "requirements" / "online-health-service").exists())
+        change_meta = (
+            self.repo / "docs" / "versions" / "active" / "release-1" / "changes" / "online-booking" / "meta.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('requirement: "customer-health-service"', change_meta)
+        self.assertIn("customer-health-service", self.read_version_meta("release-1")["requirement_ids"])
+
+    def test_update_repairs_manual_folder_renames(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
+
+        old_version = self.repo / "docs" / "versions" / "active" / "v1.0.0"
+        new_version = self.repo / "docs" / "versions" / "active" / "release-1"
+        shutil.move(str(old_version), str(new_version))
+        shutil.move(
+            str(new_version / "requirements" / "online-health-service"),
+            str(new_version / "requirements" / "customer-health-service"),
+        )
+        shutil.move(
+            str(new_version / "changes" / "online-booking"),
+            str(new_version / "changes" / "customer-booking"),
+        )
+
+        result = self.run_cli("update", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertEqual(self.read_runtime()["current_version"], "release-1")
+        self.assertEqual(self.read_config()["current_version"], "release-1")
+        version_meta = self.read_version_meta("release-1")
+        self.assertEqual(version_meta["id"], "release-1")
+        self.assertIn("customer-health-service", version_meta["requirement_ids"])
+        self.assertIn("customer-booking", version_meta["change_ids"])
+        requirement_meta = (
+            self.repo / "docs" / "versions" / "active" / "release-1" / "requirements" / "customer-health-service" / "meta.yaml"
+        ).read_text(encoding="utf-8")
+        change_meta = (
+            self.repo / "docs" / "versions" / "active" / "release-1" / "changes" / "customer-booking" / "meta.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('id: "customer-health-service"', requirement_meta)
+        self.assertIn('id: "customer-booking"', change_meta)
+        self.assertIn('requirement: "customer-health-service"', change_meta)
+
+    def test_update_rolls_back_when_current_version_directory_is_deleted(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("version", "v1.1.0", "--root", str(self.repo))
+        shutil.rmtree(self.repo / "docs" / "versions" / "active" / "v1.1.0")
+
+        result = self.run_cli("update", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertEqual(self.read_config()["current_version"], "v1.0.0")
+        self.assertEqual(self.read_runtime()["current_version"], "v1.0.0")
+
+    def test_update_rolls_back_deleted_requirement_and_change_state(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
+        self.run_cli("plan", "Online Booking", "--root", str(self.repo))
+
+        shutil.rmtree(self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking")
+        result = self.run_cli("update", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["stage"], "requirement_review")
+        self.assertEqual(meta["current_artifact_kind"], "requirement")
+        self.assertEqual(meta["current_artifact_id"], "online-health-service")
+        self.assertNotIn("online-booking", meta["change_ids"])
+
+        shutil.rmtree(self.repo / "docs" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service")
+        result = self.run_cli("update", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["stage"], "idle")
+        self.assertEqual(meta["current_artifact_kind"], "")
+        self.assertEqual(meta["current_artifact_id"], "")
+        self.assertEqual(meta["requirement_ids"], [])
+
     def test_update_check_and_apply_refresh_skills_and_missing_files(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
         session_memory = self.repo / "docs" / "templates" / "session-memory.md"

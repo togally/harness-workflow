@@ -28,6 +28,10 @@ Use these subcommands conceptually:
    Create one concrete, independently deliverable change.
 7. `harness plan <change>`
    Use `writing-plans` to turn one change into a model-executable implementation plan.
+8. `harness rename <kind> <old> <new>`
+   Rename a version, requirement, or change while keeping metadata aligned.
+9. `harness archive <requirement>`
+   Move one completed requirement and its linked changes into the current version archive.
 
 Default rule: do not go from large requirement directly into implementation. Split into `change` first.
 
@@ -57,6 +61,7 @@ If workflow state is missing or inconsistent, stop immediately instead of improv
 - a blocked stage with no confirmed next action
 
 In those cases, direct the developer to repair the route with `harness active "<version>"` or restore the missing workflow files before continuing.
+If the developer wants to rename folders, prefer `harness rename` over manual moves. If manual folder renames already happened, run `harness update` to repair identifier drift before continuing.
 
 ## Built-In Lesson Capture
 
@@ -75,6 +80,7 @@ Default write locations:
 - reusable indexed lessons: `docs/context/experience/`
 
 Use `session-memory.md` as the first landing zone. Promote only validated lessons into indexed experience.
+Before each stage starts a concrete task, re-index relevant experience. After each stage completes, capture new lessons and fuse mature experience back into the current requirement, change, plan, or execution approach when useful.
 
 ## Trigger Hints
 

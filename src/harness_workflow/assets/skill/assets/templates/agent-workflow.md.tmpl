@@ -12,6 +12,7 @@
 6. 如果匹配到经验条目，按需加载对应经验文件，不要全量加载
 7. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
 8. 如果是恢复会话，继续读取当前 change 目录下的 `session-memory.md`、需求、设计与计划文件
+9. 在每个阶段开始执行具体任务前，都先重新索引 `docs/context/experience/index.md` 与当前任务相关经验，确认是否有可直接复用或可融合的成熟经验
 
 禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，必须立即停止并提示用户先修复 workflow 状态，不允许手工拼装一个“类似流程”继续推进。
@@ -33,6 +34,7 @@
 13. 执行验证
 14. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
 15. 当 workflow 状态缺失或冲突时，停止执行并要求用户运行 `harness active "<version>"` 或修复缺失文件
+16. 每个阶段的任务执行完成后，主动复盘本阶段新增经验，先沉淀到 `session-memory.md`；若已足够成熟，再融合进 `docs/context/experience/` 或正式规则
 
 ## 3. Harness 生命周期
 
@@ -64,3 +66,4 @@
 - 被纠正时，优先记录“现象 / 原因 / 修正”
 - 走不通的路必须记录，至少写明“尝试了什么、为什么失败、暂时不要再怎么做”
 - 新经验先作为候选沉淀到工作记忆，重复验证后再升级到 `docs/context/experience/`
+- 在 requirement、change、plan、execution 每个阶段开始前，都先索引经验；阶段完成后，都要判断是否需要沉淀或融合成熟经验
