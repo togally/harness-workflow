@@ -10,6 +10,8 @@
 4. 仅按关键词加载命中的经验文件，不全量读取 `docs/context/experience/`
 5. 详细执行流程请读取 `docs/context/rules/agent-workflow.md`
 6. 如需了解项目事实或开发规范，继续读取 `docs/context/project/仓库概览.md` 与 `docs/context/team/开发规范.md`
+7. 当任务过程中出现纠错、失败方案或新约束时，先更新当前 change 的 `session-memory.md`
+8. 任务完成前，主动判断是否需要将稳定经验沉淀到 `docs/context/experience/`
 
 ## 关键入口
 
@@ -35,3 +37,4 @@
 
 - 若仓库提供文档流程 lint，先执行 lint
 - 在声称完成前执行项目现有的测试、构建或校验命令
+- 如果任务产生了可复用经验或明确失败路径，同步补充工作记忆或经验索引

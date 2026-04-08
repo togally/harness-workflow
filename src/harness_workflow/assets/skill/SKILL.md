@@ -8,7 +8,7 @@ description: "Use when Codex needs to operate a repository with a Harness Engine
 ## Overview
 
 Operate a repository through explicit work artifacts instead of ad-hoc chat.
-Use this skill to initialize a harness-enabled repository and then drive work through `requirement -> change -> plan -> execution -> version`.
+Use this skill to initialize a harness-enabled repository and then drive work through `requirement -> change -> plan -> execution -> version`, while capturing lessons during execution so the next session starts smarter.
 
 ## Command Model
 
@@ -26,6 +26,24 @@ Use these subcommands conceptually:
    Snapshot current harness artifacts into a version directory.
 
 Default rule: do not go from large requirement directly into implementation. Split into `change` first.
+
+## Built-In Lesson Capture
+
+Harness includes experience accumulation by default. Do not treat this as a separate workflow.
+
+Capture lessons in these moments:
+
+- when the developer corrects the agent,
+- when a technical constraint or hidden rule is discovered,
+- when a path fails and should not be retried blindly,
+- when a change is finishing and reusable lessons should be promoted.
+
+Default write locations:
+
+- current-task notes and failed paths: `docs/changes/active/<change-id>/session-memory.md`
+- reusable indexed lessons: `docs/context/experience/`
+
+Use `session-memory.md` as the first landing zone. Promote only validated lessons into indexed experience.
 
 ## Trigger Hints
 
@@ -100,6 +118,7 @@ This creates a change workspace containing:
 If the change belongs to a requirement, link it from the requirement's `changes.md`.
 
 Each `change` should be independently plannable and independently verifiable.
+Each `change` should also accumulate execution knowledge in `session-memory.md`, including what did not work.
 
 ## Harness Plan
 
@@ -143,6 +162,8 @@ Detailed rules belong in:
 - `docs/context/rules/risk-rules.md`
 - `docs/context/project/仓库概览.md`
 - `docs/context/team/开发规范.md`
+
+Root guides should also remind the agent to read indexed experience before working and to update working memory when new lessons appear.
 
 ## Validate
 

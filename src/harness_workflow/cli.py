@@ -10,6 +10,7 @@ from harness_workflow.core import (
     create_version,
     init_repo,
     install_repo,
+    update_repo,
 )
 
 
@@ -25,6 +26,15 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--root", default=".", help="Repository root.")
     init_parser.add_argument("--write-agents", action="store_true", help="Create AGENTS.md if missing.")
     init_parser.add_argument("--write-claude", action="store_true", help="Create CLAUDE.md if missing.")
+
+    update_parser = subparsers.add_parser("update", help="Refresh harness-managed files in the current repository.")
+    update_parser.add_argument("--root", default=".", help="Repository root.")
+    update_parser.add_argument("--check", action="store_true", help="Show what would change without writing files.")
+    update_parser.add_argument(
+        "--force-managed",
+        action="store_true",
+        help="Overwrite managed files even if they were modified locally.",
+    )
 
     req_parser = subparsers.add_parser("requirement", help="Create a requirement workspace.")
     req_parser.add_argument("--root", default=".", help="Repository root.")
@@ -57,6 +67,8 @@ def main() -> int:
         return install_repo(root, force_skill=args.force_skill)
     if args.command == "init":
         return init_repo(root, args.write_agents, args.write_claude)
+    if args.command == "update":
+        return update_repo(root, check=args.check, force_managed=args.force_managed)
     if args.command == "requirement":
         return create_requirement(root, args.id, args.title)
     if args.command == "change":
