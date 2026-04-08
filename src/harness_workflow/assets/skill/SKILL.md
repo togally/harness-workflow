@@ -1,6 +1,6 @@
 ---
 name: harness
-description: "Use when Codex needs to operate a repository with a Harness Engineering workflow: initialize the repo, create requirements, split work into changes, prepare model-executable plans, snapshot versions, and enforce AGENTS.md or CLAUDE.md routing plus docs-based execution rules. Triggers include requests like 新建需求, 拆分功能点, 创建 change, 制定计划, 归档版本, 初始化 harness 仓库, or requirement/change/version planning."
+description: "Use when Codex needs to operate a repository with a Harness Engineering workflow: initialize the repo, switch language profiles, create version containers, place requirements and changes under the active version, prepare model-executable plans, and enforce AGENTS.md or CLAUDE.md routing plus docs-based execution rules."
 ---
 
 # Harness
@@ -8,7 +8,7 @@ description: "Use when Codex needs to operate a repository with a Harness Engine
 ## Overview
 
 Operate a repository through explicit work artifacts instead of ad-hoc chat.
-Use this skill to initialize a harness-enabled repository and then drive work through `requirement -> change -> plan -> execution -> version`, while capturing lessons during execution so the next session starts smarter.
+Use this skill to initialize a harness-enabled repository and then drive work through `language -> version -> requirement/change -> plan -> execution`, while capturing lessons during execution so the next session starts smarter.
 
 ## Command Model
 
@@ -16,14 +16,16 @@ Use these subcommands conceptually:
 
 1. `harness init`
    Initialize the repository structure, root guides, docs entrypoints, templates, and lint checks.
-2. `harness requirement <topic>`
-   Create a requirement workspace, then use `brainstorming` with the developer to refine the requirement and split it into multiple `change` units.
-3. `harness change <topic>`
+2. `harness language <english|cn>`
+   Switch the repository language profile for generated templates and localized artifact directories.
+3. `harness version <name>`
+   Create or switch the active version container.
+4. `harness requirement <title>`
+   Create a requirement inside the active version, then use `brainstorming` with the developer to refine it and split it into multiple `change` units.
+5. `harness change <title>`
    Create one concrete, independently deliverable change.
-4. `harness plan <change-id>`
+6. `harness plan <change>`
    Use `writing-plans` to turn one change into a model-executable implementation plan.
-5. `harness version <version-id>`
-   Snapshot current harness artifacts into a version directory.
 
 Default rule: do not go from large requirement directly into implementation. Split into `change` first.
 
@@ -40,7 +42,7 @@ Capture lessons in these moments:
 
 Default write locations:
 
-- current-task notes and failed paths: `docs/changes/active/<change-id>/session-memory.md`
+- current-task notes and failed paths: `docs/versions/active/<version-id>/<changes-dir>/<change-id>/session-memory.md`
 - reusable indexed lessons: `docs/context/experience/`
 
 Use `session-memory.md` as the first landing zone. Promote only validated lessons into indexed experience.
@@ -54,7 +56,8 @@ Prefer this skill when the user is asking for any of these actions:
 - split a requirement into multiple changes
 - create one concrete change
 - prepare a change plan before implementation
-- snapshot or archive a version
+- create or switch an active version
+- switch repository language between English and Chinese
 
 Typical user wording includes:
 
@@ -62,7 +65,8 @@ Typical user wording includes:
 - “拆成几个功能点”
 - “创建 change”
 - “给这个 change 做计划”
-- “归档到某个版本”
+- “切到中文模板”
+- “切到某个版本”
 - “初始化 harness 仓库”
 
 ## Harness Init
@@ -76,24 +80,37 @@ python3 scripts/harness.py init --root /path/to/repo --write-agents --write-clau
 This should create:
 
 - thin `AGENTS.md` and `CLAUDE.md`
-- `docs/context/`, `docs/memory/`, `docs/requirements/`, `docs/changes/`, `docs/plans/`, `docs/versions/`
+- `docs/context/`, `docs/memory/`, `docs/versions/`, and reusable `docs/templates/`
 - templates for requirements, changes, plans, acceptance, and session memory
 - repository lint helper
+- repository config at `.codex/harness/config.json`
 
 For repositories that already have `doc/`, bridge legacy documents instead of forcing an immediate rename.
 
 ## Harness Requirement
 
+Before creating requirements or changes, create or switch a version:
+
+```bash
+python3 scripts/harness.py version "v1.0.0" --root /path/to/repo
+```
+
+Optionally switch language:
+
+```bash
+python3 scripts/harness.py language cn --root /path/to/repo
+```
+
 Create a requirement workspace with:
 
 ```bash
-python3 scripts/harness.py requirement --root /path/to/repo --id <requirement-id> --title "<title>"
+python3 scripts/harness.py requirement "Online Health Service" --root /path/to/repo
 ```
 
 Then:
 
 1. Use `brainstorming` to refine the requirement with the developer.
-2. Write the result into `docs/requirements/active/<requirement-id>/requirement.md`.
+2. Write the result into the active version requirement container.
 3. Split the requirement into multiple `change` units in `changes.md`.
 
 Use requirement workspaces for themes, not for single-file tweaks.
@@ -103,7 +120,7 @@ Use requirement workspaces for themes, not for single-file tweaks.
 Create one concrete change with:
 
 ```bash
-python3 scripts/harness.py change --root /path/to/repo --id <change-id> --title "<title>" [--requirement <requirement-id>]
+python3 scripts/harness.py change "Online Booking" --root /path/to/repo [--requirement <requirement-title-or-id>]
 ```
 
 This creates a change workspace containing:
@@ -115,7 +132,8 @@ This creates a change workspace containing:
 - `session-memory.md`
 - `meta.yaml`
 
-If the change belongs to a requirement, link it from the requirement's `changes.md`.
+If the change belongs to a requirement, link it from that requirement's `changes.md`.
+If not, it can stand alone inside the active version.
 
 Each `change` should be independently plannable and independently verifiable.
 Each `change` should also accumulate execution knowledge in `session-memory.md`, including what did not work.
@@ -141,15 +159,14 @@ For non-trivial execution, use `subagent-driven-development` or `executing-plans
 
 ## Harness Version
 
-Freeze a version snapshot with:
+Create or switch an active version container with:
 
 ```bash
-python3 scripts/harness.py version --root /path/to/repo --id <version-id>
+python3 scripts/harness.py version "v1.0.0" --root /path/to/repo
 ```
 
-This should archive current harness artifacts into `docs/versions/<version-id>/snapshot/`.
-
-Use versions for release-style snapshots, not for every micro-step.
+This should create `requirements`, `changes`, and `plans` containers under the active version.
+Use versions as the main work container, while `docs/context/` remains repository-level knowledge.
 
 ## Root Guides
 
@@ -160,8 +177,8 @@ Detailed rules belong in:
 
 - `docs/context/rules/agent-workflow.md`
 - `docs/context/rules/risk-rules.md`
-- `docs/context/project/仓库概览.md`
-- `docs/context/team/开发规范.md`
+- `docs/context/project/project-overview.md`
+- `docs/context/team/development-standards.md`
 
 Root guides should also remind the agent to read indexed experience before working and to update working memory when new lessons appear.
 

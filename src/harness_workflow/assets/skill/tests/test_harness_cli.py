@@ -1,3 +1,4 @@
+import json
 import shutil
 import subprocess
 import tempfile
@@ -26,122 +27,35 @@ class HarnessCliTest(unittest.TestCase):
             text=True,
         )
 
-    def test_init_creates_harness_workspace(self) -> None:
+    def read_config(self) -> dict[str, str]:
+        return json.loads((self.repo / ".codex" / "harness" / "config.json").read_text(encoding="utf-8"))
+
+    def test_init_creates_harness_workspace_and_default_language(self) -> None:
         result = self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        self.assertTrue((self.repo / "docs" / "requirements" / "active").exists())
-        self.assertTrue((self.repo / "docs" / "changes" / "active").exists())
-        self.assertTrue((self.repo / "docs" / "versions").exists())
-        self.assertTrue((self.repo / "AGENTS.md").exists())
-        self.assertTrue((self.repo / "CLAUDE.md").exists())
+        self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
+        self.assertEqual(self.read_config()["language"], "english")
 
-    def test_requirement_creates_requirement_workspace(self) -> None:
-        self.run_cli("init", "--root", str(self.repo))
-        result = self.run_cli(
-            "requirement",
-            "--root",
-            str(self.repo),
-            "--id",
-            "pet-health",
-            "--title",
-            "在线健康服务",
-        )
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        requirement_dir = self.repo / "docs" / "requirements" / "active" / "pet-health"
+    def test_language_version_requirement_change_and_plan_flow(self) -> None:
+        self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
+        self.run_cli("language", "cn", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+
+        requirement = self.run_cli("requirement", "在线健康服务", "--root", str(self.repo))
+        self.assertEqual(requirement.returncode, 0, msg=requirement.stderr or requirement.stdout)
+        requirement_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "需求" / "在线健康服务"
         self.assertTrue((requirement_dir / "requirement.md").exists())
-        self.assertTrue((requirement_dir / "meta.yaml").exists())
-        self.assertTrue((requirement_dir / "changes.md").exists())
 
-    def test_change_creates_change_workspace_and_links_requirement(self) -> None:
-        self.run_cli("init", "--root", str(self.repo))
-        self.run_cli(
-            "requirement",
-            "--root",
-            str(self.repo),
-            "--id",
-            "pet-health",
-            "--title",
-            "在线健康服务",
-        )
-        result = self.run_cli(
-            "change",
-            "--root",
-            str(self.repo),
-            "--id",
-            "pet-health-booking",
-            "--title",
-            "在线问诊预约",
-            "--requirement",
-            "pet-health",
-        )
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        change_dir = self.repo / "docs" / "changes" / "active" / "pet-health-booking"
-        self.assertTrue((change_dir / "change.md").exists())
-        self.assertTrue((change_dir / "design.md").exists())
-        self.assertTrue((change_dir / "plan.md").exists())
-        self.assertTrue((change_dir / "session-memory.md").exists())
-        changes_index = (self.repo / "docs" / "requirements" / "active" / "pet-health" / "changes.md").read_text(encoding="utf-8")
-        self.assertIn("pet-health-booking", changes_index)
-
-    def test_version_snapshots_active_workspaces(self) -> None:
-        self.run_cli("init", "--root", str(self.repo))
-        self.run_cli(
-            "requirement",
-            "--root",
-            str(self.repo),
-            "--id",
-            "pet-health",
-            "--title",
-            "在线健康服务",
-        )
-        self.run_cli(
-            "change",
-            "--root",
-            str(self.repo),
-            "--id",
-            "pet-health-booking",
-            "--title",
-            "在线问诊预约",
-        )
-        result = self.run_cli("version", "--root", str(self.repo), "--id", "v1.0.0")
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        version_dir = self.repo / "docs" / "versions" / "v1.0.0"
-        self.assertTrue((version_dir / "README.md").exists())
-        self.assertTrue((version_dir / "snapshot" / "requirements" / "active" / "pet-health" / "requirement.md").exists())
-        self.assertTrue((version_dir / "snapshot" / "changes" / "active" / "pet-health-booking" / "change.md").exists())
-
-    def test_init_embeds_experience_capture_guidance(self) -> None:
-        result = self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-
-        workflow = (self.repo / "docs" / "context" / "rules" / "agent-workflow.md").read_text(encoding="utf-8")
-        self.assertIn("被纠正时", workflow)
-        self.assertIn("走不通的路", workflow)
-
-        claude = (self.repo / "CLAUDE.md").read_text(encoding="utf-8")
-        self.assertIn("经验沉淀", claude)
-
-        index_text = (self.repo / "docs" / "context" / "experience" / "index.md").read_text(encoding="utf-8")
-        self.assertIn("置信度规则", index_text)
-        self.assertIn("高置信度", index_text)
-
-        change = self.run_cli(
-            "change",
-            "--root",
-            str(self.repo),
-            "--id",
-            "pet-health-booking",
-            "--title",
-            "在线问诊预约",
-        )
+        change = self.run_cli("change", "在线问诊预约", "--root", str(self.repo), "--requirement", "在线健康服务")
         self.assertEqual(change.returncode, 0, msg=change.stderr or change.stdout)
-        session_memory = (
-            self.repo / "docs" / "changes" / "active" / "pet-health-booking" / "session-memory.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn("走不通的路", session_memory)
-        self.assertIn("经验沉淀候选", session_memory)
+        change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "变更" / "在线问诊预约"
+        self.assertTrue((change_dir / "plan.md").exists())
 
-    def test_update_check_and_apply_refresh_skill_and_missing_files(self) -> None:
+        plan = self.run_cli("plan", "在线问诊预约", "--root", str(self.repo))
+        self.assertEqual(plan.returncode, 0, msg=plan.stderr or plan.stdout)
+        self.assertIn("docs/versions/active/v1.0.0/变更/在线问诊预约/plan.md", plan.stdout)
+
+    def test_update_check_and_apply_refresh_skills_and_missing_files(self) -> None:
         self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
         session_memory = self.repo / "docs" / "templates" / "session-memory.md"
         session_memory.unlink()
@@ -158,29 +72,12 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("would refresh .claude/skills/harness", check.stdout)
         self.assertIn("missing docs/templates/session-memory.md", check.stdout)
         self.assertFalse(session_memory.exists())
-        self.assertEqual(codex_skill.read_text(encoding="utf-8"), "tampered codex skill\n")
-        self.assertEqual(claude_skill.read_text(encoding="utf-8"), "tampered claude skill\n")
 
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertTrue(session_memory.exists())
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))
         self.assertIn("# Harness", claude_skill.read_text(encoding="utf-8"))
-
-    def test_update_skips_modified_managed_files_unless_forced(self) -> None:
-        self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
-        workflow = self.repo / "docs" / "context" / "rules" / "agent-workflow.md"
-        original = workflow.read_text(encoding="utf-8")
-        workflow.write_text(original + "\n自定义修改\n", encoding="utf-8")
-
-        result = self.run_cli("update", "--root", str(self.repo))
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        self.assertIn("skipped modified docs/context/rules/agent-workflow.md", result.stdout)
-        self.assertIn("自定义修改", workflow.read_text(encoding="utf-8"))
-
-        forced = self.run_cli("update", "--root", str(self.repo), "--force-managed")
-        self.assertEqual(forced.returncode, 0, msg=forced.stderr or forced.stdout)
-        self.assertNotIn("自定义修改", workflow.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

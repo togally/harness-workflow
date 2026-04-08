@@ -1,0 +1,31 @@
+# Agent Workflow
+
+## 1. Context Loading
+
+Before starting work in a new session:
+
+1. Read `docs/memory/constitution.md`
+2. Read `docs/context/experience/index.md`
+3. Read `docs/context/rules/risk-rules.md`
+4. Load only matching experience files
+5. Read more project context only when needed
+6. If resuming a version/change, read the relevant `session-memory.md`
+
+Do not bulk-load the whole `docs/context/` tree.
+
+## 2. Execution Flow
+
+1. Build context with the smallest useful file set
+2. Create or switch the active version first
+3. Put requirements and changes inside that version
+4. Add design and plan before coding a non-trivial change
+5. Record failed paths immediately
+6. Record corrections, constraints, and reusable lessons in working memory first
+7. Verify before claiming completion
+
+## 3. Memory Rules
+
+- Durable repository knowledge belongs in `docs/context/` and `docs/memory/`
+- Working knowledge belongs in each change `session-memory.md`
+- Failed paths must be written down
+- Promote lessons only after validation

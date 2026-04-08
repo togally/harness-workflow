@@ -8,8 +8,8 @@
 2. 读取 `docs/context/experience/index.md`，根据用户意图中的关键词匹配相关经验文件
 3. 读取 `docs/context/rules/risk-rules.md`，扫描需求中的高风险关键词
 4. 如果匹配到经验条目，按需加载对应经验文件，不要全量加载
-5. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/仓库概览.md` 与 `docs/context/team/开发规范.md`
-6. 如果是恢复会话，读取对应 `docs/changes/active/<change-id>/session-memory.md`，并补充读取该变更目录下的需求、设计、计划文件
+5. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
+6. 如果是恢复会话，先识别当前版本，再读取对应 change 目录下的 `session-memory.md`、需求、设计与计划文件
 
 禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
 
@@ -17,16 +17,17 @@
 
 1. 用最小必要文件集建立上下文
 2. 判断任务是轻微改动还是正式变更
-3. 对正式变更先建立 requirement 或 change 工作区
-4. requirement 规划完成后，拆分成多个可独立交付的 change
-5. change 在进入编码前必须补齐 design 与 plan
-6. plan 中的实施步骤与验证步骤要显式拆开
-7. 默认每个可独立执行的工作步骤由一个 subagent 或一个隔离执行单元完成
-8. 采用增量方式执行改动
-9. 执行过程中一旦发现方案走不通，立刻记录到 `session-memory.md` 的“走不通的路”，避免同会话或恢复会话重复试错
-10. 如果被纠正、发现新约束或形成了可复用结论，先更新当前工作记忆，再判断是否需要沉淀到 `docs/context/experience/`
-11. 执行验证
-12. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
+3. 对正式变更先切换或建立当前 `version`
+4. 在当前版本下建立 requirement 或 change 工作区
+5. requirement 规划完成后，拆分成多个可独立交付的 change
+6. change 在进入编码前必须补齐 design 与 plan
+7. plan 中的实施步骤与验证步骤要显式拆开
+8. 默认每个可独立执行的工作步骤由一个 subagent 或一个隔离执行单元完成
+9. 采用增量方式执行改动
+10. 执行过程中一旦发现方案走不通，立刻记录到 `session-memory.md` 的“走不通的路”，避免同会话或恢复会话重复试错
+11. 如果被纠正、发现新约束或形成了可复用结论，先更新当前工作记忆，再判断是否需要沉淀到 `docs/context/experience/`
+12. 执行验证
+13. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
 
 ## 3. Harness 生命周期
 
@@ -47,13 +48,13 @@
 
 ### version
 
-- version 用于冻结一个阶段快照
-- 已验收的 change 才适合纳入版本
+- version 是 requirement、change、plan 的主工作容器
+- context 仍然属于仓库级知识库，不跟随单个 version 复制
 
 ## 4. 记忆规则
 
 - 长期有效规则放在 `docs/memory/`
-- 单次任务状态放在 `docs/changes/active/<change-id>/session-memory.md`
+- 单次任务状态放在当前 version 的 change `session-memory.md`
 - 不要把短期任务状态写入长期记忆
 - 被纠正时，优先记录“现象 / 原因 / 修正”
 - 走不通的路必须记录，至少写明“尝试了什么、为什么失败、暂时不要再怎么做”
