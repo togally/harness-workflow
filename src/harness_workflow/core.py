@@ -523,6 +523,76 @@ HOOK_TIMINGS = [
                 },
             },
             {
+                "path": "requirement-review/10-request-human-review-first.md",
+                "title": {"cn": "需求评审先等用户确认", "english": "Requirement Review Waits for Human Confirmation"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `requirement_review`，回复应优先请求用户审核 requirement 文档。",
+                        "不要在用户尚未确认需求时主动推进到拆 change、写 plan 或实施。",
+                    ],
+                    "english": [
+                        "When the current stage is `requirement_review`, prioritize asking the human to review the requirement document.",
+                        "Do not proactively move into splitting changes, writing plans, or implementation before the human confirms the requirement.",
+                    ],
+                },
+            },
+            {
+                "path": "changes-review/10-request-change-review-first.md",
+                "title": {"cn": "变更评审先等用户确认", "english": "Changes Review Waits for Human Confirmation"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `changes_review`，回复应优先请求用户审核 change 列表与 change 文档。",
+                        "不要在用户尚未确认 change 方案时主动开始写 `plan` 或继续推进阶段。",
+                    ],
+                    "english": [
+                        "When the current stage is `changes_review`, prioritize asking the human to review the change list and change documents.",
+                        "Do not proactively start writing plans or continue advancing the workflow before the human confirms the change set.",
+                    ],
+                },
+            },
+            {
+                "path": "plan-review/10-request-plan-review-first.md",
+                "title": {"cn": "计划评审先等用户确认", "english": "Plan Review Waits for Human Confirmation"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `plan_review`，回复应优先请求用户审核 plan 文档。",
+                        "不要在用户尚未确认 plan 时主动开始实现或推进执行。",
+                    ],
+                    "english": [
+                        "When the current stage is `plan_review`, prioritize asking the human to review the plan documents.",
+                        "Do not proactively start implementation or advance into execution before the human confirms the plan.",
+                    ],
+                },
+            },
+            {
+                "path": "ready-for-execution/10-request-execution-confirmation.md",
+                "title": {"cn": "执行前先等明确确认", "english": "Ready for Execution Waits for Explicit Confirmation"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `ready_for_execution`，回复应优先请求用户确认是否开始实施。",
+                        "没有显式确认或 `harness next --execute` 时，不要开始实现。",
+                    ],
+                    "english": [
+                        "When the current stage is `ready_for_execution`, prioritize asking the human whether execution should begin.",
+                        "Do not start implementation without explicit confirmation or `harness next --execute`.",
+                    ],
+                },
+            },
+            {
+                "path": "idle/10-offer-only-workflow-actions.md",
+                "title": {"cn": "空闲阶段只提供工作流动作", "english": "Idle Stage Offers Workflow Actions Only"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `idle`，回复只能引导创建 requirement / change 工作区，或继续澄清需求与范围。",
+                        "即使用户给了实现型 prompt，也不能在回复里承诺实现、分析实现细节或进入编码准备。",
+                    ],
+                    "english": [
+                        "When the current stage is `idle`, replies may only guide requirement / change workspace creation or continue requirement clarification.",
+                        "Even if the user provides an implementation-oriented prompt, do not promise implementation, analyze implementation details, or prepare to code in the reply.",
+                    ],
+                },
+            },
+            {
                 "path": "20-block-workflow-drift.md",
                 "title": {"cn": "阻止工作流漂移", "english": "Block Workflow Drift"},
                 "body": {
@@ -565,6 +635,20 @@ HOOK_TIMINGS = [
         },
         "items": [
             {
+                "path": "idle/10-formalize-workspace-first.md",
+                "title": {"cn": "空闲阶段先正式建工作区", "english": "Idle Stage Formalizes a Workspace First"},
+                "body": {
+                    "cn": [
+                        "当前处于 `idle`，说明 requirement / change 工作区还未正式建立。",
+                        "此时只能创建或确认 requirement / change 工作区，不能直接进入实现或实现分析。",
+                    ],
+                    "english": [
+                        "The `idle` stage means no requirement / change workspace has been formally established yet.",
+                        "At this point, only requirement / change workspace creation or confirmation is allowed; do not jump into implementation or implementation analysis.",
+                    ],
+                },
+            },
+            {
                 "path": "requirement-review/10-discussion-only.md",
                 "title": {"cn": "需求节点只讨论", "english": "Requirement Node Is Discussion Only"},
                 "body": {
@@ -575,6 +659,34 @@ HOOK_TIMINGS = [
                     "english": [
                         "This node allows discussion, clarification, and requirement document updates only.",
                         "Implementation-oriented prompts must be absorbed into the requirement, not used to start coding.",
+                    ],
+                },
+            },
+            {
+                "path": "requirement-review/20-wait-for-human-approval.md",
+                "title": {"cn": "需求节点等待用户确认", "english": "Requirement Node Waits for Human Approval"},
+                "body": {
+                    "cn": [
+                        "创建或更新 requirement 后，当前节点必须停在需求讨论与审核。",
+                        "只有用户明确确认需求无误后，才允许进入 `change` 拆分或后续阶段。",
+                    ],
+                    "english": [
+                        "After a requirement is created or updated, this node must stay in discussion and review.",
+                        "Only after the human explicitly confirms the requirement may the workflow move into change splitting or later stages.",
+                    ],
+                },
+            },
+            {
+                "path": "changes-review/20-wait-for-human-approval.md",
+                "title": {"cn": "变更节点等待用户确认", "english": "Changes Node Waits for Human Approval"},
+                "body": {
+                    "cn": [
+                        "创建或更新 change 后，当前节点必须停在 change 讨论与审核。",
+                        "只有用户明确确认 change 拆分无误后，才允许进入 `plan` 阶段。",
+                    ],
+                    "english": [
+                        "After changes are created or updated, this node must stay in change discussion and review.",
+                        "Only after the human explicitly confirms the change split may the workflow move into the `plan` stage.",
                     ],
                 },
             },
@@ -603,6 +715,34 @@ HOOK_TIMINGS = [
                     "english": [
                         "At this node, an executable plan must exist first.",
                         "Do not claim implementation is ready without a plan.",
+                    ],
+                },
+            },
+            {
+                "path": "plan-review/20-wait-for-human-approval.md",
+                "title": {"cn": "计划节点等待用户确认", "english": "Plan Node Waits for Human Approval"},
+                "body": {
+                    "cn": [
+                        "创建或更新 plan 后，当前节点必须停在计划讨论与审核。",
+                        "只有用户明确确认 plan 无误后，才允许进入 `ready_for_execution`。",
+                    ],
+                    "english": [
+                        "After a plan is created or updated, this node must stay in plan discussion and review.",
+                        "Only after the human explicitly confirms the plan may the workflow move into `ready_for_execution`.",
+                    ],
+                },
+            },
+            {
+                "path": "ready-for-execution/10-wait-for-explicit-confirmation.md",
+                "title": {"cn": "执行前等待明确确认", "english": "Wait for Explicit Confirmation Before Execution"},
+                "body": {
+                    "cn": [
+                        "当前节点只允许确认执行条件、说明验证门禁，并等待用户确认。",
+                        "没有显式执行确认前，不允许进入 `executing`。",
+                    ],
+                    "english": [
+                        "This node may only confirm execution conditions, explain verification gates, and wait for human confirmation.",
+                        "Do not enter `executing` before explicit execution approval.",
                     ],
                 },
             },
@@ -733,6 +873,20 @@ HOOK_TIMINGS = [
                 },
             },
             {
+                "path": "idle/10-no-implementation-prep.md",
+                "title": {"cn": "空闲阶段禁止实现准备", "english": "No Implementation Preparation During Idle"},
+                "body": {
+                    "cn": [
+                        "在 `idle` 阶段，不允许读取源码做实现准备、查找参考实现、生成代码或写业务文件。",
+                        "如果用户提供的是实现型 prompt，也只能把它转成 requirement / change 的输入材料。",
+                    ],
+                    "english": [
+                        "During `idle`, do not read source code for implementation prep, search for reference implementations, generate code, or write business files.",
+                        "If the user provides an implementation-oriented prompt, treat it only as input for a requirement / change.",
+                    ],
+                },
+            },
+            {
                 "path": "requirement-review/10-no-source-code.md",
                 "title": {"cn": "需求节点禁止改源码", "english": "No Source Changes in Requirement Review"},
                 "body": {
@@ -743,6 +897,62 @@ HOOK_TIMINGS = [
                     "english": [
                         "During `requirement_review`, do not write production code or modify business source files.",
                         "Requirement document updates, scope discussion, and acceptance clarification are allowed.",
+                    ],
+                },
+            },
+            {
+                "path": "requirement-review/20-no-auto-stage-advance.md",
+                "title": {"cn": "需求评审中禁止自动推进阶段", "english": "No Automatic Stage Advance During Requirement Review"},
+                "body": {
+                    "cn": [
+                        "在 `requirement_review` 阶段，不要自动执行 `harness next`、自动拆 `change` 或自动生成 `plan`。",
+                        "如果用户给的是实现细节，也只允许把它吸收进 requirement，随后等待用户确认。",
+                    ],
+                    "english": [
+                        "During `requirement_review`, do not automatically run `harness next`, split changes, or generate plans.",
+                        "If the human provides implementation details, absorb them into the requirement and then wait for confirmation.",
+                    ],
+                },
+            },
+            {
+                "path": "changes-review/20-no-auto-stage-advance.md",
+                "title": {"cn": "变更评审中禁止自动推进阶段", "english": "No Automatic Stage Advance During Changes Review"},
+                "body": {
+                    "cn": [
+                        "在 `changes_review` 阶段，不要自动执行 `harness next`、自动生成 `plan` 或自动推进到计划评审。",
+                        "如果用户补充细节，也只允许把它吸收进 change 文档，然后等待用户确认。",
+                    ],
+                    "english": [
+                        "During `changes_review`, do not automatically run `harness next`, generate plans, or advance into plan review.",
+                        "If the human adds details, absorb them into the change documents and then wait for confirmation.",
+                    ],
+                },
+            },
+            {
+                "path": "plan-review/20-no-auto-stage-advance.md",
+                "title": {"cn": "计划评审中禁止自动推进阶段", "english": "No Automatic Stage Advance During Plan Review"},
+                "body": {
+                    "cn": [
+                        "在 `plan_review` 阶段，不要自动执行 `harness next`、自动开始编码或自动进入执行阶段。",
+                        "如果用户补充实施细节，也只允许把它吸收进 plan，然后等待用户确认。",
+                    ],
+                    "english": [
+                        "During `plan_review`, do not automatically run `harness next`, start coding, or enter execution.",
+                        "If the human adds implementation details, absorb them into the plan and then wait for confirmation.",
+                    ],
+                },
+            },
+            {
+                "path": "ready-for-execution/10-no-implementation-before-confirmation.md",
+                "title": {"cn": "执行确认前禁止开始实现", "english": "No Implementation Before Execution Confirmation"},
+                "body": {
+                    "cn": [
+                        "在 `ready_for_execution` 阶段，不要读取源码做实现准备、不要写生产代码、不要启动实施任务。",
+                        "只有用户显式确认执行或运行 `harness next --execute` 后，才允许进入 `executing`。",
+                    ],
+                    "english": [
+                        "During `ready_for_execution`, do not read source code for implementation prep, write production code, or start execution tasks.",
+                        "Only after explicit human approval or `harness next --execute` may the workflow enter `executing`.",
                     ],
                 },
             },

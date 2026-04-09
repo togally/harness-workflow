@@ -50,6 +50,51 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "10-discussion-only.md").exists()
         )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "requirement-review" / "10-request-human-review-first.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "changes-review" / "10-request-change-review-first.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "plan-review" / "10-request-plan-review-first.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "ready-for-execution" / "10-request-execution-confirmation.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "20-wait-for-human-approval.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "changes-review" / "20-wait-for-human-approval.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "plan-review" / "20-wait-for-human-approval.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "ready-for-execution" / "10-wait-for-explicit-confirmation.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "requirement-review" / "20-no-auto-stage-advance.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "changes-review" / "20-no-auto-stage-advance.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "plan-review" / "20-no-auto-stage-advance.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "ready-for-execution" / "10-no-implementation-before-confirmation.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "idle" / "10-formalize-workspace-first.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "idle" / "10-no-implementation-prep.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "idle" / "10-offer-only-workflow-actions.md").exists()
+        )
         self.assertTrue((self.repo / ".qoder" / "rules" / "harness-workflow.md").exists())
         for command in COMMAND_SAMPLES:
             self.assertTrue((self.repo / ".qoder" / "commands" / f"{command}.md").exists())
@@ -69,6 +114,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("启动测试", (requirement_dir / "completion.md").read_text(encoding="utf-8"))
         meta = self.read_version_meta("v1.0.0")
         self.assertEqual(meta["suggested_skill"], "brainstorming")
+        self.assertTrue(meta["approval_required"])
         self.assertIn("Do not write production code", str(meta["assistant_prompt"]))
         runtime = self.read_runtime()
         self.assertEqual(runtime["conversation_mode"], "harness")
