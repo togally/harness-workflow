@@ -10,9 +10,10 @@
 4. 读取 `docs/context/experience/index.md`，根据用户意图中的关键词匹配相关经验文件
 5. 读取 `docs/context/rules/risk-rules.md`，扫描需求中的高风险关键词
 6. 如果匹配到经验条目，按需加载对应经验文件，不要全量加载
-7. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
-8. 如果是恢复会话，继续读取当前 change 目录下的 `session-memory.md`、需求、设计与计划文件
-9. 在每个阶段开始执行具体任务前，都先重新索引 `docs/context/experience/index.md` 与当前任务相关经验，确认是否有可直接复用或可融合的成熟经验
+7. 读取 `docs/context/hooks/README.md`，确认当前调用时机、命中 hook 和硬门禁
+8. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
+9. 如果是恢复会话，继续读取当前 change 目录下的 `session-memory.md`、需求、设计与计划文件
+10. 在每个阶段开始执行具体任务前，都先重新索引 `docs/context/experience/index.md` 与当前任务相关经验，确认是否有可直接复用或可融合的成熟经验
 
 禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，必须立即停止并提示用户先修复 workflow 状态，不允许手工拼装一个“类似流程”继续推进。

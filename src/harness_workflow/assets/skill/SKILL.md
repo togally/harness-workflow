@@ -248,6 +248,7 @@ For Codex, keep `.codex/skills/harness-*` as thin wrappers instead of copying bu
 Detailed rules belong in:
 
 - `docs/context/rules/agent-workflow.md`
+- `docs/context/hooks/README.md`
 - `docs/context/rules/risk-rules.md`
 - `docs/context/project/project-overview.md`
 - `docs/context/team/development-standards.md`

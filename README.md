@@ -10,6 +10,7 @@
 - 三端项目级 skill：`harness install` 会同时安装到 `.codex/skills/harness`、`.claude/skills/harness` 与 `.qoder/skills/harness`
 - 命令级提示入口：为 `install/init/update/language/version/active/use/status/requirement/change/plan/next/ff/regression/archive/rename` 生成独立入口
 - 版本主容器工作流：`version` 是 requirement / change / plan 的主工作容器
+- Hook 生命周期规则：所有硬规则按调用时机沉淀到 `docs/context/hooks/`
 - 规则驱动的协作流：通过 `workflow-runtime.yaml`、version `meta.yaml`、`development-flow.md` 与规则文档驱动 requirement/change/plan/execution 协作
 
 ### 安装
@@ -103,6 +104,7 @@ harness next --execute
 - `requirement` 和 `change` 都创建在当前激活的 version 下
 - `change` 可以独立存在，不要求必须挂 requirement
 - `context/` 仍然是仓库级知识库，不归属某个 version
+- `docs/context/hooks/` 按调用时机组织 hook，每个时机都有一个说明文档和一个同名子目录
 - `AGENTS.md` 继续作为跨 Agent 共享入口
 - Qoder 通过 `.qoder/commands/harness-*.md` 和 `.qoder/rules/harness-workflow.md` 路由到同一套规则
 - Claude Code 通过 `.claude/commands/harness-*.md` 提供命令级入口
@@ -124,9 +126,11 @@ harness next --execute
 1. 读取 `docs/context/rules/workflow-runtime.yaml`
 2. 找到 `current_version`
 3. 读取该 version 的 `meta.yaml`
-4. 确认当前 `stage`、`current_task`、`next_action`
-5. 索引 `docs/context/experience/index.md`，加载与当前任务最相关的成熟经验
-6. 如果 `suggested_skill` 非空，优先按它组织协作
+4. 判断当前调用时机，并读取 `docs/context/hooks/README.md`
+5. 读取对应的 `<timing>.md` 与命中的 hook 文件
+6. 确认当前 `stage`、`current_task`、`next_action`
+7. 索引 `docs/context/experience/index.md`，加载与当前任务最相关的成熟经验
+8. 如果 `suggested_skill` 非空，优先按它组织协作
 
 如果出现以下任一情况，必须立即停止，不允许绕过工作流继续推进：
 
@@ -307,7 +311,7 @@ harness update --force-managed
 flowchart TD
     A["安装或初始化<br/>harness install / harness init"] --> B["切换语言配置<br/>harness language english / cn"]
     B --> C["创建或切换版本<br/>harness version / harness active"]
-    C --> D["读取运行态并路由<br/>workflow-runtime.yaml + version meta.yaml"]
+    C --> D["读取运行态并匹配 Hooks<br/>workflow-runtime.yaml + version meta.yaml + docs/context/hooks/README.md"]
     D --> E["创建并评审需求<br/>harness requirement<br/>suggested_skill=brainstorming"]
     E --> F["拆分并评审变更<br/>harness change<br/>suggested_skill=brainstorming"]
     F --> G["生成并评审计划<br/>harness plan / harness next<br/>suggested_skill=writing-plans"]
@@ -326,7 +330,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["发现效果不达标或体验不满意"] --> B["harness regression <问题描述>"]
-    B --> C["读取 workflow-runtime.yaml + version meta.yaml"]
+    B --> C["读取运行态并匹配 Hooks<br/>workflow-runtime.yaml + version meta.yaml + docs/context/hooks/README.md"]
     C --> D["与用户收敛问题点<br/>suggested_skill=brainstorming"]
     D --> E{"确认是真问题吗?"}
     E -->|否| F["解释原理并确认是否取消"]
@@ -349,6 +353,24 @@ flowchart TD
 ```text
 docs/
 ├── context/
+│   ├── hooks/
+│   │   ├── README.md
+│   │   ├── session-start.md
+│   │   ├── session-start/
+│   │   ├── before-reply.md
+│   │   ├── before-reply/
+│   │   ├── node-entry.md
+│   │   ├── node-entry/
+│   │   ├── before-task.md
+│   │   ├── before-task/
+│   │   ├── during-task.md
+│   │   ├── during-task/
+│   │   ├── before-human-input.md
+│   │   ├── before-human-input/
+│   │   ├── after-task.md
+│   │   ├── after-task/
+│   │   ├── before-complete.md
+│   │   └── before-complete/
 │   ├── team/
 │   ├── project/
 │   ├── experience/
@@ -380,6 +402,7 @@ It provides:
 - a global `harness` CLI
 - project-local skills for Codex, Claude Code, and Qoder
 - a version-centered workspace model
+- a hook lifecycle organized under `docs/context/hooks/`
 - a rule-driven collaboration flow powered by workflow runtime, version meta, and development flow rules
 
 ### Install
@@ -468,6 +491,7 @@ Key rules:
 - requirements and changes live under the active version
 - changes may exist without a requirement
 - `docs/context/` stays repository-level and should not be version-scoped
+- `docs/context/hooks/` organizes hooks by invocation timing; each timing has one overview markdown file and one same-name directory
 - `harness active "<version>"` explicitly repairs or switches the active version route
 - `harness enter` explicitly enters harness conversation mode at the current workflow node
 - every `harness ...` command also auto-enters harness conversation mode
@@ -482,6 +506,7 @@ Key rules:
 - before any requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml` first
 - then read the current version `meta.yaml` before deciding the next action
 - `meta.yaml` carries `stage`, `current_task`, `next_action`, `suggested_skill`, `assistant_prompt`, and `approval_required`
+- `docs/context/hooks/README.md` defines the hook matching order by invocation timing
 - before each stage-level task, re-index `docs/context/experience/index.md` and load mature lessons relevant to the task
 - after each stage-level task, capture new lessons and fuse mature experience into the current work when applicable
 
@@ -623,7 +648,7 @@ python3 tools/lint_harness_repo.py --root . --strict-agents --strict-claude
 flowchart TD
     A["Install / Init<br/>harness install | harness init"] --> B["Language Profile<br/>harness language english | cn"]
     B --> C["Active Version<br/>harness version"]
-    C --> D["Runtime Route<br/>workflow-runtime.yaml + version meta.yaml"]
+    C --> D["Runtime Route + Hook Matching<br/>workflow-runtime.yaml + version meta.yaml + docs/context/hooks/README.md"]
     D --> E["Requirement Review<br/>suggested_skill=brainstorming"]
     E --> F["Changes Review<br/>suggested_skill=brainstorming"]
     F --> G["Plan Review<br/>suggested_skill=writing-plans"]
@@ -642,7 +667,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Outcome is unsatisfactory or a design result feels wrong"] --> B["harness regression <issue>"]
-    B --> C["Read workflow-runtime.yaml + version meta.yaml"]
+    B --> C["Read runtime and match hooks<br/>workflow-runtime.yaml + version meta.yaml + docs/context/hooks/README.md"]
     C --> D["Discuss the issue with the human<br/>suggested_skill=brainstorming"]
     D --> E{"Confirmed real problem?"}
     E -->|No| F["Explain the rationale and confirm whether to cancel"]

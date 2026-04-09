@@ -197,6 +197,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
                 "3. 继续读取：",
                 "   - `docs/context/rules/development-flow.md`",
+                "   - `docs/context/hooks/README.md`",
                 "   - `docs/context/rules/agent-workflow.md`",
                 "   - `docs/context/rules/risk-rules.md`",
                 "   - `docs/context/experience/index.md`",
@@ -226,6 +227,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "2. Use `current_version` to read the active version `meta.yaml`",
                 "3. Then read:",
                 "   - `docs/context/rules/development-flow.md`",
+                "   - `docs/context/hooks/README.md`",
                 "   - `docs/context/rules/agent-workflow.md`",
                 "   - `docs/context/rules/risk-rules.md`",
                 "   - `docs/context/experience/index.md`",
@@ -273,7 +275,7 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "",
                 "1. 先读取 `docs/context/rules/workflow-runtime.yaml`",
                 "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
-                "3. 再读取根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
+                "3. 再读取 `docs/context/hooks/README.md`、当前调用时机的 hook 文档、根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
                 "",
                 "规则：",
                 "",
@@ -293,7 +295,7 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "",
                 "1. Read `docs/context/rules/workflow-runtime.yaml`",
                 "2. Use `current_version` to read the active version `meta.yaml`",
-                "3. Then read the root `AGENTS.md` and the main harness skill at `.codex/skills/harness/SKILL.md`",
+                "3. Then read `docs/context/hooks/README.md`, the hook doc for the current timing, the root `AGENTS.md`, and the main harness skill at `.codex/skills/harness/SKILL.md`",
                 "",
                 "Rules:",
                 "",
@@ -425,6 +427,600 @@ def command_specific_guidance(command_name: str, language: str) -> list[str]:
     return guidance.get(command_name, [])
 
 
+def localized_text(value: dict[str, object], language: str) -> object:
+    return value["cn" if normalize_language(language) == "cn" else "english"]
+
+
+HOOK_TIMINGS = [
+    {
+        "slug": "session-start",
+        "title": {"cn": "会话开始 Hooks", "english": "Session Start Hooks"},
+        "purpose": {
+            "cn": "新会话开始、恢复会话或显式进入 Harness 模式时，先完成运行态路由、自检和经验加载。",
+            "english": "When a session starts, resumes, or explicitly enters Harness mode, route state, self-check, and load experience first.",
+        },
+        "trigger": {
+            "cn": ["新会话开始", "恢复中断会话", "显式执行 `harness enter`"],
+            "english": ["a new session starts", "a suspended session resumes", "`harness enter` is called explicitly"],
+        },
+        "items": [
+            {
+                "path": "10-load-runtime.md",
+                "title": {"cn": "加载运行态", "english": "Load Runtime"},
+                "body": {
+                    "cn": [
+                        "先读取 `docs/context/rules/workflow-runtime.yaml`。",
+                        "根据 `current_version` 读取当前 version 的 `meta.yaml`。",
+                        "如果当前没有 active version，也要明确当前处于未路由状态。",
+                    ],
+                    "english": [
+                        "Read `docs/context/rules/workflow-runtime.yaml` first.",
+                        "Use `current_version` to read the active version `meta.yaml`.",
+                        "If no active version exists, state clearly that the session is not yet routed.",
+                    ],
+                },
+            },
+            {
+                "path": "20-load-experience-and-risk.md",
+                "title": {"cn": "加载经验与风险规则", "english": "Load Experience and Risk Rules"},
+                "body": {
+                    "cn": [
+                        "读取 `docs/context/experience/index.md`，只按需加载命中经验。",
+                        "读取 `docs/context/rules/risk-rules.md`，检查高风险关键词。",
+                        "不要一次性全量读取 `docs/context/experience/`。",
+                    ],
+                    "english": [
+                        "Read `docs/context/experience/index.md` and load only matching experience files.",
+                        "Read `docs/context/rules/risk-rules.md` and scan for high-risk keywords.",
+                        "Do not bulk-load the entire `docs/context/experience/` tree.",
+                    ],
+                },
+            },
+            {
+                "path": "30-stop-on-broken-state.md",
+                "title": {"cn": "状态异常立即停止", "english": "Stop on Broken State"},
+                "body": {
+                    "cn": [
+                        "如果 `current_version` 缺失、runtime/config 冲突、version `meta.yaml` 缺失，立即停止。",
+                        "不要手工模拟流程继续推进。",
+                        "优先提示用户运行 `harness active \"<version>\"` 或修复缺失文件。",
+                    ],
+                    "english": [
+                        "Stop immediately if `current_version` is missing, runtime/config disagree, or the version `meta.yaml` is missing.",
+                        "Do not manually simulate the workflow.",
+                        "Prefer asking the human to run `harness active \"<version>\"` or restore the missing files.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "before-reply",
+        "title": {"cn": "回复前 Hooks", "english": "Before Reply Hooks"},
+        "purpose": {
+            "cn": "每次正式回复用户前，先判断本次回复是否仍在当前 Harness 节点允许范围内。",
+            "english": "Before every substantive reply, verify that the next response still stays inside the current Harness node.",
+        },
+        "trigger": {
+            "cn": ["准备正式回复用户前", "准备解释下一步或执行建议前"],
+            "english": ["before a substantive reply to the human", "before explaining the next step or recommended action"],
+        },
+        "items": [
+            {
+                "path": "10-respect-conversation-lock.md",
+                "title": {"cn": "遵守会话锁", "english": "Respect the Conversation Lock"},
+                "body": {
+                    "cn": [
+                        "如果 `conversation_mode = harness`，先检查 `locked_version`、`locked_stage`、`locked_artifact_kind`、`locked_artifact_id`。",
+                        "回复不能脱离当前锁定节点。",
+                        "如果需要脱离当前节点，必须先建议或执行 `harness exit`。",
+                    ],
+                    "english": [
+                        "When `conversation_mode = harness`, inspect `locked_version`, `locked_stage`, `locked_artifact_kind`, and `locked_artifact_id` first.",
+                        "Do not let the reply drift away from the locked node.",
+                        "If a different context is required, suggest or run `harness exit` first.",
+                    ],
+                },
+            },
+            {
+                "path": "20-block-workflow-drift.md",
+                "title": {"cn": "阻止工作流漂移", "english": "Block Workflow Drift"},
+                "body": {
+                    "cn": [
+                        "如果当前阶段只允许讨论或补文档，不要在回复里承诺直接编码。",
+                        "不要因为用户给了详细 prompt，就把它当成越过阶段门禁的授权。",
+                    ],
+                    "english": [
+                        "If the current stage allows discussion or document refinement only, do not promise direct coding in the reply.",
+                        "A detailed prompt is not permission to bypass the current stage gate.",
+                    ],
+                },
+            },
+            {
+                "path": "30-check-stage-boundary.md",
+                "title": {"cn": "检查阶段边界", "english": "Check Stage Boundaries"},
+                "body": {
+                    "cn": [
+                        "先检查当前动作是否符合当前 stage。",
+                        "如果下一步需要推进 stage，先提示使用 `harness next`、`harness regression` 或其他对应命令。",
+                    ],
+                    "english": [
+                        "Confirm that the planned action fits the current stage.",
+                        "If the next step requires a stage transition, point to `harness next`, `harness regression`, or the corresponding command first.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "node-entry",
+        "title": {"cn": "工作节点 Hooks", "english": "Workflow Node Hooks"},
+        "purpose": {
+            "cn": "根据当前工作节点加载对应约束，定义该节点允许做什么、不允许做什么。",
+            "english": "Load node-specific constraints that define what is allowed and forbidden in the current workflow node.",
+        },
+        "trigger": {
+            "cn": ["进入某个工作节点", "当前 stage 或 mode 发生变化后"],
+            "english": ["when entering a workflow node", "after the stage or mode changes"],
+        },
+        "items": [
+            {
+                "path": "requirement-review/10-discussion-only.md",
+                "title": {"cn": "需求节点只讨论", "english": "Requirement Node Is Discussion Only"},
+                "body": {
+                    "cn": [
+                        "当前节点只允许讨论、澄清、更新 requirement 文档。",
+                        "实现型 prompt 只能吸收进需求结论，不能直接开始编码。",
+                    ],
+                    "english": [
+                        "This node allows discussion, clarification, and requirement document updates only.",
+                        "Implementation-oriented prompts must be absorbed into the requirement, not used to start coding.",
+                    ],
+                },
+            },
+            {
+                "path": "changes-review/10-change-doc-first.md",
+                "title": {"cn": "变更节点先补文档", "english": "Change Node Is Document First"},
+                "body": {
+                    "cn": [
+                        "当前节点先补齐 change 文档、影响范围、风险和验收方式。",
+                        "没有进入 plan 或 executing 前，不要开始实现。",
+                    ],
+                    "english": [
+                        "At this node, fill the change document, impact scope, risks, and acceptance method first.",
+                        "Do not start implementation before plan or executing stage.",
+                    ],
+                },
+            },
+            {
+                "path": "plan-review/10-plan-before-code.md",
+                "title": {"cn": "计划节点先有计划", "english": "Plan Node Requires a Plan"},
+                "body": {
+                    "cn": [
+                        "当前节点必须先形成可执行 plan。",
+                        "没有 plan 的情况下，不允许宣称进入实施。",
+                    ],
+                    "english": [
+                        "At this node, an executable plan must exist first.",
+                        "Do not claim implementation is ready without a plan.",
+                    ],
+                },
+            },
+            {
+                "path": "executing/10-execution-only.md",
+                "title": {"cn": "实施节点才允许编码", "english": "Only Executing Node May Code"},
+                "body": {
+                    "cn": [
+                        "只有 `executing` 节点允许开始生产代码实施。",
+                        "编码时必须持续遵循 plan 与验证步骤。",
+                    ],
+                    "english": [
+                        "Only the `executing` node may start production implementation work.",
+                        "While coding, continue following the plan and its verification steps.",
+                    ],
+                },
+            },
+            {
+                "path": "regression/10-diagnosis-before-fix.md",
+                "title": {"cn": "回归节点先诊断再修复", "english": "Regression Diagnoses Before Fixing"},
+                "body": {
+                    "cn": [
+                        "先确认是不是真问题，再决定是否转成 requirement 或 change。",
+                        "不要直接返工。",
+                    ],
+                    "english": [
+                        "Confirm whether it is a real problem before converting it into a requirement or change.",
+                        "Do not jump straight into rework.",
+                    ],
+                },
+            },
+            {
+                "path": "experience-capture/10-capture-lessons.md",
+                "title": {"cn": "经验沉淀节点", "english": "Experience Capture Node"},
+                "body": {
+                    "cn": [
+                        "每个阶段完成后，先回写 `session-memory.md`。",
+                        "成熟经验再融合进 `docs/context/experience/` 或正式规则。",
+                    ],
+                    "english": [
+                        "After each stage, update `session-memory.md` first.",
+                        "Then promote mature lessons into `docs/context/experience/` or formal rules.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "before-task",
+        "title": {"cn": "任务执行前 Hooks", "english": "Before Task Hooks"},
+        "purpose": {
+            "cn": "在读取代码、写文档、写代码或执行命令前，先确认当前动作与当前节点匹配。",
+            "english": "Before reading code, writing docs, coding, or running commands, confirm that the action matches the current node.",
+        },
+        "trigger": {
+            "cn": ["准备开始具体任务前", "准备读写文件或执行命令前"],
+            "english": ["before starting a concrete task", "before reading or writing files, or running commands"],
+        },
+        "items": [
+            {
+                "path": "10-route-runtime-and-meta.md",
+                "title": {"cn": "先路由运行态", "english": "Route Through Runtime First"},
+                "body": {
+                    "cn": [
+                        "任何任务都先看 `workflow-runtime.yaml` 和当前 version `meta.yaml`。",
+                        "不要跳过运行态直接行动。",
+                    ],
+                    "english": [
+                        "Every task must begin from `workflow-runtime.yaml` and the current version `meta.yaml`.",
+                        "Do not act without routing through workflow state.",
+                    ],
+                },
+            },
+            {
+                "path": "20-load-matched-node-hooks.md",
+                "title": {"cn": "加载命中的节点 Hook", "english": "Load Matched Node Hooks"},
+                "body": {
+                    "cn": [
+                        "先确定当前调用时机，再匹配当前 stage 对应的节点 hook。",
+                        "只加载命中的 hook，不要无差别全量读取所有 hook。",
+                    ],
+                    "english": [
+                        "Identify the current invocation timing first, then load the node hooks that match the current stage.",
+                        "Load only matching hooks instead of bulk-reading every hook file.",
+                    ],
+                },
+            },
+            {
+                "path": "30-reindex-experience.md",
+                "title": {"cn": "执行前重索引经验", "english": "Re-index Experience Before Action"},
+                "body": {
+                    "cn": [
+                        "阶段级任务开始前，先重新索引经验。",
+                        "确认是否已有可直接复用或需要融合的成熟经验。",
+                    ],
+                    "english": [
+                        "Before a stage-level task begins, re-index experience.",
+                        "Check whether a mature lesson should be reused or fused into the current work.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "during-task",
+        "title": {"cn": "任务执行中 Hooks", "english": "During Task Hooks"},
+        "purpose": {
+            "cn": "执行过程中持续判断当前行为有没有脱离锁定节点和阶段边界。",
+            "english": "During execution, keep checking whether the current behavior has drifted outside the locked node or stage boundary.",
+        },
+        "trigger": {
+            "cn": ["执行任务进行中", "准备继续追加动作时"],
+            "english": ["while a task is in progress", "before continuing with additional actions"],
+        },
+        "items": [
+            {
+                "path": "10-stay-inside-locked-node.md",
+                "title": {"cn": "持续停留在锁定节点内", "english": "Stay Inside the Locked Node"},
+                "body": {
+                    "cn": [
+                        "如果会话锁已开启，执行中不能漂移到其他 workflow 节点。",
+                        "一旦发现动作已偏离，立即停止并回到当前节点语义。",
+                    ],
+                    "english": [
+                        "If the conversation lock is active, execution must not drift into a different workflow node.",
+                        "If the action has drifted, stop immediately and return to the current node semantics.",
+                    ],
+                },
+            },
+            {
+                "path": "requirement-review/10-no-source-code.md",
+                "title": {"cn": "需求节点禁止改源码", "english": "No Source Changes in Requirement Review"},
+                "body": {
+                    "cn": [
+                        "在 `requirement_review` 阶段，不允许写生产代码或改业务源码。",
+                        "允许补 requirement 文档、讨论范围和验收边界。",
+                    ],
+                    "english": [
+                        "During `requirement_review`, do not write production code or modify business source files.",
+                        "Requirement document updates, scope discussion, and acceptance clarification are allowed.",
+                    ],
+                },
+            },
+            {
+                "path": "regression/10-no-direct-rework.md",
+                "title": {"cn": "回归中禁止直接返工", "english": "No Direct Rework During Regression"},
+                "body": {
+                    "cn": [
+                        "回归中先做问题确认，不要直接开始修代码。",
+                        "只有确认问题并转换成 change / requirement 后，才能进入正常修复流。",
+                    ],
+                    "english": [
+                        "During regression, confirm the problem first instead of jumping directly into code changes.",
+                        "Only after conversion into a change or requirement may the normal fix flow begin.",
+                    ],
+                },
+            },
+            {
+                "path": "executing/10-follow-plan-and-verify.md",
+                "title": {"cn": "实施中遵循计划与验证", "english": "Follow Plan and Verification While Executing"},
+                "body": {
+                    "cn": [
+                        "进入 `executing` 后，实施步骤和验证步骤要配对推进。",
+                        "不要把执行阶段变成无计划的自由编码。",
+                    ],
+                    "english": [
+                        "Once in `executing`, implementation and verification steps should advance in pairs.",
+                        "Do not turn execution into unplanned free-form coding.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "before-human-input",
+        "title": {"cn": "向人索要输入前 Hooks", "english": "Before Human Input Hooks"},
+        "purpose": {
+            "cn": "只有在本机证据已收集且仍然缺外部信息时，才允许向用户索要输入。",
+            "english": "Ask the human for input only after local evidence has been collected and external information is still missing.",
+        },
+        "trigger": {
+            "cn": ["准备向用户索要配置、数据、账号、环境信息前"],
+            "english": ["before asking the human for configuration, data, credentials, or environment details"],
+        },
+        "items": [
+            {
+                "path": "10-local-debug-first.md",
+                "title": {"cn": "本机调试信息优先", "english": "Local Debug Evidence First"},
+                "body": {
+                    "cn": [
+                        "启动日志、编译输出、测试失败堆栈、运行时报错，先由 AI 自查。",
+                        "不要先让用户代看本机日志。",
+                    ],
+                    "english": [
+                        "Startup logs, compile output, test failures, and runtime errors must be inspected by the AI first.",
+                        "Do not ask the human to inspect local logs first.",
+                    ],
+                },
+            },
+            {
+                "path": "20-required-inputs-template-first.md",
+                "title": {"cn": "先写 required-inputs 模板", "english": "Fill the required-inputs Template First"},
+                "body": {
+                    "cn": [
+                        "如果仍需用户提供外部信息，先填写当前 change `regression/required-inputs.md`。",
+                        "不允许跳过模板直接在对话里临时发问。",
+                    ],
+                    "english": [
+                        "If external information is still required, fill the current change `regression/required-inputs.md` first.",
+                        "Do not skip the template and ask ad hoc questions in chat.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "after-task",
+        "title": {"cn": "任务执行后 Hooks", "english": "After Task Hooks"},
+        "purpose": {
+            "cn": "任务结束后立刻复盘并沉淀经验，避免丢失新的约束和失败路径。",
+            "english": "Review and capture lessons immediately after a task so new constraints and failed paths are not lost.",
+        },
+        "trigger": {
+            "cn": ["一个阶段任务结束后", "准备结束当前动作前"],
+            "english": ["after a stage-level task ends", "before fully closing the current action"],
+        },
+        "items": [
+            {
+                "path": "10-update-session-memory.md",
+                "title": {"cn": "先更新工作记忆", "english": "Update Working Memory First"},
+                "body": {
+                    "cn": [
+                        "先把新增经验、失败路径、被纠正结论写入 `session-memory.md`。",
+                        "不要把短期状态直接写进长期记忆。",
+                    ],
+                    "english": [
+                        "Write new lessons, failed paths, and corrections into `session-memory.md` first.",
+                        "Do not put short-lived task state directly into durable memory.",
+                    ],
+                },
+            },
+            {
+                "path": "20-promote-mature-lessons.md",
+                "title": {"cn": "升级成熟经验", "english": "Promote Mature Lessons"},
+                "body": {
+                    "cn": [
+                        "已经稳定、可复用的经验，再升级进 `docs/context/experience/` 或正式规则。",
+                        "每个阶段都要判断是否值得融合成熟经验。",
+                    ],
+                    "english": [
+                        "Promote only stable, reusable lessons into `docs/context/experience/` or formal rules.",
+                        "After each stage, decide whether mature experience should now be fused into the workflow.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "before-complete",
+        "title": {"cn": "完成前 Hooks", "english": "Before Completion Hooks"},
+        "purpose": {
+            "cn": "在声称完成前，强制执行构建、启动和失败回归门禁。",
+            "english": "Before claiming completion, enforce compile, startup, and regression gates.",
+        },
+        "trigger": {
+            "cn": ["准备宣称 change 完成前", "准备宣称 requirement 完成前", "准备宣称 version 完成前"],
+            "english": ["before claiming a change is complete", "before claiming a requirement is complete", "before claiming a version is complete"],
+        },
+        "items": [
+            {
+                "path": "10-require-mvn-compile.md",
+                "title": {"cn": "change 完成前必须编译", "english": "Changes Require mvn compile"},
+                "body": {
+                    "cn": [
+                        "每个 change 完成前，必须执行并记录 `mvn compile`。",
+                        "没有编译证据时，不允许宣称 change 完成。",
+                    ],
+                    "english": [
+                        "Every completed change must execute and record `mvn compile`.",
+                        "Do not claim a change is complete without compile evidence.",
+                    ],
+                },
+            },
+            {
+                "path": "20-require-startup-validation.md",
+                "title": {"cn": "requirement 完成前必须启动成功", "english": "Requirements Need Startup Validation"},
+                "body": {
+                    "cn": [
+                        "每个 requirement 完成前，必须执行并记录项目启动成功验证。",
+                        "没有启动验证证据时，不允许宣称 requirement 完成。",
+                    ],
+                    "english": [
+                        "Every completed requirement must execute and record successful project startup validation.",
+                        "Do not claim a requirement is complete without startup validation evidence.",
+                    ],
+                },
+            },
+            {
+                "path": "30-failure-to-regression.md",
+                "title": {"cn": "失败必须转 regression", "english": "Failures Must Enter Regression"},
+                "body": {
+                    "cn": [
+                        "如果编译失败或启动失败，不允许绕过，必须进入 regression。",
+                        "失败不应被包装成完成。",
+                    ],
+                    "english": [
+                        "If compilation or startup fails, do not bypass it; enter regression first.",
+                        "A failed gate must not be repackaged as completion.",
+                    ],
+                },
+            },
+        ],
+    },
+]
+
+
+def render_hooks_index(language: str) -> str:
+    is_cn = normalize_language(language) == "cn"
+    lines = [
+        "# Hooks 目录" if is_cn else "# Hooks Directory",
+        "",
+        "## 目标" if is_cn else "## Purpose",
+        "",
+        (
+            "本目录按“调用时机”组织 hooks。Agent 先识别当前调用时机，再读取对应的时机说明文档和命中的 hook 文件。"
+            if is_cn
+            else "This directory organizes hooks by invocation timing. The agent should identify the current timing first, then read the timing overview and the matching hook files."
+        ),
+        "",
+        "## 匹配顺序" if is_cn else "## Matching Order",
+        "",
+        "1. 读取 `docs/context/rules/workflow-runtime.yaml`" if is_cn else "1. Read `docs/context/rules/workflow-runtime.yaml`",
+        "2. 根据 `current_version` 读取当前 version `meta.yaml`" if is_cn else "2. Use `current_version` to read the active version `meta.yaml`",
+        "3. 判断当前调用时机，例如 `session-start`、`before-reply`、`before-task`、`during-task`、`before-human-input`、`after-task`、`before-complete`" if is_cn else "3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `during-task`, `before-human-input`, `after-task`, or `before-complete`",
+        "4. 读取对应的 `<timing>.md` 说明文档" if is_cn else "4. Read the matching `<timing>.md` overview document",
+        "5. 按编号顺序读取 `<timing>/` 下的通用 hook 文件" if is_cn else "5. Read the general hook files under `<timing>/` in numeric order",
+        "6. 如果存在当前节点对应的子目录，例如 `requirement-review/`、`executing/`、`regression/`，继续按编号加载" if is_cn else "6. If there is a stage-specific subdirectory such as `requirement-review/`, `executing/`, or `regression/`, load those files in numeric order as well",
+        "7. 任一硬门禁命中时，立即停止当前动作" if is_cn else "7. If any hard gate blocks the action, stop immediately",
+        "",
+        "## 调用时机" if is_cn else "## Timings",
+        "",
+    ]
+    for timing in HOOK_TIMINGS:
+        title = str(localized_text(timing["title"], language))
+        purpose = str(localized_text(timing["purpose"], language))
+        lines.append(f"- `{timing['slug']}.md`：{title}，{purpose}" if is_cn else f"- `{timing['slug']}.md`: {title}. {purpose}")
+        lines.append(
+            f"- `{timing['slug']}/`：该调用时机下的具体 hook 文件与节点子目录"
+            if is_cn
+            else f"- `{timing['slug']}/`: concrete hook files and node subdirectories for that timing"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_hook_timing_doc(timing: dict[str, object], language: str) -> str:
+    is_cn = normalize_language(language) == "cn"
+    title = str(localized_text(timing["title"], language))
+    purpose = str(localized_text(timing["purpose"], language))
+    triggers = [str(item) for item in localized_text(timing["trigger"], language)]
+    items = [str(item["path"]) for item in timing["items"]]  # type: ignore[index]
+    lines = [f"# {title}", ""]
+    lines.append("## 作用" if is_cn else "## Purpose")
+    lines.append("")
+    lines.append(purpose)
+    lines.append("")
+    lines.append("## 触发时机" if is_cn else "## Trigger")
+    lines.append("")
+    for trigger in triggers:
+        lines.append(f"- {trigger}")
+    lines.append("")
+    lines.append("## 加载方式" if is_cn else "## Loading Order")
+    lines.append("")
+    if is_cn:
+        lines.extend(
+            [
+                f"1. 先读取 `docs/context/hooks/{timing['slug']}.md`",
+                f"2. 再按编号顺序读取 `docs/context/hooks/{timing['slug']}/` 下的通用 hook",
+                "3. 如果存在当前 stage 或当前节点对应的子目录，也继续按编号读取",
+                "4. 命中硬门禁时立即停止",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"1. Read `docs/context/hooks/{timing['slug']}.md` first",
+                f"2. Then read the general hooks under `docs/context/hooks/{timing['slug']}/` in numeric order",
+                "3. If a subdirectory matches the current stage or node, read those files in numeric order too",
+                "4. Stop immediately if a hard gate blocks the action",
+            ]
+        )
+    lines.append("")
+    lines.append("## 目录内容" if is_cn else "## Contents")
+    lines.append("")
+    for item in items:
+        lines.append(f"- `{item}`")
+    return "\n".join(lines) + "\n"
+
+
+def render_hook_item_doc(timing_slug: str, item: dict[str, object], language: str) -> str:
+    title = str(localized_text(item["title"], language))
+    body = [str(line) for line in localized_text(item["body"], language)]
+    lines = [f"# {title}", "", f"`{timing_slug}`", "", "## Rules", ""]
+    for line in body:
+        lines.append(f"- {line}")
+    return "\n".join(lines) + "\n"
+
+
+def hook_managed_contents(language: str) -> dict[str, str]:
+    managed: dict[str, str] = {"docs/context/hooks/README.md": render_hooks_index(language)}
+    for timing in HOOK_TIMINGS:
+        slug = str(timing["slug"])
+        managed[f"docs/context/hooks/{slug}.md"] = render_hook_timing_doc(timing, language)
+        for item in timing["items"]:  # type: ignore[index]
+            path = str(item["path"])
+            managed[f"docs/context/hooks/{slug}/{path}"] = render_hook_item_doc(slug, item, language)
+    return managed
+
+
 def write_if_missing(path: Path, content: str, created: list[str], skipped: list[str]) -> None:
     if path.exists():
         skipped.append(str(path))
@@ -531,6 +1127,7 @@ def _required_dirs(root: Path) -> list[Path]:
         root / "docs" / "context" / "team",
         root / "docs" / "context" / "project",
         root / "docs" / "context" / "experience",
+        root / "docs" / "context" / "hooks",
         root / "docs" / "context" / "rules",
         root / "docs" / "versions" / "active",
         root / "docs" / "versions" / "archive",
@@ -574,6 +1171,7 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         ".qoder/rules/harness-workflow.md": render_template("qoder-rule.md.tmpl", repo_name, language),
         "tools/lint_harness_repo.py": SKILL_ROOT.joinpath("scripts", "lint_harness_repo.py").read_text(encoding="utf-8"),
     }
+    managed.update(hook_managed_contents(language))
     if include_agents:
         managed["AGENTS.md"] = render_template("AGENTS.md.tmpl", repo_name, language)
     if include_claude:

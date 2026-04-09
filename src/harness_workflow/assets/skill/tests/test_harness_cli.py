@@ -45,6 +45,11 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
         self.assertEqual(self.read_config()["language"], "english")
         self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
+        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "README.md").exists())
+        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "session-start.md").exists())
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "10-discussion-only.md").exists()
+        )
         self.assertTrue((self.repo / ".qoder" / "rules" / "harness-workflow.md").exists())
         for command in COMMAND_SAMPLES:
             self.assertTrue((self.repo / ".qoder" / "commands" / f"{command}.md").exists())
@@ -144,6 +149,7 @@ class HarnessCliTest(unittest.TestCase):
         claude_command = self.repo / ".claude" / "commands" / "harness-requirement.md"
         codex_wrapper = self.repo / ".codex" / "skills" / "harness-requirement" / "SKILL.md"
         qoder_rule = self.repo / ".qoder" / "rules" / "harness-workflow.md"
+        hooks_readme = self.repo / "docs" / "context" / "hooks" / "README.md"
         codex_skill.parent.mkdir(parents=True, exist_ok=True)
         claude_skill.parent.mkdir(parents=True, exist_ok=True)
         qoder_skill.parent.mkdir(parents=True, exist_ok=True)
@@ -154,6 +160,7 @@ class HarnessCliTest(unittest.TestCase):
         claude_command.unlink()
         codex_wrapper.unlink()
         qoder_rule.unlink()
+        hooks_readme.unlink()
 
         check = self.run_cli("update", "--root", str(self.repo), "--check")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
@@ -165,6 +172,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("missing .codex/skills/harness-requirement/SKILL.md", check.stdout)
         self.assertIn("missing docs/templates/session-memory.md", check.stdout)
         self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
+        self.assertIn("missing docs/context/hooks/README.md", check.stdout)
         self.assertFalse(session_memory.exists())
 
         result = self.run_cli("update", "--root", str(self.repo))
@@ -177,6 +185,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue(claude_command.exists())
         self.assertTrue(codex_wrapper.exists())
         self.assertTrue(qoder_rule.exists())
+        self.assertTrue(hooks_readme.exists())
 
     def test_archive_moves_requirement_and_linked_changes_into_version_archive(self) -> None:
         self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
