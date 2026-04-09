@@ -44,6 +44,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
         self.assertEqual(self.read_config()["language"], "english")
         self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
+        self.assertTrue((self.repo / ".qoder" / "commands" / "harness.md").exists())
         self.assertTrue((self.repo / ".qoder" / "rules" / "harness-workflow.md").exists())
 
     def test_language_version_requirement_change_and_plan_flow(self) -> None:
@@ -103,6 +104,7 @@ class HarnessCliTest(unittest.TestCase):
         codex_skill = self.repo / ".codex" / "skills" / "harness" / "SKILL.md"
         claude_skill = self.repo / ".claude" / "skills" / "harness" / "SKILL.md"
         qoder_skill = self.repo / ".qoder" / "skills" / "harness" / "SKILL.md"
+        qoder_command = self.repo / ".qoder" / "commands" / "harness.md"
         qoder_rule = self.repo / ".qoder" / "rules" / "harness-workflow.md"
         codex_skill.parent.mkdir(parents=True, exist_ok=True)
         claude_skill.parent.mkdir(parents=True, exist_ok=True)
@@ -110,6 +112,7 @@ class HarnessCliTest(unittest.TestCase):
         codex_skill.write_text("tampered codex skill\n", encoding="utf-8")
         claude_skill.write_text("tampered claude skill\n", encoding="utf-8")
         qoder_skill.write_text("tampered qoder skill\n", encoding="utf-8")
+        qoder_command.unlink()
         qoder_rule.unlink()
 
         check = self.run_cli("update", "--root", str(self.repo), "--check")
@@ -117,6 +120,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("would refresh .codex/skills/harness", check.stdout)
         self.assertIn("would refresh .claude/skills/harness", check.stdout)
         self.assertIn("would refresh .qoder/skills/harness", check.stdout)
+        self.assertIn("missing .qoder/commands/harness.md", check.stdout)
         self.assertIn("missing docs/templates/session-memory.md", check.stdout)
         self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
         self.assertFalse(session_memory.exists())
@@ -127,6 +131,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))
         self.assertIn("# Harness", claude_skill.read_text(encoding="utf-8"))
         self.assertIn("# Harness", qoder_skill.read_text(encoding="utf-8"))
+        self.assertTrue(qoder_command.exists())
         self.assertTrue(qoder_rule.exists())
 
     def test_archive_moves_requirement_and_linked_changes_into_version_archive(self) -> None:

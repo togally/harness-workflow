@@ -44,6 +44,7 @@ harness install
 - 安装 `.codex/skills/harness`
 - 安装 `.claude/skills/harness`
 - 安装 `.qoder/skills/harness`
+- 生成 `.qoder/commands/harness.md`
 - 生成 `.qoder/rules/harness-workflow.md`
 - 生成 `AGENTS.md` 和 `CLAUDE.md`
 - 初始化 `docs/` 结构
@@ -97,7 +98,7 @@ harness next --execute
 - `requirement` 和 `change` 都创建在当前激活的 version 下
 - `change` 可以独立存在，不要求必须挂 requirement
 - `context/` 仍然是仓库级知识库，不归属某个 version
-- `AGENTS.md` 继续作为跨 Agent 共享入口，Qoder 额外通过 `.qoder/rules/harness-workflow.md` 路由到同一套规则
+- `AGENTS.md` 继续作为跨 Agent 共享入口，Qoder 额外通过 `.qoder/commands/harness.md` 和 `.qoder/rules/harness-workflow.md` 路由到同一套规则
 - `harness active "<version>"` 用于显式修复或切换当前活动 version
 - `harness rename` 用于正式重命名 version / requirement / change，并同步元数据与主要引用
 - `harness archive` 用于把某个已完成 requirement 及其 linked changes 归档到当前 version 的归档目录中
@@ -277,6 +278,7 @@ harness update --force-managed
 - 刷新 `.codex/skills/harness`
 - 刷新 `.claude/skills/harness`
 - 刷新 `.qoder/skills/harness`
+- 刷新 `.qoder/commands/harness.md`
 - 根据当前语言配置同步受管模板与入口文件
 - 跳过你已经修改过的受管文件，除非显式使用 `--force-managed`
 - 检查活动 version 路由是否完整；若缺失或冲突，会提示你先运行 `harness active "<version>"`
@@ -394,6 +396,7 @@ This installs:
 - `.codex/skills/harness`
 - `.claude/skills/harness`
 - `.qoder/skills/harness`
+- `.qoder/commands/harness.md`
 - `.qoder/rules/harness-workflow.md`
 - `AGENTS.md`
 - `CLAUDE.md`
@@ -435,6 +438,8 @@ Command resolution:
 - Prefer the global `harness` CLI
 - If it is unavailable, fall back to `.codex/skills/harness/scripts/harness.py`, `.claude/skills/harness/scripts/harness.py`, or `.qoder/skills/harness/scripts/harness.py`
 - Do not assume the target repository has a root-level `scripts/harness.py`
+
+For Qoder, the most reliable repository entrypoint is `/harness`, backed by `.qoder/commands/harness.md`. The command then routes into the shared Harness skill and docs workflow.
 
 Key rules:
 

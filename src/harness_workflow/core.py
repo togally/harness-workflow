@@ -284,6 +284,7 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         "docs/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
         "docs/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
         "docs/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
+        ".qoder/commands/harness.md": render_template("qoder-command.md.tmpl", repo_name, language),
         ".qoder/rules/harness-workflow.md": render_template("qoder-rule.md.tmpl", repo_name, language),
         "tools/lint_harness_repo.py": SKILL_ROOT.joinpath("scripts", "lint_harness_repo.py").read_text(encoding="utf-8"),
     }
