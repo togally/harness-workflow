@@ -158,6 +158,7 @@ def _project_skill_targets(root: Path) -> list[Path]:
     return [
         root / ".codex" / "skills" / "harness",
         root / ".claude" / "skills" / "harness",
+        root / ".qoder" / "skills" / "harness",
     ]
 
 
@@ -275,6 +276,7 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         "docs/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
         "docs/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
         "docs/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
+        ".qoder/rules/harness-workflow.md": render_template("qoder-rule.md.tmpl", repo_name, language),
         "tools/lint_harness_repo.py": (Path(__file__).resolve().parents[0] / "lint_harness_repo.py").read_text(encoding="utf-8"),
     }
     if include_agents:
@@ -983,10 +985,12 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     if check:
         actions.append("would refresh .codex/skills/harness")
         actions.append("would refresh .claude/skills/harness")
+        actions.append("would refresh .qoder/skills/harness")
     else:
         _install_local_skills(root)
         actions.append("refreshed .codex/skills/harness")
         actions.append("refreshed .claude/skills/harness")
+        actions.append("refreshed .qoder/skills/harness")
 
     for relative, content in managed_contents.items():
         path = root / relative

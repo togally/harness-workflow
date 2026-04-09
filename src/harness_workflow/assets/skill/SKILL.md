@@ -1,6 +1,6 @@
 ---
 name: harness
-description: "Use when Codex needs to operate a repository with a Harness Engineering workflow: initialize the repo, switch language profiles, create version containers, place requirements and changes under the active version, prepare model-executable plans, and enforce AGENTS.md or CLAUDE.md routing plus docs-based execution rules."
+description: "Use when Codex, Claude Code, or Qoder needs to operate a repository with a Harness Engineering workflow: initialize the repo, switch language profiles, create version containers, place requirements and changes under the active version, prepare model-executable plans, and enforce thin root guides plus docs-based execution rules."
 ---
 
 # Harness
@@ -52,6 +52,7 @@ If the global CLI is unavailable, fall back to the installed project-local skill
 
 - Codex: `.codex/skills/harness/scripts/harness.py`
 - Claude Code: `.claude/skills/harness/scripts/harness.py`
+- Qoder: `.qoder/skills/harness/scripts/harness.py`
 
 Do not assume there is a repository-local `scripts/harness.py` in the target project root.
 If neither the global CLI nor the installed local skill script exists, stop and report the missing harness installation instead of hand-creating the workflow structure.
@@ -221,6 +222,7 @@ Local startup logs, compiler output, and stack traces should be collected by the
 
 Keep `AGENTS.md` and `CLAUDE.md` thin.
 They should route the agent into `docs/` and never become full business handbooks.
+For Qoder, keep `.qoder/rules/harness-workflow.md` equally thin and route it to the same shared `docs/context/rules/*` and version state files.
 
 Detailed rules belong in:
 

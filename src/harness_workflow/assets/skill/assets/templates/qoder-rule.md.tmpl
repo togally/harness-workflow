@@ -1,0 +1,28 @@
+# Harness Workflow
+
+本项目通过 Harness workflow 管理需求、变更、计划与执行。
+
+## Qoder 路由规则
+
+1. 在开始 requirement、change、plan、execution 或 regression 工作前，先读取 `docs/context/rules/workflow-runtime.yaml`
+2. 根据 `current_version` 读取对应 version 的 `meta.yaml`
+3. 再读取：
+   - `docs/context/rules/development-flow.md`
+   - `docs/context/rules/agent-workflow.md`
+   - `docs/context/rules/risk-rules.md`
+   - `docs/context/experience/index.md`
+4. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止，不要绕过 workflow 自行推进
+5. 若存在 `suggested_skill`，优先按它组织本阶段协作
+
+## 共享入口
+
+- 根目录 `AGENTS.md` 作为跨 Agent 通用入口
+- `docs/context/rules/*` 作为详细规则源
+- `docs/versions/active/<version>/` 作为当前版本工作区
+
+## 质量门禁
+
+- 每个 completed change 必须记录 `mvn compile`
+- 每个 completed requirement 必须记录项目启动成功
+- 如果编译失败、启动失败，先进入 regression
+- 如果继续修复需要用户补外部信息，先填写对应 change `regression/required-inputs.md`，再提示用户补充

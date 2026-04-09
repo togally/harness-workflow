@@ -2,12 +2,12 @@
 
 ## 中文
 
-`harness-workflow` 是一个面向 Codex / Claude Code 的 Harness Engineering 工作流仓库。
+`harness-workflow` 是一个面向 Codex / Claude Code / Qoder 的 Harness Engineering 工作流仓库。
 
 它现在提供 4 层能力：
 
 - 全局 CLI：安装后可直接使用 `harness`
-- 双端项目级 skill：`harness install` 会同时安装到 `.codex/skills/harness` 与 `.claude/skills/harness`
+- 三端项目级 skill：`harness install` 会同时安装到 `.codex/skills/harness`、`.claude/skills/harness` 与 `.qoder/skills/harness`
 - 版本主容器工作流：`version` 是 requirement / change / plan 的主工作容器
 - 规则驱动的协作流：通过 `workflow-runtime.yaml`、version `meta.yaml`、`development-flow.md` 与规则文档驱动 requirement/change/plan/execution 协作
 
@@ -43,6 +43,8 @@ harness install
 
 - 安装 `.codex/skills/harness`
 - 安装 `.claude/skills/harness`
+- 安装 `.qoder/skills/harness`
+- 生成 `.qoder/rules/harness-workflow.md`
 - 生成 `AGENTS.md` 和 `CLAUDE.md`
 - 初始化 `docs/` 结构
 - 写入 `.codex/harness/config.json`
@@ -86,7 +88,7 @@ harness next --execute
 命令入口约定：
 
 - 优先使用全局 `harness` CLI
-- 如果全局 CLI 不可用，再回退到 `.codex/skills/harness/scripts/harness.py` 或 `.claude/skills/harness/scripts/harness.py`
+- 如果全局 CLI 不可用，再回退到 `.codex/skills/harness/scripts/harness.py`、`.claude/skills/harness/scripts/harness.py` 或 `.qoder/skills/harness/scripts/harness.py`
 - 不要假设目标项目根目录存在 `scripts/harness.py`
 
 要点：
@@ -95,6 +97,7 @@ harness next --execute
 - `requirement` 和 `change` 都创建在当前激活的 version 下
 - `change` 可以独立存在，不要求必须挂 requirement
 - `context/` 仍然是仓库级知识库，不归属某个 version
+- `AGENTS.md` 继续作为跨 Agent 共享入口，Qoder 额外通过 `.qoder/rules/harness-workflow.md` 路由到同一套规则
 - `harness active "<version>"` 用于显式修复或切换当前活动 version
 - `harness rename` 用于正式重命名 version / requirement / change，并同步元数据与主要引用
 - `harness archive` 用于把某个已完成 requirement 及其 linked changes 归档到当前 version 的归档目录中
@@ -273,6 +276,7 @@ harness update --force-managed
 
 - 刷新 `.codex/skills/harness`
 - 刷新 `.claude/skills/harness`
+- 刷新 `.qoder/skills/harness`
 - 根据当前语言配置同步受管模板与入口文件
 - 跳过你已经修改过的受管文件，除非显式使用 `--force-managed`
 - 检查活动 version 路由是否完整；若缺失或冲突，会提示你先运行 `harness active "<version>"`
@@ -352,12 +356,12 @@ docs/
 
 ## English
 
-`harness-workflow` is a Harness Engineering workflow for Codex and Claude Code repositories.
+`harness-workflow` is a Harness Engineering workflow for Codex, Claude Code, and Qoder repositories.
 
 It provides:
 
 - a global `harness` CLI
-- project-local skills for both Codex and Claude Code
+- project-local skills for Codex, Claude Code, and Qoder
 - a version-centered workspace model
 - a rule-driven collaboration flow powered by workflow runtime, version meta, and development flow rules
 
@@ -389,6 +393,8 @@ This installs:
 
 - `.codex/skills/harness`
 - `.claude/skills/harness`
+- `.qoder/skills/harness`
+- `.qoder/rules/harness-workflow.md`
 - `AGENTS.md`
 - `CLAUDE.md`
 - the `docs/` workflow structure
@@ -427,7 +433,7 @@ harness next --execute
 Command resolution:
 
 - Prefer the global `harness` CLI
-- If it is unavailable, fall back to `.codex/skills/harness/scripts/harness.py` or `.claude/skills/harness/scripts/harness.py`
+- If it is unavailable, fall back to `.codex/skills/harness/scripts/harness.py`, `.claude/skills/harness/scripts/harness.py`, or `.qoder/skills/harness/scripts/harness.py`
 - Do not assume the target repository has a root-level `scripts/harness.py`
 
 Key rules:
