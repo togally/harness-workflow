@@ -202,6 +202,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "如果用户补充了额外指令，结合该指令和当前 workflow 状态共同决定下一步。",
             ]
         )
+        lines.extend(command_specific_guidance(command_name, language))
     else:
         lines.extend(
             [
@@ -230,6 +231,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "If the user adds more instruction, combine it with the current workflow state to decide the next step.",
             ]
         )
+        lines.extend(command_specific_guidance(command_name, language))
     return "\n".join(lines) + "\n"
 
 
@@ -269,6 +271,7 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "- 如果当前仓库里没有全局 `harness` CLI，再回退到 `.codex/skills/harness/scripts/harness.py`",
             ]
         )
+        body.extend(command_specific_guidance(command_name, language))
     else:
         body.extend(
             [
@@ -288,7 +291,110 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "- if the global `harness` CLI is unavailable, fall back to `.codex/skills/harness/scripts/harness.py`",
             ]
         )
+        body.extend(command_specific_guidance(command_name, language))
     return "\n".join(body) + "\n"
+
+
+def command_specific_guidance(command_name: str, language: str) -> list[str]:
+    is_cn = normalize_language(language) == "cn"
+    guidance: dict[str, list[str]] = {}
+    if is_cn:
+        guidance = {
+            "harness-requirement": [
+                "",
+                "重点动作：",
+                "",
+                "- 先确认当前是否已有 active version，没有则提醒先 `harness version` 或 `harness active`",
+                "- 创建 requirement 后，优先补齐问题背景、目标、范围、验收边界",
+                "- 不要急着进入实现，先和用户讨论需求是否准确",
+                "- 如果需求确认完成，明确提示下一步通常是拆 `change` 或运行 `harness next`",
+            ],
+            "harness-change": [
+                "",
+                "重点动作：",
+                "",
+                "- 先识别这是挂在某个 requirement 下，还是一个独立小变更",
+                "- 创建 change 后，优先补齐变更目标、影响范围、风险点和验收方式",
+                "- 提醒用户 change 完成前必须有 `mvn compile`",
+                "- 如果 change 已经讨论清楚，明确提示下一步是 `harness plan` 或 `harness next`",
+            ],
+            "harness-plan": [
+                "",
+                "重点动作：",
+                "",
+                "- 先确认当前 focus change 是哪个",
+                "- 计划要拆成可执行步骤，每步尽量带验证动作",
+                "- 避免只写大段描述，要让 agent 能直接按步骤执行",
+                "- 计划评审完成后，明确提示下一步是 `harness next`",
+            ],
+            "harness-next": [
+                "",
+                "重点动作：",
+                "",
+                "- 先解释当前 stage、current_task 和 next_action",
+                "- 再根据当前状态推进，不要假设下一步永远固定",
+                "- 如果已经到 `ready_for_execution`，不要直接实施，要提示是否执行或使用 `harness next --execute`",
+                "- 如果 workflow 状态不完整，停止并要求先修复状态",
+            ],
+            "harness-regression": [
+                "",
+                "重点动作：",
+                "",
+                "- 不要直接返工，先确认是不是真问题",
+                "- 优先利用本机已有日志、编译输出、测试堆栈自行分析",
+                "- 如果还需要用户补外部信息，先填写 `regression/required-inputs.md`",
+                "- 确认真问题后，再转成新的 requirement 或 change",
+            ],
+        }
+    else:
+        guidance = {
+            "harness-requirement": [
+                "",
+                "Focus:",
+                "",
+                "- confirm there is an active version first; if not, guide the user to `harness version` or `harness active`",
+                "- after creating the requirement, fill in background, goal, scope, and acceptance boundaries first",
+                "- do not jump into implementation; discuss whether the requirement is correct",
+                "- once the requirement is approved, point to splitting changes or running `harness next`",
+            ],
+            "harness-change": [
+                "",
+                "Focus:",
+                "",
+                "- decide whether this change belongs to a requirement or stands alone",
+                "- after creating the change, fill in intent, impact scope, risk points, and acceptance method first",
+                "- remind the user that every completed change must include `mvn compile`",
+                "- once the change is clear, point to `harness plan` or `harness next`",
+            ],
+            "harness-plan": [
+                "",
+                "Focus:",
+                "",
+                "- confirm which change is currently in focus",
+                "- break the plan into executable steps and pair each step with verification when possible",
+                "- avoid vague prose; the plan should be directly executable by an agent",
+                "- once the plan is reviewed, point to `harness next`",
+            ],
+            "harness-next": [
+                "",
+                "Focus:",
+                "",
+                "- explain the current stage, current task, and next action first",
+                "- then advance according to the actual state instead of assuming a fixed sequence",
+                "- if the version is already `ready_for_execution`, do not start implementation automatically; ask for confirmation or use `harness next --execute`",
+                "- if workflow state is incomplete, stop and require state repair first",
+            ],
+            "harness-regression": [
+                "",
+                "Focus:",
+                "",
+                "- do not jump straight into rework; confirm whether it is a real problem first",
+                "- use locally available logs, compile output, and test failures before asking the human",
+                "- if human-provided external input is still needed, fill `regression/required-inputs.md` first",
+                "- only after confirmation should the regression become a new requirement update or change",
+            ],
+        }
+    return guidance.get(command_name, [])
 
 
 def write_if_missing(path: Path, content: str, created: list[str], skipped: list[str]) -> None:
