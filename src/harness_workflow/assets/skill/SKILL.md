@@ -54,7 +54,9 @@ If the global CLI is unavailable, fall back to the installed project-local skill
 - Claude Code: `.claude/skills/harness/scripts/harness.py`
 - Qoder: `.qoder/skills/harness/scripts/harness.py`
 
-For Qoder, prefer the project command `/harness` when it is available. Back it with `.qoder/commands/harness.md`, then route into the same shared Harness skill and docs workflow.
+For Qoder, prefer the project command family such as `/harness`, `/harness-requirement`, `/harness-change`, and `/harness-plan` when they are available. Back them with `.qoder/commands/harness-*.md`, then route into the same shared Harness skill and docs workflow.
+For Claude Code, generate the same command family under `.claude/commands/harness-*.md`.
+For Codex, expose the same command family as thin `.codex/skills/harness-*` wrappers around the main Harness skill.
 
 Do not assume there is a repository-local `scripts/harness.py` in the target project root.
 If neither the global CLI nor the installed local skill script exists, stop and report the missing harness installation instead of hand-creating the workflow structure.
@@ -224,7 +226,9 @@ Local startup logs, compiler output, and stack traces should be collected by the
 
 Keep `AGENTS.md` and `CLAUDE.md` thin.
 They should route the agent into `docs/` and never become full business handbooks.
-For Qoder, keep `.qoder/commands/harness.md` and `.qoder/rules/harness-workflow.md` equally thin and route them to the same shared `docs/context/rules/*` and version state files.
+For Qoder, keep `.qoder/commands/harness-*.md` and `.qoder/rules/harness-workflow.md` equally thin and route them to the same shared `docs/context/rules/*` and version state files.
+For Claude Code, keep `.claude/commands/harness-*.md` thin in the same way.
+For Codex, keep `.codex/skills/harness-*` as thin wrappers instead of copying business rules into many separate skills.
 
 Detailed rules belong in:
 

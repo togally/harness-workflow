@@ -97,6 +97,26 @@ ITEM_META_ORDER = [
     "created_at",
 ]
 
+COMMAND_DEFINITIONS = [
+    {"name": "harness", "cli": "harness", "hint": "[instruction]"},
+    {"name": "harness-install", "cli": "harness install", "hint": ""},
+    {"name": "harness-init", "cli": "harness init", "hint": ""},
+    {"name": "harness-update", "cli": "harness update", "hint": "[--check|--force-managed]"},
+    {"name": "harness-language", "cli": "harness language", "hint": "<english|cn>"},
+    {"name": "harness-version", "cli": "harness version", "hint": "<name>"},
+    {"name": "harness-active", "cli": "harness active", "hint": "<version>"},
+    {"name": "harness-use", "cli": "harness use", "hint": "<version>"},
+    {"name": "harness-status", "cli": "harness status", "hint": ""},
+    {"name": "harness-requirement", "cli": "harness requirement", "hint": "<title>"},
+    {"name": "harness-change", "cli": "harness change", "hint": "<title>"},
+    {"name": "harness-plan", "cli": "harness plan", "hint": "<change>"},
+    {"name": "harness-next", "cli": "harness next", "hint": "[--execute]"},
+    {"name": "harness-ff", "cli": "harness ff", "hint": ""},
+    {"name": "harness-regression", "cli": "harness regression", "hint": "<issue>|--confirm|--change <title>"},
+    {"name": "harness-archive", "cli": "harness archive", "hint": "<requirement>"},
+    {"name": "harness-rename", "cli": "harness rename", "hint": "<kind> <old> <new>"},
+]
+
 
 def normalize_language(value: str | None) -> str:
     if not value:
@@ -137,6 +157,143 @@ def render_template(
     for key, value in mapping.items():
         text = text.replace(key, value)
     return text
+
+
+def render_agent_command(command_name: str, cli_command: str, argument_hint: str, language: str) -> str:
+    is_cn = normalize_language(language) == "cn"
+    description = (
+        f"执行 {cli_command}，并按当前 Harness workflow 状态推进工作"
+        if is_cn
+        else f"Run {cli_command} and continue work inside the current Harness workflow state"
+    )
+    if command_name == "harness":
+        description = (
+            "进入 Harness workflow，并根据当前仓库的 workflow 状态决定下一步"
+            if is_cn
+            else "Enter the Harness workflow and decide the next action from the current repository workflow state"
+        )
+    lines = [
+        "---",
+        f"description: {description}",
+        f'argument-hint: "{argument_hint}"',
+        "---",
+        "",
+    ]
+    if is_cn:
+        lines.extend(
+            [
+                f"本命令对应 `{cli_command}`。",
+                "",
+                "执行前请先：",
+                "",
+                "1. 读取 `docs/context/rules/workflow-runtime.yaml`",
+                "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
+                "3. 继续读取：",
+                "   - `docs/context/rules/development-flow.md`",
+                "   - `docs/context/rules/agent-workflow.md`",
+                "   - `docs/context/rules/risk-rules.md`",
+                "   - `docs/context/experience/index.md`",
+                "4. 优先遵循根目录 `AGENTS.md`",
+                "5. 如果存在 `.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
+                "",
+                "执行要求：",
+                "",
+                f"- 优先围绕 `{cli_command}` 的语义推进当前任务",
+                "- 不要绕过 workflow 手工推进 requirement / change / plan / execution",
+                "- 如果 workflow 状态缺失或冲突，停止并提示运行 `harness active \"<version>\"`",
+                "- 如果编译失败、启动失败或需要用户提供外部信息，先进入 regression",
+                "- 若需要用户补信息，先填写对应 change `regression/required-inputs.md`",
+                "",
+                "如果用户补充了额外指令，结合该指令和当前 workflow 状态共同决定下一步。",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"This command maps to `{cli_command}`.",
+                "",
+                "Before acting:",
+                "",
+                "1. Read `docs/context/rules/workflow-runtime.yaml`",
+                "2. Use `current_version` to read the active version `meta.yaml`",
+                "3. Then read:",
+                "   - `docs/context/rules/development-flow.md`",
+                "   - `docs/context/rules/agent-workflow.md`",
+                "   - `docs/context/rules/risk-rules.md`",
+                "   - `docs/context/experience/index.md`",
+                "4. Prefer the root `AGENTS.md`",
+                "5. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
+                "",
+                "Execution rules:",
+                "",
+                f"- center the task around `{cli_command}`",
+                "- do not bypass the workflow with manual requirement / change / plan / execution steps",
+                "- if workflow state is missing or inconsistent, stop and tell the user to run `harness active \"<version>\"`",
+                "- if compilation fails, startup fails, or human-provided external input is required, enter regression first",
+                "- if human input is required, fill the related change `regression/required-inputs.md` before asking for it",
+                "",
+                "If the user adds more instruction, combine it with the current workflow state to decide the next step.",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_codex_command_skill(command_name: str, cli_command: str, language: str) -> str:
+    is_cn = normalize_language(language) == "cn"
+    description = (
+        f"当用户想执行 `{cli_command}` 或表达同类意图时使用。先读取 workflow 状态，再路由到主 harness skill。"
+        if is_cn
+        else f"Use when the user wants `{cli_command}` or equivalent intent. Read workflow state first, then route into the main harness skill."
+    )
+    title = command_name.replace("-", " ").title()
+    body = [
+        "---",
+        f"name: {command_name}",
+        f'description: "{description}"',
+        "---",
+        "",
+        f"# {title}",
+        "",
+    ]
+    if is_cn:
+        body.extend(
+            [
+                f"这是 `{cli_command}` 的薄包装 skill。",
+                "",
+                "执行前：",
+                "",
+                "1. 先读取 `docs/context/rules/workflow-runtime.yaml`",
+                "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
+                "3. 再读取根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
+                "",
+                "规则：",
+                "",
+                f"- 以 `{cli_command}` 作为当前主要动作",
+                "- 不要绕过 workflow 自行创建平行流程",
+                "- 如果状态缺失或冲突，停止并提示运行 `harness active \"<version>\"`",
+                "- 如果当前仓库里没有全局 `harness` CLI，再回退到 `.codex/skills/harness/scripts/harness.py`",
+            ]
+        )
+    else:
+        body.extend(
+            [
+                f"This is a thin wrapper skill for `{cli_command}`.",
+                "",
+                "Before acting:",
+                "",
+                "1. Read `docs/context/rules/workflow-runtime.yaml`",
+                "2. Use `current_version` to read the active version `meta.yaml`",
+                "3. Then read the root `AGENTS.md` and the main harness skill at `.codex/skills/harness/SKILL.md`",
+                "",
+                "Rules:",
+                "",
+                f"- treat `{cli_command}` as the primary action",
+                "- do not improvise a parallel workflow",
+                "- if state is missing or inconsistent, stop and tell the user to run `harness active \"<version>\"`",
+                "- if the global `harness` CLI is unavailable, fall back to `.codex/skills/harness/scripts/harness.py`",
+            ]
+        )
+    return "\n".join(body) + "\n"
 
 
 def write_if_missing(path: Path, content: str, created: list[str], skipped: list[str]) -> None:
@@ -292,6 +449,13 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         managed["AGENTS.md"] = render_template("AGENTS.md.tmpl", repo_name, language)
     if include_claude:
         managed["CLAUDE.md"] = render_template("CLAUDE.md.tmpl", repo_name, language)
+    for command in COMMAND_DEFINITIONS:
+        markdown = render_agent_command(command["name"], command["cli"], command["hint"], language)
+        managed[f".qoder/commands/{command['name']}.md"] = markdown
+        managed[f".claude/commands/{command['name']}.md"] = markdown
+        managed[f".codex/skills/{command['name']}/SKILL.md"] = render_codex_command_skill(
+            command["name"], command["cli"], language
+        )
     return managed
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+COMMAND_SAMPLES = ["harness", "harness-requirement", "harness-change", "harness-next"]
 
 
 class HarnessCliTest(unittest.TestCase):
@@ -49,8 +50,11 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((self.repo / ".codex" / "skills" / "harness" / "SKILL.md").exists())
         self.assertTrue((self.repo / ".claude" / "skills" / "harness" / "SKILL.md").exists())
         self.assertTrue((self.repo / ".qoder" / "skills" / "harness" / "SKILL.md").exists())
-        self.assertTrue((self.repo / ".qoder" / "commands" / "harness.md").exists())
         self.assertTrue((self.repo / ".qoder" / "rules" / "harness-workflow.md").exists())
+        for command in COMMAND_SAMPLES:
+            self.assertTrue((self.repo / ".qoder" / "commands" / f"{command}.md").exists())
+            self.assertTrue((self.repo / ".claude" / "commands" / f"{command}.md").exists())
+            self.assertTrue((self.repo / ".codex" / "skills" / command / "SKILL.md").exists())
         self.assertTrue((self.repo / "docs" / "context").exists())
         self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
         self.assertEqual(self.read_config()["language"], "english")
@@ -140,21 +144,29 @@ class HarnessCliTest(unittest.TestCase):
     def test_update_check_and_apply_refresh_qoder_skill_and_rule(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
         qoder_skill = self.repo / ".qoder" / "skills" / "harness" / "SKILL.md"
-        qoder_command = self.repo / ".qoder" / "commands" / "harness.md"
+        qoder_command = self.repo / ".qoder" / "commands" / "harness-requirement.md"
+        claude_command = self.repo / ".claude" / "commands" / "harness-requirement.md"
+        codex_wrapper = self.repo / ".codex" / "skills" / "harness-requirement" / "SKILL.md"
         qoder_rule = self.repo / ".qoder" / "rules" / "harness-workflow.md"
         qoder_skill.write_text("tampered qoder skill\n", encoding="utf-8")
         qoder_command.unlink()
+        claude_command.unlink()
+        codex_wrapper.unlink()
         qoder_rule.unlink()
 
         check = self.run_cli("update", "--root", str(self.repo), "--check")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
         self.assertIn("would refresh .qoder/skills/harness", check.stdout)
-        self.assertIn("missing .qoder/commands/harness.md", check.stdout)
+        self.assertIn("missing .qoder/commands/harness-requirement.md", check.stdout)
+        self.assertIn("missing .claude/commands/harness-requirement.md", check.stdout)
+        self.assertIn("missing .codex/skills/harness-requirement/SKILL.md", check.stdout)
         self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
 
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertTrue(qoder_command.exists())
+        self.assertTrue(claude_command.exists())
+        self.assertTrue(codex_wrapper.exists())
         self.assertTrue(qoder_rule.exists())
         self.assertIn("# Harness", qoder_skill.read_text(encoding="utf-8"))
 
