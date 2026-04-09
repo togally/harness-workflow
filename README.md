@@ -80,6 +80,8 @@ harness plan "在线问诊预约"
 harness rename requirement "在线健康服务" "无人机任务编排"
 harness archive "无人机任务编排"
 harness active "v1.0.0"
+harness enter
+harness exit
 harness regression "按钮交互动效不符合预期"
 harness regression --confirm
 harness regression --change "优化按钮交互反馈"
@@ -106,6 +108,9 @@ harness next --execute
 - Claude Code 通过 `.claude/commands/harness-*.md` 提供命令级入口
 - Codex 通过 `.codex/skills/harness-*` 提供命令级薄 skill 入口
 - `harness active "<version>"` 用于显式修复或切换当前活动 version
+- `harness enter` 用于显式进入当前 workflow 节点对应的 harness 会话模式
+- 所有 `harness ...` 命令默认也会自动进入 harness 会话模式
+- 只要 harness 会话模式处于开启状态，对话就必须持续受当前锁定的 version / stage / 节点约束，直到显式执行 `harness exit`
 - `harness rename` 用于正式重命名 version / requirement / change，并同步元数据与主要引用
 - `harness archive` 用于把某个已完成 requirement 及其 linked changes 归档到当前 version 的归档目录中
 - `harness regression` 用于启动“先确认是不是真问题”的回归诊断流，确认后再转成新的 requirement 或 change
@@ -168,6 +173,8 @@ harness next --execute
 
 - `harness use "<version>"`：切换当前 version
 - `harness active "<version>"`：显式设置当前活动 version，修复 runtime/config 路由
+- `harness enter`：进入当前 version 和当前 workflow 节点对应的 harness 会话模式
+- `harness exit`：退出 harness 会话模式，只解除会话锁，不改当前 stage
 - `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据与主要引用
 - `harness archive "<requirement>"`：将某个 requirement 及其 linked changes 归档到当前 version 的 `archive/` 或 `归档/`
 - `harness regression "<问题描述>"`：启动回归确认流
@@ -434,6 +441,8 @@ harness plan "Online Booking"
 harness rename requirement "Online Health Service" "Customer Health Service"
 harness archive "Customer Health Service"
 harness active "v1.0.0"
+harness enter
+harness exit
 harness regression "Button interaction feels wrong"
 harness regression --confirm
 harness regression --change "Polish Button Interaction"
@@ -460,6 +469,9 @@ Key rules:
 - changes may exist without a requirement
 - `docs/context/` stays repository-level and should not be version-scoped
 - `harness active "<version>"` explicitly repairs or switches the active version route
+- `harness enter` explicitly enters harness conversation mode at the current workflow node
+- every `harness ...` command also auto-enters harness conversation mode
+- while harness conversation mode is active, the conversation must remain inside the locked version/stage/node until `harness exit`
 - `harness rename` is the preferred way to rename a version, requirement, or change
 - `harness archive` archives one completed requirement and its linked changes inside the current version
 - `harness regression` starts a regression diagnosis flow so the agent confirms whether something is a real problem before creating new work
@@ -495,6 +507,8 @@ Command roles:
 
 - `harness use "<version>"`
 - `harness active "<version>"`
+- `harness enter`
+- `harness exit`
 - `harness rename version|requirement|change "<old>" "<new>"`
 - `harness archive "<requirement>"`
 - `harness regression "<issue>"`

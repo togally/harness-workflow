@@ -44,6 +44,8 @@
 - `harness version "<name>"`：创建或切换 version，并将其设为当前工作 version
 - `harness active "<name>"`：显式修复或切换当前活动 version
 - `harness use "<name>"`：切换当前工作 version
+- `harness enter`：进入当前 version 和当前 workflow 节点对应的 harness 会话模式
+- `harness exit`：退出 harness 会话模式，不改变当前 stage，只解除会话锁
 - `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据
 - `harness archive "<requirement>"`：归档某个已完成 requirement 及其 linked changes
 - `harness regression "<问题描述>"`：启动回归确认流
@@ -59,8 +61,10 @@
 
 - 不允许跳过运行态路由直接开始写代码
 - 不允许在未确认当前 version 的情况下推进 requirement 或 change
+- requirement_review 阶段不允许直接开始实现；即使用户补充了实现型 prompt，也只能先讨论并更新需求文档
 - 回归阶段不允许直接跳回编码，必须先和用户确认是否是真问题
 - regression 的长期留存放在 `docs/versions/active/<version>/regressions/` 目录中，不长期占用 version 主状态
 - `ff` 只跳过讨论，不跳过最终执行确认
 - 如果 workflow 状态缺失、冲突或阻塞，Agent 必须停止工作并要求修复，不允许手工模拟流程继续推进
 - 每个阶段的任务完成后，必须检查是否产生了可沉淀经验；成熟经验应融合进 `docs/context/experience/` 或正式规则
+- 任何 `harness` 命令默认都会进入 harness 会话模式；如果处于该模式，对话必须持续受当前锁定节点约束，直到显式执行 `harness exit`

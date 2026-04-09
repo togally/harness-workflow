@@ -145,6 +145,18 @@ If the active route is broken, repair it with:
 harness active "v1.0.0" --root /path/to/repo
 ```
 
+Enter harness conversation mode explicitly with:
+
+```bash
+harness enter --root /path/to/repo
+```
+
+Exit harness conversation mode with:
+
+```bash
+harness exit --root /path/to/repo
+```
+
 Optionally switch language:
 
 ```bash
@@ -162,8 +174,10 @@ Then:
 1. Use `brainstorming` to refine the requirement with the developer.
 2. Write the result into the active version requirement container.
 3. Split the requirement into multiple `change` units in `changes.md`.
+4. Even if the developer provides an implementation-oriented prompt at this stage, treat it as requirement discussion input only. Do not implement code during `requirement_review`.
 
 Use requirement workspaces for themes, not for single-file tweaks.
+All `harness ...` commands auto-enter harness conversation mode. Once in harness mode, keep the conversation inside the current workflow node until the developer explicitly calls `harness exit`.
 
 ## Harness Change
 
@@ -221,6 +235,7 @@ This should create `requirements`, `changes`, and `plans` containers under the a
 Use versions as the main work container, while `docs/context/` remains repository-level knowledge.
 When a requirement is complete, record successful project startup validation in its `completion.md`. If startup fails, enter regression first.
 Local startup logs, compiler output, and stack traces should be collected by the agent before it asks the human for help.
+`harness enter` should lock the conversation to the current version and workflow node. `harness exit` should release that lock without mutating the current stage.
 
 ## Root Guides
 

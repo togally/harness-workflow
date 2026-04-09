@@ -62,7 +62,14 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((requirement_dir / "requirement.md").exists())
         self.assertTrue((requirement_dir / "completion.md").exists())
         self.assertIn("启动测试", (requirement_dir / "completion.md").read_text(encoding="utf-8"))
-        self.assertEqual(self.read_version_meta("v1.0.0")["suggested_skill"], "brainstorming")
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["suggested_skill"], "brainstorming")
+        self.assertIn("Do not write production code", str(meta["assistant_prompt"]))
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["conversation_mode"], "harness")
+        self.assertEqual(runtime["locked_stage"], "requirement_review")
+        self.assertEqual(runtime["locked_artifact_kind"], "requirement")
+        self.assertEqual(runtime["locked_artifact_id"], "在线健康服务")
 
         change = self.run_cli("change", "在线问诊预约", "--root", str(self.repo), "--requirement", "在线健康服务")
         self.assertEqual(change.returncode, 0, msg=change.stderr or change.stdout)
@@ -91,6 +98,31 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(status.returncode, 0, msg=status.stderr or status.stdout)
         self.assertIn("current_version: v1.0.0", status.stdout)
         self.assertIn("suggested_skill:", status.stdout)
+        self.assertIn("conversation_mode: harness", status.stdout)
+
+    def test_enter_and_exit_toggle_harness_conversation_mode(self) -> None:
+        self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+
+        exit_result = self.run_cli("exit", "--root", str(self.repo))
+        self.assertEqual(exit_result.returncode, 0, msg=exit_result.stderr or exit_result.stdout)
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["conversation_mode"], "open")
+        self.assertEqual(runtime["locked_version"], "")
+        self.assertEqual(runtime["locked_stage"], "")
+        self.assertEqual(runtime["locked_artifact_kind"], "")
+        self.assertEqual(runtime["locked_artifact_id"], "")
+
+        enter_result = self.run_cli("enter", "--root", str(self.repo))
+        self.assertEqual(enter_result.returncode, 0, msg=enter_result.stderr or enter_result.stdout)
+        self.assertIn("Entered harness mode: v1.0.0 / requirement_review", enter_result.stdout)
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["conversation_mode"], "harness")
+        self.assertEqual(runtime["locked_version"], "v1.0.0")
+        self.assertEqual(runtime["locked_stage"], "requirement_review")
+        self.assertEqual(runtime["locked_artifact_kind"], "requirement")
+        self.assertEqual(runtime["locked_artifact_id"], "online-health-service")
 
     def test_active_switches_current_version(self) -> None:
         self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")

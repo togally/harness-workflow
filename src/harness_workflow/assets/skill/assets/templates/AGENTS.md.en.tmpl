@@ -18,12 +18,16 @@ This repository uses the Harness workflow for agent collaboration.
 12. Every completed change must include `mvn compile`; every completed requirement must include successful project startup validation
 13. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
 14. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
+15. If the current stage is `requirement_review`, even a detailed implementation prompt must be treated as discussion input only; do not start coding yet
+16. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
 
 ## Main Entry
 
 - `harness version "<name>"`
 - `harness active "<name>"`
 - `harness use "<name>"`
+- `harness enter`
+- `harness exit`
 - `harness status`
 - `harness next`
 - `harness ff`

@@ -20,6 +20,8 @@
 14. 每个 change 完成前必须执行并记录 `mvn compile`；每个 requirement 完成前必须执行并记录项目启动测试成功
 15. 如果本机已有启动日志、编译输出或测试堆栈，先由 AI 自行读取和分析
 16. 如果编译失败、启动失败，或继续修复前仍然需要用户提供数据，先进入 regression，并先填写对应 change `regression/required-inputs.md`，再提示用户补充
+17. 如果当前处于 `requirement_review`，即使用户追加了详细实现 prompt，也只能先用于需求讨论和文档完善，不允许直接开始实现
+18. 如果 `workflow-runtime.yaml` 中 `conversation_mode` 为 `harness`，后续对话必须严格围绕 `locked_version`、`locked_stage` 和当前锁定节点推进；除非用户显式执行 `harness exit`，否则不允许脱离 harness 工作流去做无关实现或自由发挥
 
 ## 关键入口
 
@@ -37,6 +39,8 @@
 - 切换语言：`harness language english|cn`
 - 切换或创建版本：`harness version "v1.0.0"`
 - 显式修复当前活动版本：`harness active "v1.0.0"`
+- 进入当前 harness 会话节点：`harness enter`
+- 退出 harness 会话模式：`harness exit`
 - 新建需求主题：`harness requirement "需求标题"`
 - 拆分具体功能点：`harness change "变更标题"`
 - 为 change 制定计划：`harness plan "变更标题"`

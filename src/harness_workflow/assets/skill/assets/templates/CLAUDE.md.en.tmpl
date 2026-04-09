@@ -20,3 +20,23 @@ This repository uses the Harness workflow for Claude Code.
 14. Every completed change must execute and record `mvn compile`; every completed requirement must execute and record successful project startup validation
 15. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
 16. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
+17. If the current stage is `requirement_review`, even a detailed implementation prompt must be used only for requirement discussion and document refinement; do not start implementation
+18. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
+
+## Main Entry
+
+- `harness version "<name>"`
+- `harness active "<name>"`
+- `harness use "<name>"`
+- `harness enter`
+- `harness exit`
+- `harness status`
+- `harness next`
+- `harness ff`
+- `harness requirement "<title>"`
+- `harness change "<title>"`
+- `harness plan "<change>"`
+- `harness regression "<issue>"`
+- `harness rename version|requirement|change "<old>" "<new>"`
+- `harness archive "<requirement>"`
+- `harness update`

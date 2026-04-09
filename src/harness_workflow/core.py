@@ -33,6 +33,11 @@ DEFAULT_RUNTIME = {
     "current_version": "",
     "executing_version": "",
     "mode": "normal",
+    "conversation_mode": "open",
+    "locked_version": "",
+    "locked_stage": "",
+    "locked_artifact_kind": "",
+    "locked_artifact_id": "",
     "current_regression": "",
     "active_versions": {},
 }
@@ -106,6 +111,8 @@ COMMAND_DEFINITIONS = [
     {"name": "harness-version", "cli": "harness version", "hint": "<name>"},
     {"name": "harness-active", "cli": "harness active", "hint": "<version>"},
     {"name": "harness-use", "cli": "harness use", "hint": "<version>"},
+    {"name": "harness-enter", "cli": "harness enter", "hint": ""},
+    {"name": "harness-exit", "cli": "harness exit", "hint": ""},
     {"name": "harness-status", "cli": "harness status", "hint": ""},
     {"name": "harness-requirement", "cli": "harness requirement", "hint": "<title>"},
     {"name": "harness-change", "cli": "harness change", "hint": "<title>"},
@@ -388,6 +395,22 @@ def command_specific_guidance(command_name: str, language: str) -> list[str]:
                 "- then advance according to the actual state instead of assuming a fixed sequence",
                 "- if the version is already `ready_for_execution`, do not start implementation automatically; ask for confirmation or use `harness next --execute`",
                 "- if workflow state is incomplete, stop and require state repair first",
+            ],
+            "harness-enter": [
+                "",
+                "Focus:",
+                "",
+                "- enter harness conversation mode at the current version and current workflow node",
+                "- after entering, keep the discussion inside the current harness stage instead of drifting into unrelated implementation",
+                "- if there is no active version, enter harness mode but explain that the next step is to create or activate a version",
+            ],
+            "harness-exit": [
+                "",
+                "Focus:",
+                "",
+                "- leave harness conversation mode cleanly",
+                "- once exited, do not keep enforcing the current harness node as the only valid context",
+                "- do not mutate requirement, change, plan, or runtime stage beyond clearing the conversation lock",
             ],
             "harness-regression": [
                 "",
@@ -731,15 +754,15 @@ def fallback_stage_for_artifacts(meta: dict[str, object], requirement_ids: list[
         payload.update(
             {
                 "status": "in_progress",
-                "stage": "requirement_review",
-                "current_task": f"Review requirement {focus_requirement}",
-                "next_action": "Discuss and confirm the requirement, then run `harness next` to move into change design.",
-                "current_artifact_kind": "requirement",
-                "current_artifact_id": focus_requirement,
-                "suggested_skill": "brainstorming",
-                "assistant_prompt": f"Use brainstorming to draft and refine requirement {focus_requirement} in its document, then stop for human review.",
-                "approval_required": True,
-            }
+            "stage": "requirement_review",
+            "current_task": f"Review requirement {focus_requirement}",
+            "next_action": "Discuss and confirm the requirement, then run `harness next` to move into change design.",
+            "current_artifact_kind": "requirement",
+            "current_artifact_id": focus_requirement,
+            "suggested_skill": "brainstorming",
+            "assistant_prompt": f"Use brainstorming to draft and refine requirement {focus_requirement} in its document. Treat any implementation-oriented prompt as discussion input only. Do not write production code, modify source files, or start implementation during requirement_review. Stop for human review before any change design or coding.",
+            "approval_required": True,
+        }
         )
         return payload
     payload.update(
@@ -900,6 +923,40 @@ def set_regression_mode(runtime: dict[str, object], regression_id: str = "") -> 
     payload["mode"] = "regression" if regression_id else "normal"
     payload["current_regression"] = regression_id
     return payload
+
+
+def set_conversation_mode(
+    runtime: dict[str, object],
+    *,
+    conversation_mode: str,
+    version_id: str = "",
+    meta: dict[str, object] | None = None,
+) -> dict[str, object]:
+    payload = dict(runtime)
+    payload["conversation_mode"] = conversation_mode
+    if conversation_mode != "harness":
+        payload["locked_version"] = ""
+        payload["locked_stage"] = ""
+        payload["locked_artifact_kind"] = ""
+        payload["locked_artifact_id"] = ""
+        return payload
+    payload["locked_version"] = version_id
+    payload["locked_stage"] = str((meta or {}).get("stage", ""))
+    payload["locked_artifact_kind"] = str((meta or {}).get("current_artifact_kind", ""))
+    payload["locked_artifact_id"] = str((meta or {}).get("current_artifact_id", ""))
+    return payload
+
+
+def enter_harness_mode(root: Path, runtime: dict[str, object], version_id: str = "", meta: dict[str, object] | None = None) -> dict[str, object]:
+    selected_version = version_id.strip()
+    selected_meta = meta
+    if selected_version and selected_meta is None and version_meta_path(root, selected_version).exists():
+        selected_meta = load_version_meta(root, selected_version)
+    return set_conversation_mode(runtime, conversation_mode="harness", version_id=selected_version, meta=selected_meta)
+
+
+def exit_harness_mode(runtime: dict[str, object]) -> dict[str, object]:
+    return set_conversation_mode(runtime, conversation_mode="open")
 
 
 def select_focus_change(meta: dict[str, object]) -> str:
@@ -1255,6 +1312,8 @@ def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
     if not (root / WORKFLOW_RUNTIME_PATH).exists():
         save_runtime(root, dict(DEFAULT_RUNTIME))
         created.append(str(root / WORKFLOW_RUNTIME_PATH))
+    runtime = enter_harness_mode(root, load_runtime(root), str(config.get("current_version", "")).strip())
+    save_runtime(root, runtime)
 
     print("Created files:")
     for path in created:
@@ -1341,6 +1400,8 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     config, runtime, repair_actions = repair_identifier_drift(root, config, runtime, check)
     actions.extend(repair_actions)
     if not check:
+        current_version = str(runtime.get("current_version", "") or config.get("current_version", "")).strip()
+        runtime = enter_harness_mode(root, runtime, current_version)
         save_config(root, config)
         save_runtime(root, runtime)
 
@@ -1365,6 +1426,8 @@ def set_language(root: Path, language: str) -> int:
     config = ensure_config(root)
     config["language"] = normalize_language(language)
     save_config(root, config)
+    runtime = enter_harness_mode(root, load_runtime(root), str(config.get("current_version", "")).strip())
+    save_runtime(root, runtime)
     print(f"Language set to {config['language']}")
     print("Run `harness update` if you want managed templates and guides to refresh in the new language.")
     return 0
@@ -1407,6 +1470,7 @@ def create_version(root: Path, version_name: str) -> int:
     config["current_version"] = version_id
     save_config(root, config)
     runtime["executing_version"] = runtime.get("executing_version", "")
+    runtime = enter_harness_mode(root, runtime, version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
 
     print(f"Active version: {version_id}")
@@ -1445,11 +1509,12 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
             "current_artifact_kind": "requirement",
             "current_artifact_id": resolved_id,
             "suggested_skill": "brainstorming",
-            "assistant_prompt": f"Use brainstorming to draft and refine requirement {resolved_id} in its document, then stop for human review.",
+            "assistant_prompt": f"Use brainstorming to draft and refine requirement {resolved_id} in its document. Treat any implementation-oriented prompt as discussion input only. Do not write production code, modify source files, or start implementation during requirement_review. Stop for human review before any change design or coding.",
             "approval_required": True,
             "requirement_ids": requirement_ids,
         }
     )
+    runtime = enter_harness_mode(root, runtime, version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
 
     print(f"Requirement workspace: {requirement_dir}")
@@ -1511,6 +1576,7 @@ def create_change(
             "change_ids": change_ids,
         }
     )
+    runtime = enter_harness_mode(root, runtime, version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
 
     print(f"Change workspace: {change_dir}")
@@ -1544,6 +1610,7 @@ def create_plan(root: Path, change_name: str) -> int:
             "approval_required": True,
         }
     )
+    runtime = enter_harness_mode(root, runtime, version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
     print(f"Plan file: {candidate / 'plan.md'}")
     print("Use writing-plans to expand this file into model-executable development and verification steps.")
@@ -1583,7 +1650,7 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
             "approval_required": True,
         }
     )
-    runtime = set_regression_mode(runtime, resolved_id)
+    runtime = enter_harness_mode(root, set_regression_mode(runtime, resolved_id), version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
 
     print(f"Regression workspace: {regression_dir}")
@@ -1637,7 +1704,7 @@ def regression_action(
             },
         )
         save_version_meta(root, version_id, meta)
-        save_runtime(root, set_regression_mode(runtime, regression_id))
+        save_runtime(root, enter_harness_mode(root, set_regression_mode(runtime, regression_id), version_id, meta))
         print(f"Regression confirmed: {regression_id}")
         return 0
 
@@ -1647,7 +1714,7 @@ def regression_action(
         meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
         update_item_meta(regression_dir / "meta.yaml", {"status": "rejected"})
         meta = fallback_stage_for_artifacts(meta, [str(item) for item in meta.get("requirement_ids", [])], [str(item) for item in meta.get("change_ids", [])])
-        runtime = set_regression_mode(runtime, "")
+        runtime = enter_harness_mode(root, set_regression_mode(runtime, ""), version_id, meta)
         meta["regression_status"] = ""
         persist_workflow_state(root, version_id, meta, runtime)
         print(f"Regression rejected: {regression_id}")
@@ -1659,7 +1726,7 @@ def regression_action(
         meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
         update_item_meta(regression_dir / "meta.yaml", {"status": "cancelled"})
         meta = fallback_stage_for_artifacts(meta, [str(item) for item in meta.get("requirement_ids", [])], [str(item) for item in meta.get("change_ids", [])])
-        runtime = set_regression_mode(runtime, "")
+        runtime = enter_harness_mode(root, set_regression_mode(runtime, ""), version_id, meta)
         meta["regression_status"] = ""
         persist_workflow_state(root, version_id, meta, runtime)
         print(f"Regression cancelled: {regression_id}")
@@ -1671,7 +1738,7 @@ def regression_action(
     meta["current_regression"] = ""
     meta["regression_status"] = ""
     meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
-    runtime = set_regression_mode(runtime, "")
+    runtime = enter_harness_mode(root, set_regression_mode(runtime, ""), version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
 
     if change_title:
@@ -1890,6 +1957,7 @@ def set_active_version(root: Path, version_name: str) -> int:
     config["current_version"] = version_id
     save_config(root, config)
     meta = load_version_meta(root, version_id)
+    runtime = enter_harness_mode(root, runtime, version_id, meta)
     persist_workflow_state(root, version_id, meta, runtime)
     print(f"Current active version set to {version_id}")
     return 0
@@ -1905,6 +1973,11 @@ def workflow_status(root: Path) -> int:
     print(f"current_version: {current_version or '(none)'}")
     print(f"executing_version: {runtime.get('executing_version', '') or '(none)'}")
     print(f"mode: {runtime.get('mode', 'normal')}")
+    print(f"conversation_mode: {runtime.get('conversation_mode', 'open')}")
+    print(f"locked_version: {runtime.get('locked_version', '') or '(none)'}")
+    print(f"locked_stage: {runtime.get('locked_stage', '') or '(none)'}")
+    print(f"locked_artifact_kind: {runtime.get('locked_artifact_kind', '') or '(none)'}")
+    print(f"locked_artifact_id: {runtime.get('locked_artifact_id', '') or '(none)'}")
     print(f"current_regression: {runtime.get('current_regression', '') or '(none)'}")
     blockers = workflow_blockers(root, config, runtime)
     if blockers:
@@ -1932,6 +2005,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     meta = load_version_meta(root, current_version)
     meta = apply_stage_transition(meta, execute=execute)
     runtime["executing_version"] = current_version if meta.get("stage") == "executing" else ""
+    runtime = enter_harness_mode(root, runtime, current_version, meta)
     persist_workflow_state(root, current_version, meta, runtime)
     print(f"Workflow advanced to {meta['stage']}")
     return 0
@@ -1944,6 +2018,28 @@ def workflow_fast_forward(root: Path) -> int:
     current_version = require_active_version_id(root, config, runtime)
     meta = apply_stage_transition(load_version_meta(root, current_version), fast_forward=True)
     runtime["executing_version"] = ""
+    runtime = enter_harness_mode(root, runtime, current_version, meta)
     persist_workflow_state(root, current_version, meta, runtime)
     print("Workflow advanced to ready_for_execution")
+    return 0
+
+
+def enter_workflow(root: Path) -> int:
+    config, runtime = ensure_workflow_state(root)
+    version_id = str(runtime.get("current_version", "") or config.get("current_version", "")).strip()
+    meta = load_version_meta(root, version_id) if version_id and version_meta_path(root, version_id).exists() else None
+    runtime = enter_harness_mode(root, runtime, version_id, meta)
+    save_runtime(root, runtime)
+    if version_id and meta:
+        print(f"Entered harness mode: {version_id} / {meta.get('stage', 'idle')}")
+    else:
+        print("Entered harness mode.")
+    return 0
+
+
+def exit_workflow(root: Path) -> int:
+    _config, runtime = ensure_workflow_state(root)
+    runtime = exit_harness_mode(runtime)
+    save_runtime(root, runtime)
+    print("Exited harness mode.")
     return 0
