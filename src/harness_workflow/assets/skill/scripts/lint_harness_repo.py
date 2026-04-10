@@ -8,31 +8,31 @@ from pathlib import Path
 
 
 REQUIRED_FILES = [
-    "docs/README.md",
-    "docs/memory/constitution.md",
-    "docs/context/experience/index.md",
-    "docs/context/rules/agent-workflow.md",
-    "docs/context/rules/risk-rules.md",
+    "workflow/README.md",
+    "workflow/memory/constitution.md",
+    "workflow/context/experience/index.md",
+    "workflow/context/rules/agent-workflow.md",
+    "workflow/context/rules/risk-rules.md",
 ]
 
 REQUIRED_FILES_LOCALIZED = {
     "english": [
-        "docs/context/project/project-overview.md",
-        "docs/context/team/development-standards.md",
+        "workflow/context/project/project-overview.md",
+        "workflow/context/team/development-standards.md",
     ],
     "cn": [
-        "docs/context/project/project-overview.md",
-        "docs/context/team/development-standards.md",
+        "workflow/context/project/project-overview.md",
+        "workflow/context/team/development-standards.md",
     ],
 }
 
 REQUIRED_DIRS = [
-    "docs/versions",
-    "docs/versions/active",
-    "docs/context/hooks",
-    "docs/context/rules",
-    "docs/context/experience",
-    "docs/templates",
+    "workflow/versions",
+    "workflow/versions/active",
+    "workflow/context/hooks",
+    "workflow/context/rules",
+    "workflow/context/experience",
+    "workflow/templates",
 ]
 
 
@@ -60,10 +60,10 @@ def main() -> int:
             missing.append(relative)
 
     agent_guide_refs = [
-        "docs/memory/constitution.md",
-        "docs/context/experience/index.md",
-        "docs/context/rules/agent-workflow.md",
-        "docs/context/rules/risk-rules.md",
+        "workflow/memory/constitution.md",
+        "workflow/context/experience/index.md",
+        "workflow/context/rules/agent-workflow.md",
+        "workflow/context/rules/risk-rules.md",
     ]
 
     agents = root / "AGENTS.md"
@@ -84,7 +84,7 @@ def main() -> int:
             if ref not in text:
                 warnings.append(f"CLAUDE.md does not mention {ref}")
 
-    readme = root / "docs" / "README.md"
+    readme = root / "workflow" / "README.md"
     if readme.exists():
         text = readme.read_text(encoding="utf-8")
         for expected in [
@@ -93,7 +93,7 @@ def main() -> int:
             "context/rules/agent-workflow.md",
         ]:
             if expected not in text:
-                warnings.append(f"docs/README.md does not mention {expected}")
+                warnings.append(f"workflow/README.md does not mention {expected}")
 
     if missing:
         print("Missing required files:")

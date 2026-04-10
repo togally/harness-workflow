@@ -1,0 +1,86 @@
+# Agent 工作流
+
+## 1. 上下文自动加载
+
+每次新会话开始时，在执行任何任务之前：
+
+1. 先读取 `docs/context/rules/workflow-runtime.yaml`
+2. 根据 `current_version` 读取当前 version 的 `meta.yaml`
+3. 再读取 `docs/memory/constitution.md`
+4. 读取 `docs/context/experience/index.md`，根据用户意图中的关键词匹配相关经验文件
+5. 读取 `docs/context/rules/risk-rules.md`，扫描需求中的高风险关键词
+6. 如果匹配到经验条目，按需加载对应经验文件，不要全量加载
+7. 读取 `docs/context/hooks/README.md`，确认当前调用时机、命中 hook 和硬门禁
+8. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
+9. 如果是恢复会话，继续读取当前 change 目录下的 `session-memory.md`、需求、设计与计划文件
+10. 在每个阶段开始执行具体任务前，都先重新索引 `docs/context/experience/index.md` 与当前任务相关经验，确认是否有可直接复用或可融合的成熟经验
+
+禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
+如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，必须立即停止并提示用户先修复 workflow 状态，不允许手工拼装一个“类似流程”继续推进。
+如果 `workflow-runtime.yaml` 的 `conversation_mode` 为 `harness`，后续对话必须受 `locked_version`、`locked_stage`、`locked_artifact_kind`、`locked_artifact_id` 约束；除非用户显式执行 `harness exit`，否则不允许脱离当前 harness 节点。
+
+## 2. 执行流程
+
+1. 用最小必要文件集建立上下文
+2. 所有 requirement、change、plan、execution、regression 都必须先经过 `workflow-runtime.yaml` 路由
+3. 判断任务是轻微改动还是正式变更
+4. 对正式变更先切换或建立当前 `version`
+5. 在当前版本下建立 requirement 或 change 工作区
+6. requirement 规划完成后，拆分成多个可独立交付的 change
+7. requirement_review 阶段只允许讨论、澄清、补全文档，不允许因为用户补充了实现型 prompt 就直接开始改代码
+8. 如果用户在 requirement_review 阶段给出实现思路、技术方案或详细 prompt，只能先把这些内容吸收到 requirement 文档或讨论结论中，不能把它当成编码授权
+9. change 在进入编码前必须补齐 design 与 plan
+10. plan 中的实施步骤与验证步骤要显式拆开
+11. 默认每个可独立执行的工作步骤由一个 subagent 或一个隔离执行单元完成
+12. 采用增量方式执行改动
+13. 执行过程中一旦发现方案走不通，立刻记录到 `session-memory.md` 的“走不通的路”，避免同会话或恢复会话重复试错
+14. 如果被纠正、发现新约束或形成了可复用结论，先更新当前工作记忆，再判断是否需要沉淀到 `docs/context/experience/`
+15. 执行验证
+16. change 完成前，必须执行并记录 `mvn compile`；requirement 完成前，必须执行并记录项目启动测试成功
+17. 如果编译失败或启动失败，不允许绕过，必须先进入 `harness regression "<问题描述>"`
+18. 如果本机已经能直接拿到启动日志、编译输出、测试堆栈或运行时报错，先由 AI 自己采集和分析，不要先让用户代看日志
+19. 如果继续修复前仍然需要用户提供配置、数据、账号或外部依赖信息，必须先填写当前 change `regression/required-inputs.md` 模板，再提示用户补充；不允许跳过模板直接在对话里临时发问
+20. 完成前主动检查是否有值得沉淀的经验，并同步更新工作记忆或正式文档
+21. 当 workflow 状态缺失或冲突时，停止执行并要求用户运行 `harness active "<version>"` 或修复缺失文件
+22. 每个阶段的任务执行完成后，主动复盘本阶段新增经验，先沉淀到 `session-memory.md`；若已足够成熟，再融合进 `docs/context/experience/` 或正式规则
+23. 如果用户对已完成结果不满意，不要直接返工；先使用 `harness regression "<问题描述>"` 进入回归诊断流，和用户确认是否是真问题，再决定转成新的 requirement 或 change
+24. 任何 `harness` 命令都视为自动进入 harness 会话模式；只有显式执行 `harness exit` 才能解除会话锁
+
+## 3. Harness 生命周期
+
+### requirement
+
+- 用于承载较大的需求主题
+- requirement 完成后，必须拆出多个 change
+
+### change
+
+- 每个 change 只承载一个可独立交付的功能点
+- 每个 change 都要有自己的说明、设计、计划、验收与会话记忆
+
+### plan
+
+- plan 必须服务于具体 change
+- plan 要拆成模型可执行的开发与验证步骤
+
+### version
+
+- version 是 requirement、change、plan 的主工作容器
+- context 仍然属于仓库级知识库，不跟随单个 version 复制
+
+### regression
+
+- regression 用于“先确认是否是真问题”，不是直接返工入口
+- regression 确认前不允许直接开始修代码
+- 确认是真问题后，再转成 requirement 增补或新的 change，回到正常流程
+- regression 历史保留在各自目录和文档中，不长期占用 version 主状态
+
+## 4. 记忆规则
+
+- 长期有效规则放在 `docs/memory/`
+- 单次任务状态放在当前 version 的 change `session-memory.md`
+- 不要把短期任务状态写入长期记忆
+- 被纠正时，优先记录“现象 / 原因 / 修正”
+- 走不通的路必须记录，至少写明“尝试了什么、为什么失败、暂时不要再怎么做”
+- 新经验先作为候选沉淀到工作记忆，重复验证后再升级到 `docs/context/experience/`
+- 在 requirement、change、plan、execution 每个阶段开始前，都先索引经验；阶段完成后，都要判断是否需要沉淀或融合成熟经验

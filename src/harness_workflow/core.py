@@ -18,7 +18,7 @@ TEMPLATE_ROOT = SKILL_ROOT.joinpath("assets", "templates")
 HARNESS_DIR = Path(".codex") / "harness"
 MANAGED_STATE_PATH = HARNESS_DIR / "managed-files.json"
 CONFIG_PATH = HARNESS_DIR / "config.json"
-WORKFLOW_RUNTIME_PATH = Path("docs") / "context" / "rules" / "workflow-runtime.yaml"
+WORKFLOW_RUNTIME_PATH = Path("workflow") / "context" / "rules" / "workflow-runtime.yaml"
 
 DEFAULT_LANGUAGE = "english"
 DEFAULT_CONFIG = {"language": DEFAULT_LANGUAGE, "current_version": ""}
@@ -198,14 +198,14 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "",
                 "执行前请先：",
                 "",
-                "1. 读取 `docs/context/rules/workflow-runtime.yaml`",
+                "1. 读取 `workflow/context/rules/workflow-runtime.yaml`",
                 "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
                 "3. 继续读取：",
-                "   - `docs/context/rules/development-flow.md`",
-                "   - `docs/context/hooks/README.md`",
-                "   - `docs/context/rules/agent-workflow.md`",
-                "   - `docs/context/rules/risk-rules.md`",
-                "   - `docs/context/experience/index.md`",
+                "   - `workflow/context/rules/development-flow.md`",
+                "   - `workflow/context/hooks/README.md`",
+                "   - `workflow/context/rules/agent-workflow.md`",
+                "   - `workflow/context/rules/risk-rules.md`",
+                "   - `workflow/context/experience/index.md`",
                 "4. 优先遵循根目录 `AGENTS.md`",
                 "5. 如果存在 `.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
                 "",
@@ -229,14 +229,14 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "",
                 "Before acting:",
                 "",
-                "1. Read `docs/context/rules/workflow-runtime.yaml`",
+                "1. Read `workflow/context/rules/workflow-runtime.yaml`",
                 "2. Use `current_version` to read the active version `meta.yaml`",
                 "3. Then read:",
-                "   - `docs/context/rules/development-flow.md`",
-                "   - `docs/context/hooks/README.md`",
-                "   - `docs/context/rules/agent-workflow.md`",
-                "   - `docs/context/rules/risk-rules.md`",
-                "   - `docs/context/experience/index.md`",
+                "   - `workflow/context/rules/development-flow.md`",
+                "   - `workflow/context/hooks/README.md`",
+                "   - `workflow/context/rules/agent-workflow.md`",
+                "   - `workflow/context/rules/risk-rules.md`",
+                "   - `workflow/context/experience/index.md`",
                 "4. Prefer the root `AGENTS.md`",
                 "5. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
                 "",
@@ -279,9 +279,9 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "",
                 "执行前：",
                 "",
-                "1. 先读取 `docs/context/rules/workflow-runtime.yaml`",
+                "1. 先读取 `workflow/context/rules/workflow-runtime.yaml`",
                 "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
-                "3. 再读取 `docs/context/hooks/README.md`、当前调用时机的 hook 文档、根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
+                "3. 再读取 `workflow/context/hooks/README.md`、当前调用时机的 hook 文档、根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
                 "",
                 "规则：",
                 "",
@@ -299,9 +299,9 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "",
                 "Before acting:",
                 "",
-                "1. Read `docs/context/rules/workflow-runtime.yaml`",
+                "1. Read `workflow/context/rules/workflow-runtime.yaml`",
                 "2. Use `current_version` to read the active version `meta.yaml`",
-                "3. Then read `docs/context/hooks/README.md`, the hook doc for the current timing, the root `AGENTS.md`, and the main harness skill at `.codex/skills/harness/SKILL.md`",
+                "3. Then read `workflow/context/hooks/README.md`, the hook doc for the current timing, the root `AGENTS.md`, and the main harness skill at `.codex/skills/harness/SKILL.md`",
                 "",
                 "Rules:",
                 "",
@@ -456,12 +456,12 @@ HOOK_TIMINGS = [
                 "title": {"cn": "加载运行态", "english": "Load Runtime"},
                 "body": {
                     "cn": [
-                        "先读取 `docs/context/rules/workflow-runtime.yaml`。",
+                        "先读取 `workflow/context/rules/workflow-runtime.yaml`。",
                         "根据 `current_version` 读取当前 version 的 `meta.yaml`。",
                         "如果当前没有 active version，也要明确当前处于未路由状态。",
                     ],
                     "english": [
-                        "Read `docs/context/rules/workflow-runtime.yaml` first.",
+                        "Read `workflow/context/rules/workflow-runtime.yaml` first.",
                         "Use `current_version` to read the active version `meta.yaml`.",
                         "If no active version exists, state clearly that the session is not yet routed.",
                     ],
@@ -472,14 +472,14 @@ HOOK_TIMINGS = [
                 "title": {"cn": "加载经验与风险规则", "english": "Load Experience and Risk Rules"},
                 "body": {
                     "cn": [
-                        "读取 `docs/context/experience/index.md`，只按需加载命中经验。",
-                        "读取 `docs/context/rules/risk-rules.md`，检查高风险关键词。",
-                        "不要一次性全量读取 `docs/context/experience/`。",
+                        "读取 `workflow/context/experience/index.md`，只按需加载命中经验。",
+                        "读取 `workflow/context/rules/risk-rules.md`，检查高风险关键词。",
+                        "不要一次性全量读取 `workflow/context/experience/`。",
                     ],
                     "english": [
-                        "Read `docs/context/experience/index.md` and load only matching experience files.",
-                        "Read `docs/context/rules/risk-rules.md` and scan for high-risk keywords.",
-                        "Do not bulk-load the entire `docs/context/experience/` tree.",
+                        "Read `workflow/context/experience/index.md` and load only matching experience files.",
+                        "Read `workflow/context/rules/risk-rules.md` and scan for high-risk keywords.",
+                        "Do not bulk-load the entire `workflow/context/experience/` tree.",
                     ],
                 },
             },
@@ -815,11 +815,11 @@ HOOK_TIMINGS = [
                 "body": {
                     "cn": [
                         "每个阶段完成后，先回写 `session-memory.md`。",
-                        "成熟经验再融合进 `docs/context/experience/` 或正式规则。",
+                        "成熟经验再融合进 `workflow/context/experience/` 或正式规则。",
                     ],
                     "english": [
                         "After each stage, update `session-memory.md` first.",
-                        "Then promote mature lessons into `docs/context/experience/` or formal rules.",
+                        "Then promote mature lessons into `workflow/context/experience/` or formal rules.",
                     ],
                 },
             },
@@ -1212,12 +1212,12 @@ HOOK_TIMINGS = [
                 "title": {"cn": "先查 MCP 注册表", "english": "Check MCP Registry First"},
                 "body": {
                     "cn": [
-                        "向用户索要外部信息前，先查 `docs/context/mcp-registry.yaml`。",
+                        "向用户索要外部信息前，先查 `workflow/context/mcp-registry.yaml`。",
                         "如果注册表里有匹配的 MCP，优先调用 MCP 获取信息。",
                         "如果没有匹配但项目依赖提示可能有可用 MCP，建议用户安装。",
                     ],
                     "english": [
-                        "Before asking the human for external information, check `docs/context/mcp-registry.yaml` first.",
+                        "Before asking the human for external information, check `workflow/context/mcp-registry.yaml` first.",
                         "If a matching MCP exists in the registry, prefer calling the MCP to get the information.",
                         "If no match exists but project dependencies suggest a usable MCP, recommend installation.",
                     ],
@@ -1284,11 +1284,11 @@ HOOK_TIMINGS = [
                 "title": {"cn": "升级成熟经验", "english": "Promote Mature Lessons"},
                 "body": {
                     "cn": [
-                        "已经稳定、可复用的经验，再升级进 `docs/context/experience/` 或正式规则。",
+                        "已经稳定、可复用的经验，再升级进 `workflow/context/experience/` 或正式规则。",
                         "每个阶段都要判断是否值得融合成熟经验。",
                     ],
                     "english": [
-                        "Promote only stable, reusable lessons into `docs/context/experience/` or formal rules.",
+                        "Promote only stable, reusable lessons into `workflow/context/experience/` or formal rules.",
                         "After each stage, decide whether mature experience should now be fused into the workflow.",
                     ],
                 },
@@ -1368,11 +1368,11 @@ HOOK_TIMINGS = [
                 "title": {"cn": "完成前必须检查成熟经验升级", "english": "Completion Requires an Experience Promotion Check"},
                 "body": {
                     "cn": [
-                        "在完成前，检查本次任务是否产生了可升级进 `docs/context/experience/` 或正式规则的成熟经验。",
+                        "在完成前，检查本次任务是否产生了可升级进 `workflow/context/experience/` 或正式规则的成熟经验。",
                         "即使最终没有升级，也要完成一次显式检查。",
                     ],
                     "english": [
-                        "Before completion, check whether this task produced mature lessons that should be promoted into `docs/context/experience/` or formal rules.",
+                        "Before completion, check whether this task produced mature lessons that should be promoted into `workflow/context/experience/` or formal rules.",
                         "Even if nothing is promoted, perform the check explicitly.",
                     ],
                 },
@@ -1397,7 +1397,7 @@ def render_hooks_index(language: str) -> str:
         "",
         "## 匹配顺序" if is_cn else "## Matching Order",
         "",
-        "1. 读取 `docs/context/rules/workflow-runtime.yaml`" if is_cn else "1. Read `docs/context/rules/workflow-runtime.yaml`",
+        "1. 读取 `workflow/context/rules/workflow-runtime.yaml`" if is_cn else "1. Read `workflow/context/rules/workflow-runtime.yaml`",
         "2. 根据 `current_version` 读取当前 version `meta.yaml`" if is_cn else "2. Use `current_version` to read the active version `meta.yaml`",
         "3. 判断当前调用时机，例如 `session-start`、`before-reply`、`before-task`、`context-maintenance`、`during-task`、`before-human-input`、`after-task`、`before-complete`" if is_cn else "3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `context-maintenance`, `during-task`, `before-human-input`, `after-task`, or `before-complete`",
         "4. 读取对应的 `<timing>.md` 说明文档" if is_cn else "4. Read the matching `<timing>.md` overview document",
@@ -1441,8 +1441,8 @@ def render_hook_timing_doc(timing: dict[str, object], language: str) -> str:
     if is_cn:
         lines.extend(
             [
-                f"1. 先读取 `docs/context/hooks/{timing['slug']}.md`",
-                f"2. 再按编号顺序读取 `docs/context/hooks/{timing['slug']}/` 下的通用 hook",
+                f"1. 先读取 `workflow/context/hooks/{timing['slug']}.md`",
+                f"2. 再按编号顺序读取 `workflow/context/hooks/{timing['slug']}/` 下的通用 hook",
                 "3. 如果存在当前 stage 或当前节点对应的子目录，也继续按编号读取",
                 "4. 命中硬门禁时立即停止",
             ]
@@ -1450,8 +1450,8 @@ def render_hook_timing_doc(timing: dict[str, object], language: str) -> str:
     else:
         lines.extend(
             [
-                f"1. Read `docs/context/hooks/{timing['slug']}.md` first",
-                f"2. Then read the general hooks under `docs/context/hooks/{timing['slug']}/` in numeric order",
+                f"1. Read `workflow/context/hooks/{timing['slug']}.md` first",
+                f"2. Then read the general hooks under `workflow/context/hooks/{timing['slug']}/` in numeric order",
                 "3. If a subdirectory matches the current stage or node, read those files in numeric order too",
                 "4. Stop immediately if a hard gate blocks the action",
             ]
@@ -1474,13 +1474,13 @@ def render_hook_item_doc(timing_slug: str, item: dict[str, object], language: st
 
 
 def hook_managed_contents(language: str) -> dict[str, str]:
-    managed: dict[str, str] = {"docs/context/hooks/README.md": render_hooks_index(language)}
+    managed: dict[str, str] = {"workflow/context/hooks/README.md": render_hooks_index(language)}
     for timing in HOOK_TIMINGS:
         slug = str(timing["slug"])
-        managed[f"docs/context/hooks/{slug}.md"] = render_hook_timing_doc(timing, language)
+        managed[f"workflow/context/hooks/{slug}.md"] = render_hook_timing_doc(timing, language)
         for item in timing["items"]:  # type: ignore[index]
             path = str(item["path"])
-            managed[f"docs/context/hooks/{slug}/{path}"] = render_hook_item_doc(slug, item, language)
+            managed[f"workflow/context/hooks/{slug}/{path}"] = render_hook_item_doc(slug, item, language)
     return managed
 
 
@@ -1587,17 +1587,17 @@ def _save_managed_state(root: Path, managed_files: dict[str, str]) -> None:
 
 def _required_dirs(root: Path) -> list[Path]:
     return [
-        root / "docs" / "context" / "team",
-        root / "docs" / "context" / "project",
-        root / "docs" / "context" / "experience",
-        root / "docs" / "context" / "hooks",
-        root / "docs" / "context" / "rules",
-        root / "docs" / "versions" / "active",
-        root / "docs" / "versions" / "archive",
-        root / "docs" / "decisions",
-        root / "docs" / "runbooks",
-        root / "docs" / "templates",
-        root / "docs" / "memory",
+        root / "workflow" / "context" / "team",
+        root / "workflow" / "context" / "project",
+        root / "workflow" / "context" / "experience",
+        root / "workflow" / "context" / "hooks",
+        root / "workflow" / "context" / "rules",
+        root / "workflow" / "versions" / "active",
+        root / "workflow" / "versions" / "archive",
+        root / "workflow" / "decisions",
+        root / "workflow" / "runbooks",
+        root / "workflow" / "templates",
+        root / "workflow" / "memory",
         root / "tools",
         root / HARNESS_DIR,
     ]
@@ -1606,32 +1606,32 @@ def _required_dirs(root: Path) -> list[Path]:
 def _managed_file_contents(root: Path, language: str, include_agents: bool, include_claude: bool) -> dict[str, str]:
     repo_name = root.name
     managed = {
-        "docs/README.md": render_template("docs-README.md.tmpl", repo_name, language),
-        "docs/memory/constitution.md": render_template("constitution.md.tmpl", repo_name, language),
-        "docs/context/experience/index.md": render_template("experience-index.md.tmpl", repo_name, language),
-        "docs/context/rules/agent-workflow.md": render_template("agent-workflow.md.tmpl", repo_name, language),
-        "docs/context/rules/development-flow.md": render_template("development-flow.md.tmpl", repo_name, language),
-        "docs/context/rules/risk-rules.md": render_template("risk-rules.md.tmpl", repo_name, language),
-        "docs/context/project/project-overview.md": render_template("project-overview.md.tmpl", repo_name, language),
-        "docs/context/team/development-standards.md": render_template("development-standards.md.tmpl", repo_name, language),
-        "docs/templates/requirement.md": render_template("requirement.md.tmpl", repo_name, language),
-        "docs/templates/requirement-completion.md": render_template("requirement-completion.md.tmpl", repo_name, language),
-        "docs/templates/requirement-changes.md": render_template("requirement-changes.md.tmpl", repo_name, language),
-        "docs/templates/change.md": render_template("change.md.tmpl", repo_name, language),
-        "docs/templates/change-requirement.md": render_template("change-requirement.md.tmpl", repo_name, language),
-        "docs/templates/change-design.md": render_template("change-design.md.tmpl", repo_name, language),
-        "docs/templates/change-plan.md": render_template("change-plan.md.tmpl", repo_name, language),
-        "docs/templates/change-acceptance.md": render_template("change-acceptance.md.tmpl", repo_name, language),
-        "docs/templates/regression-required-inputs.md": render_template("regression-required-inputs.md.tmpl", repo_name, language),
-        "docs/templates/session-memory.md": render_template("session-memory.md.tmpl", repo_name, language),
-        "docs/templates/regression.md": render_template("regression.md.tmpl", repo_name, language),
-        "docs/templates/regression-analysis.md": render_template("regression-analysis.md.tmpl", repo_name, language),
-        "docs/templates/regression-decision.md": render_template("regression-decision.md.tmpl", repo_name, language),
-        "docs/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
-        "docs/context/mcp-registry.yaml": render_template("mcp-registry.yaml.tmpl", repo_name, language),
-        "docs/templates/mcp-catalog.yaml": render_template("mcp-catalog.yaml.tmpl", repo_name, language),
-        "docs/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
-        "docs/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
+        "workflow/README.md": render_template("docs-README.md.tmpl", repo_name, language),
+        "workflow/memory/constitution.md": render_template("constitution.md.tmpl", repo_name, language),
+        "workflow/context/experience/index.md": render_template("experience-index.md.tmpl", repo_name, language),
+        "workflow/context/rules/agent-workflow.md": render_template("agent-workflow.md.tmpl", repo_name, language),
+        "workflow/context/rules/development-flow.md": render_template("development-flow.md.tmpl", repo_name, language),
+        "workflow/context/rules/risk-rules.md": render_template("risk-rules.md.tmpl", repo_name, language),
+        "workflow/context/project/project-overview.md": render_template("project-overview.md.tmpl", repo_name, language),
+        "workflow/context/team/development-standards.md": render_template("development-standards.md.tmpl", repo_name, language),
+        "workflow/templates/requirement.md": render_template("requirement.md.tmpl", repo_name, language),
+        "workflow/templates/requirement-completion.md": render_template("requirement-completion.md.tmpl", repo_name, language),
+        "workflow/templates/requirement-changes.md": render_template("requirement-changes.md.tmpl", repo_name, language),
+        "workflow/templates/change.md": render_template("change.md.tmpl", repo_name, language),
+        "workflow/templates/change-requirement.md": render_template("change-requirement.md.tmpl", repo_name, language),
+        "workflow/templates/change-design.md": render_template("change-design.md.tmpl", repo_name, language),
+        "workflow/templates/change-plan.md": render_template("change-plan.md.tmpl", repo_name, language),
+        "workflow/templates/change-acceptance.md": render_template("change-acceptance.md.tmpl", repo_name, language),
+        "workflow/templates/regression-required-inputs.md": render_template("regression-required-inputs.md.tmpl", repo_name, language),
+        "workflow/templates/session-memory.md": render_template("session-memory.md.tmpl", repo_name, language),
+        "workflow/templates/regression.md": render_template("regression.md.tmpl", repo_name, language),
+        "workflow/templates/regression-analysis.md": render_template("regression-analysis.md.tmpl", repo_name, language),
+        "workflow/templates/regression-decision.md": render_template("regression-decision.md.tmpl", repo_name, language),
+        "workflow/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
+        "workflow/context/mcp-registry.yaml": render_template("mcp-registry.yaml.tmpl", repo_name, language),
+        "workflow/templates/mcp-catalog.yaml": render_template("mcp-catalog.yaml.tmpl", repo_name, language),
+        "workflow/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
+        "workflow/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
         ".qoder/commands/harness.md": render_template("qoder-command.md.tmpl", repo_name, language),
         ".qoder/rules/harness-workflow.md": render_template("qoder-rule.md.tmpl", repo_name, language),
         "tools/lint_harness_repo.py": SKILL_ROOT.joinpath("scripts", "lint_harness_repo.py").read_text(encoding="utf-8"),
@@ -1680,7 +1680,7 @@ def install_local_skills(root: Path, force: bool = False) -> list[Path]:
 
 
 def ensure_harness_root(root: Path) -> dict[str, str]:
-    required = [root / "docs", root / "docs" / "context", root / "docs" / "versions" / "active"]
+    required = [root / "workflow", root / "workflow" / "context", root / "workflow" / "versions" / "active"]
     missing = [str(path) for path in required if not path.exists()]
     if missing:
         raise SystemExit(f"Harness workspace is missing. Run `harness install` or `harness init` first. Missing: {', '.join(missing)}")
@@ -1725,7 +1725,7 @@ def resolve_title_and_id(
 
 def resolve_version_layout(root: Path, version_id: str, language: str) -> dict[str, Path]:
     spec = language_spec(language)
-    version_dir = root / "docs" / "versions" / "active" / version_id
+    version_dir = root / "workflow" / "versions" / "active" / version_id
     return {
         "version_dir": version_dir,
         "requirements_dir": version_dir / spec["requirements_dir"],
@@ -1845,7 +1845,7 @@ def fallback_stage_for_artifacts(meta: dict[str, object], requirement_ids: list[
 
 
 def list_existing_versions(root: Path) -> list[str]:
-    active_dir = root / "docs" / "versions" / "active"
+    active_dir = root / "workflow" / "versions" / "active"
     if not active_dir.exists():
         return []
     return sorted(path.name for path in active_dir.iterdir() if path.is_dir())
@@ -1893,7 +1893,7 @@ def workflow_blockers(root: Path, config: dict[str, str], runtime: dict[str, obj
 
     if effective_version not in version_ids:
         blockers.append(
-            f"active version `{effective_version}` does not exist under `docs/versions/active/`. "
+            f"active version `{effective_version}` does not exist under `workflow/versions/active/`. "
             f"{active_version_instruction(root)}"
         )
         return blockers
@@ -1920,7 +1920,7 @@ def current_version_layout(root: Path, config: dict[str, str]) -> dict[str, Path
 
 
 def version_meta_path(root: Path, version_id: str) -> Path:
-    return root / "docs" / "versions" / "active" / version_id / "meta.yaml"
+    return root / "workflow" / "versions" / "active" / version_id / "meta.yaml"
 
 
 def load_version_meta(root: Path, version_id: str) -> dict[str, object]:
@@ -2214,7 +2214,7 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
                 "current_task": "Execution finished. Summarize and verify outcomes",
                 "next_action": "Verify `mvn compile` for each completed change, successful project startup for the completed requirement, update the related `session-memory.md`, and check whether mature lessons should be promoted before closing. If verification fails, start `harness regression \"<issue>\"`.",
                 "suggested_skill": "verification-before-completion",
-                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. Before claiming completion, update the related `session-memory.md` and explicitly check whether mature lessons should be promoted into `docs/context/experience/` or formal rules. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
+                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. Before claiming completion, update the related `session-memory.md` and explicitly check whether mature lessons should be promoted into `workflow/context/experience/` or formal rules. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
                 "approval_required": False,
                 "stage_entered_at": now_iso,
             }
@@ -2280,7 +2280,7 @@ def rebuild_runtime_index(root: Path, runtime: dict[str, object]) -> dict[str, o
 def repair_identifier_drift(root: Path, config: dict[str, str], runtime: dict[str, object], check: bool) -> tuple[dict[str, str], dict[str, object], list[str]]:
     actions: list[str] = []
     version_map: dict[str, str] = {}
-    versions_root = root / "docs" / "versions" / "active"
+    versions_root = root / "workflow" / "versions" / "active"
     version_ids = list_existing_versions(root)
 
     for field in ("current_version",):
@@ -2549,7 +2549,7 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
         _save_managed_state(root, _refresh_managed_state(root, managed_contents, refreshed_state))
         if not (root / WORKFLOW_RUNTIME_PATH).exists():
             save_runtime(root, dict(DEFAULT_RUNTIME))
-            actions.append("created docs/context/rules/workflow-runtime.yaml")
+            actions.append("created workflow/context/rules/workflow-runtime.yaml")
             runtime = load_runtime(root)
 
     config, runtime, repair_actions = repair_identifier_drift(root, config, runtime, check)
@@ -2933,8 +2933,8 @@ def rename_version(root: Path, current_name: str, new_name: str) -> int:
     new_id = new_name.strip()
     if not old_id or not new_id:
         raise SystemExit("Both current and new version names are required.")
-    old_dir = root / "docs" / "versions" / "active" / old_id
-    new_dir = root / "docs" / "versions" / "active" / new_id
+    old_dir = root / "workflow" / "versions" / "active" / old_id
+    new_dir = root / "workflow" / "versions" / "active" / new_id
     if not old_dir.exists():
         raise SystemExit(f"Version does not exist: {old_id}")
     if new_dir.exists():

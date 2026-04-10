@@ -1,0 +1,18 @@
+name: 文档工作流检查
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-docs-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 检查仓库文档工作流
+        run: python3 tools/lint_harness_repo.py --root .

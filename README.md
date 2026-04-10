@@ -8,7 +8,7 @@
 
 - 工作容器：`version -> requirement -> change -> plan -> execution`
 - 状态路由：`workflow-runtime.yaml + version meta.yaml`
-- 生命周期门禁：`docs/context/hooks/`
+- 生命周期门禁：`workflow/context/hooks/`
 - 人工确认点：需求、变更、计划、执行前都必须显式停住
 
 README 只负责两件事：
@@ -63,7 +63,7 @@ harness install
 - 生成 `.qoder/commands/harness-*.md`
 - 生成 `.qoder/rules/harness-workflow.md`
 - 生成 `.codex/skills/harness-*`
-- 初始化 `docs/` 工作流骨架
+- 初始化 `workflow/` 工作流骨架
 - 写入 `AGENTS.md`、`CLAUDE.md`
 
 如果只想生成文档骨架：
@@ -110,7 +110,7 @@ harness 内置两条进化线，让项目越用越聪明：
 **应用项目线（经验沉淀）**
 
 ```text
-session-memory.md → docs/context/experience/ → 正式 rules/
+session-memory.md → workflow/context/experience/ → 正式 rules/
 ```
 
 - Agent 被纠正、发现约束、路径失败、MCP 成功解决问题时自动记录
@@ -130,7 +130,7 @@ session-memory.md → docs/context/experience/ → 正式 rules/
 
 ### MCP 能力索引
 
-安装时自动生成 `docs/context/mcp-registry.yaml`（项目级）和 `docs/templates/mcp-catalog.yaml`（工具级推荐表）。
+安装时自动生成 `workflow/context/mcp-registry.yaml`（项目级）和 `workflow/templates/mcp-catalog.yaml`（工具级推荐表）。
 
 Agent 向用户索要外部信息前，决策链为：
 
@@ -168,15 +168,15 @@ MCP 使用记录随 feedback 回流到工具仓库，adoption 积累后自动升
 如果你是人：
 
 1. `README.md`
-2. `docs/README.md`
-3. `docs/context/rules/development-flow.md`
+2. `workflow/README.md`
+3. `workflow/context/rules/development-flow.md`
 
 如果你是 Agent：
 
 1. `AGENTS.md`
-2. `docs/context/rules/workflow-runtime.yaml`
+2. `workflow/context/rules/workflow-runtime.yaml`
 3. 当前 version 的 `meta.yaml`
-4. `docs/context/hooks/README.md`
+4. `workflow/context/hooks/README.md`
 5. 命中的 hook 文档
 
 ### 规则放在哪里
@@ -185,18 +185,18 @@ README 不再展开详细硬规则，统一从这些文件进入：
 
 - `AGENTS.md`
 - `CLAUDE.md`
-- `docs/README.md`
-- `docs/context/rules/development-flow.md`
-- `docs/context/rules/agent-workflow.md`
-- `docs/context/rules/workflow-runtime.yaml`
-- `docs/context/hooks/README.md`
-- `docs/context/hooks/<timing>.md`
-- `docs/versions/active/<version>/meta.yaml`
+- `workflow/README.md`
+- `workflow/context/rules/development-flow.md`
+- `workflow/context/rules/agent-workflow.md`
+- `workflow/context/rules/workflow-runtime.yaml`
+- `workflow/context/hooks/README.md`
+- `workflow/context/hooks/<timing>.md`
+- `workflow/versions/active/<version>/meta.yaml`
 
 ### 目录结构
 
 ```text
-docs/
+workflow/
 ├── context/
 │   ├── hooks/              # 按调用时机组织的硬门禁
 │   ├── experience/         # 经验索引与条目
@@ -297,7 +297,7 @@ Its role is not to replace agents. It gives agents a shared structure for:
 
 - work containers: `version -> requirement -> change -> plan -> execution`
 - state routing: `workflow-runtime.yaml + version meta.yaml`
-- lifecycle gates: `docs/context/hooks/`
+- lifecycle gates: `workflow/context/hooks/`
 - explicit human approval points
 
 This README is intentionally limited to:
@@ -349,7 +349,7 @@ This installs:
 - thin command wrappers for Codex
 - `AGENTS.md`
 - `CLAUDE.md`
-- the `docs/` workflow structure
+- the `workflow/` workflow structure
 
 If you only want the docs skeleton:
 
@@ -395,7 +395,7 @@ harness has two built-in evolution lines that make projects smarter over time:
 **Application project line (experience accumulation)**
 
 ```text
-session-memory.md → docs/context/experience/ → formal rules/
+session-memory.md → workflow/context/experience/ → formal rules/
 ```
 
 - Lessons captured when the agent is corrected, constraints discovered, paths fail, or MCPs solve problems
@@ -415,7 +415,7 @@ session-memory.md → docs/context/experience/ → formal rules/
 
 ### MCP Capability Index
 
-`harness install` generates `docs/context/mcp-registry.yaml` (project-level) and `docs/templates/mcp-catalog.yaml` (tool-level recommendations).
+`harness install` generates `workflow/context/mcp-registry.yaml` (project-level) and `workflow/templates/mcp-catalog.yaml` (tool-level recommendations).
 
 Before asking the user for external information, the agent follows this decision chain:
 
@@ -453,33 +453,33 @@ Resolution order:
 For humans:
 
 1. `README.md`
-2. `docs/README.md`
-3. `docs/context/rules/development-flow.md`
+2. `workflow/README.md`
+3. `workflow/context/rules/development-flow.md`
 
 For agents:
 
 1. `AGENTS.md`
-2. `docs/context/rules/workflow-runtime.yaml`
+2. `workflow/context/rules/workflow-runtime.yaml`
 3. the current version `meta.yaml`
-4. `docs/context/hooks/README.md`
+4. `workflow/context/hooks/README.md`
 5. matched hook files
 
 ### Where Detailed Rules Live
 
 - `AGENTS.md`
 - `CLAUDE.md`
-- `docs/README.md`
-- `docs/context/rules/development-flow.md`
-- `docs/context/rules/agent-workflow.md`
-- `docs/context/rules/workflow-runtime.yaml`
-- `docs/context/hooks/README.md`
-- `docs/context/hooks/<timing>.md`
-- `docs/versions/active/<version>/meta.yaml`
+- `workflow/README.md`
+- `workflow/context/rules/development-flow.md`
+- `workflow/context/rules/agent-workflow.md`
+- `workflow/context/rules/workflow-runtime.yaml`
+- `workflow/context/hooks/README.md`
+- `workflow/context/hooks/<timing>.md`
+- `workflow/versions/active/<version>/meta.yaml`
 
 ### Repository Structure
 
 ```text
-docs/
+workflow/
 ├── context/
 │   ├── hooks/              # hard gates by invocation timing
 │   ├── experience/         # experience index and entries

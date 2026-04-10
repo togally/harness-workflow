@@ -4,13 +4,13 @@
 
 ## Qoder 路由规则
 
-1. 在开始 requirement、change、plan、execution 或 regression 工作前，先读取 `docs/context/rules/workflow-runtime.yaml`
+1. 在开始 requirement、change、plan、execution 或 regression 工作前，先读取 `workflow/context/rules/workflow-runtime.yaml`
 2. 根据 `current_version` 读取对应 version 的 `meta.yaml`
 3. 再读取：
-   - `docs/context/rules/development-flow.md`
-   - `docs/context/rules/agent-workflow.md`
-   - `docs/context/rules/risk-rules.md`
-   - `docs/context/experience/index.md`
+   - `workflow/context/rules/development-flow.md`
+   - `workflow/context/rules/agent-workflow.md`
+   - `workflow/context/rules/risk-rules.md`
+   - `workflow/context/experience/index.md`
 4. 在进入新节点、切换子模块或怀疑旧上下文已不再影响下一步时，先执行 `context-maintenance` 判断：无关上下文优先 `/clear`，仍有用但可压缩的上下文优先 `/compact`
 5. 执行 `/clear` 或 `/compact` 后，重新读取 `workflow-runtime.yaml`、当前 version `meta.yaml` 与命中的 hooks
 6. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止，不要绕过 workflow 自行推进
@@ -19,8 +19,8 @@
 ## 共享入口
 
 - 根目录 `AGENTS.md` 作为跨 Agent 通用入口
-- `docs/context/rules/*` 作为详细规则源
-- `docs/versions/active/<version>/` 作为当前版本工作区
+- `workflow/context/rules/*` 作为详细规则源
+- `workflow/versions/active/<version>/` 作为当前版本工作区
 
 ## 质量门禁
 

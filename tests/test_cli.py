@@ -37,11 +37,11 @@ class HarnessCliTest(unittest.TestCase):
         return json.loads((self.repo / ".codex" / "harness" / "config.json").read_text(encoding="utf-8"))
 
     def read_runtime(self) -> dict[str, object]:
-        return json.loads((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").read_text(encoding="utf-8"))
+        return json.loads((self.repo / "workflow" / "context" / "rules" / "workflow-runtime.yaml").read_text(encoding="utf-8"))
 
     def read_version_meta(self, version: str) -> dict[str, object]:
         return json.loads(
-            (self.repo / "docs" / "versions" / "active" / version / "meta.yaml").read_text(encoding="utf-8")
+            (self.repo / "workflow" / "versions" / "active" / version / "meta.yaml").read_text(encoding="utf-8")
         )
 
     def test_install_creates_triple_skills_and_default_english_config(self) -> None:
@@ -55,100 +55,100 @@ class HarnessCliTest(unittest.TestCase):
             self.assertTrue((self.repo / ".qoder" / "commands" / f"{command}.md").exists())
             self.assertTrue((self.repo / ".claude" / "commands" / f"{command}.md").exists())
             self.assertTrue((self.repo / ".codex" / "skills" / command / "SKILL.md").exists())
-        self.assertTrue((self.repo / "docs" / "context").exists())
-        self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
-        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "README.md").exists())
-        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "session-start.md").exists())
-        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "context-maintenance.md").exists())
+        self.assertTrue((self.repo / "workflow" / "context").exists())
+        self.assertTrue((self.repo / "workflow" / "versions" / "active").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "hooks" / "README.md").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "hooks" / "session-start.md").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "hooks" / "context-maintenance.md").exists())
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "20-decide-clear-or-compact.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "context-maintenance" / "20-decide-clear-or-compact.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "executing" / "10-keep-active-plan-and-code-context.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "context-maintenance" / "executing" / "10-keep-active-plan-and-code-context.md").exists()
         )
         context_policy = (
-            self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md"
+            self.repo / "workflow" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md"
         ).read_text(encoding="utf-8")
         self.assertIn("80%", context_policy)
         self.assertIn("60%", context_policy)
         self.assertIn("32k", context_policy)
         context_modes = (
-            self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md"
+            self.repo / "workflow" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md"
         ).read_text(encoding="utf-8")
         self.assertIn("Plan Mode", context_modes)
         self.assertIn("Act Mode", context_modes)
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "10-discussion-only.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "requirement-review" / "10-discussion-only.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "requirement-review" / "10-request-human-review-first.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-reply" / "requirement-review" / "10-request-human-review-first.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "changes-review" / "10-request-change-review-first.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-reply" / "changes-review" / "10-request-change-review-first.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "plan-review" / "10-request-plan-review-first.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-reply" / "plan-review" / "10-request-plan-review-first.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "ready-for-execution" / "10-request-execution-confirmation.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-reply" / "ready-for-execution" / "10-request-execution-confirmation.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "20-wait-for-human-approval.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "requirement-review" / "20-wait-for-human-approval.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "changes-review" / "20-wait-for-human-approval.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "changes-review" / "20-wait-for-human-approval.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "plan-review" / "20-wait-for-human-approval.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "plan-review" / "20-wait-for-human-approval.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "ready-for-execution" / "10-wait-for-explicit-confirmation.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "ready-for-execution" / "10-wait-for-explicit-confirmation.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "during-task" / "requirement-review" / "20-no-auto-stage-advance.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "during-task" / "requirement-review" / "20-no-auto-stage-advance.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "during-task" / "changes-review" / "20-no-auto-stage-advance.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "during-task" / "changes-review" / "20-no-auto-stage-advance.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "during-task" / "plan-review" / "20-no-auto-stage-advance.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "during-task" / "plan-review" / "20-no-auto-stage-advance.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "during-task" / "ready-for-execution" / "10-no-implementation-before-confirmation.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "during-task" / "ready-for-execution" / "10-no-implementation-before-confirmation.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "done" / "10-request-lesson-capture-before-closure.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-reply" / "done" / "10-request-lesson-capture-before-closure.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "done" / "10-verify-lessons-before-closeout.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "done" / "10-verify-lessons-before-closeout.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "during-task" / "done" / "10-no-closeout-before-lesson-capture.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "during-task" / "done" / "10-no-closeout-before-lesson-capture.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-complete" / "40-require-session-memory-sync.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-complete" / "40-require-session-memory-sync.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-complete" / "50-require-experience-promotion-check.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-complete" / "50-require-experience-promotion-check.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "idle" / "10-formalize-workspace-first.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "node-entry" / "idle" / "10-formalize-workspace-first.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "during-task" / "idle" / "10-no-implementation-prep.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "during-task" / "idle" / "10-no-implementation-prep.md").exists()
         )
         self.assertTrue(
-            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "idle" / "10-offer-only-workflow-actions.md").exists()
+            (self.repo / "workflow" / "context" / "hooks" / "before-reply" / "idle" / "10-offer-only-workflow-actions.md").exists()
         )
         self.assertEqual(self.read_config()["language"], "english")
-        self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
-        self.assertTrue((self.repo / "docs" / "context" / "rules" / "development-flow.md").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "rules" / "workflow-runtime.yaml").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "rules" / "development-flow.md").exists())
 
     def test_language_command_switches_to_cn(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
@@ -169,7 +169,7 @@ class HarnessCliTest(unittest.TestCase):
 
         requirement = self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
         self.assertEqual(requirement.returncode, 0, msg=requirement.stderr or requirement.stdout)
-        requirement_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service"
+        requirement_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service"
         self.assertTrue((requirement_dir / "requirement.md").exists())
         self.assertTrue((requirement_dir / "completion.md").exists())
         self.assertIn("startup", (requirement_dir / "completion.md").read_text(encoding="utf-8").lower())
@@ -193,7 +193,7 @@ class HarnessCliTest(unittest.TestCase):
             "online-health-service",
         )
         self.assertEqual(change.returncode, 0, msg=change.stderr or change.stdout)
-        change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking"
+        change_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking"
         self.assertTrue((change_dir / "change.md").exists())
         self.assertTrue((change_dir / "plan.md").exists())
         self.assertTrue((change_dir / "regression" / "required-inputs.md").exists())
@@ -203,7 +203,7 @@ class HarnessCliTest(unittest.TestCase):
 
         plan = self.run_cli("plan", "Online Booking", "--root", str(self.repo))
         self.assertEqual(plan.returncode, 0, msg=plan.stderr or plan.stdout)
-        self.assertIn("docs/versions/active/v1.0.0/changes/online-booking/plan.md", plan.stdout)
+        self.assertIn("workflow/versions/active/v1.0.0/changes/online-booking/plan.md", plan.stdout)
         self.assertEqual(self.read_version_meta("v1.0.0")["suggested_skill"], "writing-plans")
 
     def test_use_status_next_and_ff_follow_workflow_runtime(self) -> None:
@@ -265,7 +265,7 @@ class HarnessCliTest(unittest.TestCase):
         claude_command = self.repo / ".claude" / "commands" / "harness-requirement.md"
         codex_wrapper = self.repo / ".codex" / "skills" / "harness-requirement" / "SKILL.md"
         qoder_rule = self.repo / ".qoder" / "rules" / "harness-workflow.md"
-        hooks_readme = self.repo / "docs" / "context" / "hooks" / "README.md"
+        hooks_readme = self.repo / "workflow" / "context" / "hooks" / "README.md"
         qoder_skill.write_text("tampered qoder skill\n", encoding="utf-8")
         qoder_command.unlink()
         claude_command.unlink()
@@ -280,7 +280,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("missing .claude/commands/harness-requirement.md", check.stdout)
         self.assertIn("missing .codex/skills/harness-requirement/SKILL.md", check.stdout)
         self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
-        self.assertIn("missing docs/context/hooks/README.md", check.stdout)
+        self.assertIn("missing workflow/context/hooks/README.md", check.stdout)
 
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
@@ -331,13 +331,13 @@ class HarnessCliTest(unittest.TestCase):
 
         requirement = self.run_cli("requirement", "在线健康服务", "--root", str(self.repo))
         self.assertEqual(requirement.returncode, 0, msg=requirement.stderr or requirement.stdout)
-        requirement_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "需求" / "在线健康服务"
+        requirement_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "需求" / "在线健康服务"
         self.assertTrue((requirement_dir / "requirement.md").exists())
         self.assertIn("需求标题", (requirement_dir / "requirement.md").read_text(encoding="utf-8"))
 
         change = self.run_cli("change", "在线问诊预约", "--root", str(self.repo))
         self.assertEqual(change.returncode, 0, msg=change.stderr or change.stdout)
-        change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "变更" / "在线问诊预约"
+        change_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "变更" / "在线问诊预约"
         self.assertTrue((change_dir / "change.md").exists())
         self.assertIn("变更标题", (change_dir / "change.md").read_text(encoding="utf-8"))
 
@@ -346,7 +346,7 @@ class HarnessCliTest(unittest.TestCase):
         self.run_cli("version", "v1.0.0", "--root", str(self.repo))
         change = self.run_cli("change", "Quick Login UI Fix", "--root", str(self.repo))
         self.assertEqual(change.returncode, 0, msg=change.stderr or change.stdout)
-        change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "quick-login-ui-fix"
+        change_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "quick-login-ui-fix"
         self.assertTrue((change_dir / "change.md").exists())
 
     def test_archive_moves_requirement_and_linked_changes_into_version_archive(self) -> None:
@@ -358,11 +358,11 @@ class HarnessCliTest(unittest.TestCase):
         result = self.run_cli("archive", "Online Health Service", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
 
-        archive_requirement = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "archive" / "online-health-service"
+        archive_requirement = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "archive" / "online-health-service"
         self.assertTrue((archive_requirement / "requirement.md").exists())
         self.assertTrue((archive_requirement / "changes" / "online-booking" / "plan.md").exists())
-        self.assertFalse((self.repo / "docs" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service").exists())
-        self.assertFalse((self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking").exists())
+        self.assertFalse((self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service").exists())
+        self.assertFalse((self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking").exists())
         meta = self.read_version_meta("v1.0.0")
         self.assertNotIn("online-health-service", meta["requirement_ids"])
         self.assertNotIn("online-booking", meta["change_ids"])
@@ -373,7 +373,7 @@ class HarnessCliTest(unittest.TestCase):
 
         start = self.run_cli("regression", "Button effect is unsatisfactory", "--root", str(self.repo))
         self.assertEqual(start.returncode, 0, msg=start.stderr or start.stdout)
-        regression_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "regressions" / "button-effect-is-unsatisfactory"
+        regression_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "regressions" / "button-effect-is-unsatisfactory"
         self.assertTrue((regression_dir / "regression.md").exists())
 
         status = self.run_cli("status", "--root", str(self.repo))
@@ -385,7 +385,7 @@ class HarnessCliTest(unittest.TestCase):
 
         convert = self.run_cli("regression", "--change", "Button Interaction Polish", "--root", str(self.repo))
         self.assertEqual(convert.returncode, 0, msg=convert.stderr or convert.stdout)
-        change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "button-interaction-polish"
+        change_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "button-interaction-polish"
         self.assertTrue((change_dir / "change.md").exists())
         runtime = self.read_runtime()
         self.assertEqual(runtime["mode"], "normal")
@@ -395,7 +395,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(meta["regression_ids"], [])
         regression_meta = (
             self.repo
-            / "docs"
+            / "workflow"
             / "versions"
             / "active"
             / "v1.0.0"
@@ -414,7 +414,7 @@ class HarnessCliTest(unittest.TestCase):
 
         version_result = self.run_cli("rename", "version", "v1.0.0", "release-1", "--root", str(self.repo))
         self.assertEqual(version_result.returncode, 0, msg=version_result.stderr or version_result.stdout)
-        self.assertTrue((self.repo / "docs" / "versions" / "active" / "release-1").exists())
+        self.assertTrue((self.repo / "workflow" / "versions" / "active" / "release-1").exists())
         self.assertEqual(self.read_runtime()["current_version"], "release-1")
 
         requirement_result = self.run_cli(
@@ -426,11 +426,11 @@ class HarnessCliTest(unittest.TestCase):
             str(self.repo),
         )
         self.assertEqual(requirement_result.returncode, 0, msg=requirement_result.stderr or requirement_result.stdout)
-        requirement_dir = self.repo / "docs" / "versions" / "active" / "release-1" / "requirements" / "customer-health-service"
+        requirement_dir = self.repo / "workflow" / "versions" / "active" / "release-1" / "requirements" / "customer-health-service"
         self.assertTrue((requirement_dir / "requirement.md").exists())
-        self.assertFalse((self.repo / "docs" / "versions" / "active" / "release-1" / "requirements" / "online-health-service").exists())
+        self.assertFalse((self.repo / "workflow" / "versions" / "active" / "release-1" / "requirements" / "online-health-service").exists())
         change_meta = (
-            self.repo / "docs" / "versions" / "active" / "release-1" / "changes" / "online-booking" / "meta.yaml"
+            self.repo / "workflow" / "versions" / "active" / "release-1" / "changes" / "online-booking" / "meta.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn('requirement: "customer-health-service"', change_meta)
         self.assertIn("customer-health-service", self.read_version_meta("release-1")["requirement_ids"])
@@ -441,8 +441,8 @@ class HarnessCliTest(unittest.TestCase):
         self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
         self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
 
-        old_version = self.repo / "docs" / "versions" / "active" / "v1.0.0"
-        new_version = self.repo / "docs" / "versions" / "active" / "release-1"
+        old_version = self.repo / "workflow" / "versions" / "active" / "v1.0.0"
+        new_version = self.repo / "workflow" / "versions" / "active" / "release-1"
         shutil.move(str(old_version), str(new_version))
         shutil.move(
             str(new_version / "requirements" / "online-health-service"),
@@ -462,10 +462,10 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("customer-health-service", version_meta["requirement_ids"])
         self.assertIn("customer-booking", version_meta["change_ids"])
         requirement_meta = (
-            self.repo / "docs" / "versions" / "active" / "release-1" / "requirements" / "customer-health-service" / "meta.yaml"
+            self.repo / "workflow" / "versions" / "active" / "release-1" / "requirements" / "customer-health-service" / "meta.yaml"
         ).read_text(encoding="utf-8")
         change_meta = (
-            self.repo / "docs" / "versions" / "active" / "release-1" / "changes" / "customer-booking" / "meta.yaml"
+            self.repo / "workflow" / "versions" / "active" / "release-1" / "changes" / "customer-booking" / "meta.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn('id: "customer-health-service"', requirement_meta)
         self.assertIn('id: "customer-booking"', change_meta)
@@ -475,7 +475,7 @@ class HarnessCliTest(unittest.TestCase):
         self.run_cli("install", "--root", str(self.repo))
         self.run_cli("version", "v1.0.0", "--root", str(self.repo))
         self.run_cli("version", "v1.1.0", "--root", str(self.repo))
-        shutil.rmtree(self.repo / "docs" / "versions" / "active" / "v1.1.0")
+        shutil.rmtree(self.repo / "workflow" / "versions" / "active" / "v1.1.0")
 
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
@@ -489,7 +489,7 @@ class HarnessCliTest(unittest.TestCase):
         self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
         self.run_cli("plan", "Online Booking", "--root", str(self.repo))
 
-        shutil.rmtree(self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking")
+        shutil.rmtree(self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking")
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         meta = self.read_version_meta("v1.0.0")
@@ -498,7 +498,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(meta["current_artifact_id"], "online-health-service")
         self.assertNotIn("online-booking", meta["change_ids"])
 
-        shutil.rmtree(self.repo / "docs" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service")
+        shutil.rmtree(self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "requirements" / "online-health-service")
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         meta = self.read_version_meta("v1.0.0")
@@ -509,7 +509,7 @@ class HarnessCliTest(unittest.TestCase):
 
     def test_update_check_and_apply_refresh_skills_and_missing_files(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
-        session_memory = self.repo / "docs" / "templates" / "session-memory.md"
+        session_memory = self.repo / "workflow" / "templates" / "session-memory.md"
         session_memory.unlink()
         codex_skill = self.repo / ".codex" / "skills" / "harness" / "SKILL.md"
         claude_skill = self.repo / ".claude" / "skills" / "harness" / "SKILL.md"
@@ -520,7 +520,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
         self.assertIn("would refresh .codex/skills/harness", check.stdout)
         self.assertIn("would refresh .claude/skills/harness", check.stdout)
-        self.assertIn("missing docs/templates/session-memory.md", check.stdout)
+        self.assertIn("missing workflow/templates/session-memory.md", check.stdout)
         self.assertFalse(session_memory.exists())
 
         result = self.run_cli("update", "--root", str(self.repo))
@@ -536,7 +536,7 @@ class HarnessCliTest(unittest.TestCase):
             json.dumps({"language": "english", "current_version": ""}, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        (self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").write_text(
+        (self.repo / "workflow" / "context" / "rules" / "workflow-runtime.yaml").write_text(
             json.dumps({"current_version": "", "executing_version": "", "active_versions": {}}, ensure_ascii=False, indent=2)
             + "\n",
             encoding="utf-8",
@@ -550,9 +550,9 @@ class HarnessCliTest(unittest.TestCase):
     def test_init_standalone_creates_docs_structure(self) -> None:
         result = self.run_cli("init", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        self.assertTrue((self.repo / "docs" / "context").exists())
-        self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
-        self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
+        self.assertTrue((self.repo / "workflow" / "context").exists())
+        self.assertTrue((self.repo / "workflow" / "versions" / "active").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "rules" / "workflow-runtime.yaml").exists())
 
     def test_plan_with_nonexistent_change_fails(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
@@ -660,10 +660,10 @@ class HarnessCliTest(unittest.TestCase):
         result = self.run_cli("rename", "change", "Online Booking", "Booking Revamp", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertIn("Change renamed", result.stdout)
-        new_change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "booking-revamp"
+        new_change_dir = self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "booking-revamp"
         self.assertTrue((new_change_dir / "change.md").exists())
         self.assertFalse(
-            (self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking").exists()
+            (self.repo / "workflow" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking").exists()
         )
         meta = self.read_version_meta("v1.0.0")
         self.assertIn("booking-revamp", meta["change_ids"])
@@ -750,14 +750,14 @@ class HarnessCliTest(unittest.TestCase):
     def test_install_creates_mcp_registry_and_catalog(self) -> None:
         result = self.run_cli("install", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        self.assertTrue((self.repo / "docs" / "context" / "mcp-registry.yaml").exists())
-        self.assertTrue((self.repo / "docs" / "templates" / "mcp-catalog.yaml").exists())
-        registry = (self.repo / "docs" / "context" / "mcp-registry.yaml").read_text(encoding="utf-8")
+        self.assertTrue((self.repo / "workflow" / "context" / "mcp-registry.yaml").exists())
+        self.assertTrue((self.repo / "workflow" / "templates" / "mcp-catalog.yaml").exists())
+        registry = (self.repo / "workflow" / "context" / "mcp-registry.yaml").read_text(encoding="utf-8")
         self.assertIn("mcps:", registry)
-        catalog = (self.repo / "docs" / "templates" / "mcp-catalog.yaml").read_text(encoding="utf-8")
+        catalog = (self.repo / "workflow" / "templates" / "mcp-catalog.yaml").read_text(encoding="utf-8")
         self.assertIn("catalog:", catalog)
         # Check that before-human-input hook mentions MCP
-        hooks_dir = self.repo / "docs" / "context" / "hooks" / "before-human-input"
+        hooks_dir = self.repo / "workflow" / "context" / "hooks" / "before-human-input"
         mcp_hook = hooks_dir / "05-check-mcp-registry.md"
         self.assertTrue(mcp_hook.exists())
         self.assertIn("MCP", mcp_hook.read_text(encoding="utf-8"))
@@ -779,9 +779,9 @@ class HarnessCliTest(unittest.TestCase):
     def test_init_creates_docs_without_skills(self) -> None:
         result = self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        self.assertTrue((self.repo / "docs" / "context").exists())
-        self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
-        self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
+        self.assertTrue((self.repo / "workflow" / "context").exists())
+        self.assertTrue((self.repo / "workflow" / "versions" / "active").exists())
+        self.assertTrue((self.repo / "workflow" / "context" / "rules" / "workflow-runtime.yaml").exists())
         # init does NOT copy the full skill tree into .claude/skills/harness or .qoder/skills/harness
         self.assertFalse((self.repo / ".claude" / "skills" / "harness" / "SKILL.md").exists())
         self.assertFalse((self.repo / ".qoder" / "skills" / "harness" / "SKILL.md").exists())

@@ -4,14 +4,14 @@ This repository uses the Harness workflow for agent collaboration.
 
 ## Read First
 
-1. Before requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml`
+1. Before requirement, change, plan, or execution work, read `workflow/context/rules/workflow-runtime.yaml`
 2. Use `current_version` to read the active version `meta.yaml`
-3. Read `docs/memory/constitution.md`
-4. Read `docs/context/experience/index.md`
-5. Read `docs/context/rules/risk-rules.md`
+3. Read `workflow/memory/constitution.md`
+4. Read `workflow/context/experience/index.md`
+5. Read `workflow/context/rules/risk-rules.md`
 6. Load only matching experience files
-7. Read `docs/context/rules/agent-workflow.md`, `docs/context/rules/development-flow.md`, and `docs/context/hooks/README.md`
-8. Read `docs/context/project/project-overview.md` and `docs/context/team/development-standards.md` as needed
+7. Read `workflow/context/rules/agent-workflow.md`, `workflow/context/rules/development-flow.md`, and `workflow/context/hooks/README.md`
+8. Read `workflow/context/project/project-overview.md` and `workflow/context/team/development-standards.md` as needed
 9. When entering a new node, switching submodules, or noticing that old context no longer affects the next task, run a `context-maintenance` check first: prefer `/clear` for irrelevant context and `/compact` for still-useful but compressible context
 10. After `/clear` or `/compact`, re-read `workflow-runtime.yaml`, the current version `meta.yaml`, and the matched hooks
 11. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask for repair instead of improvising a manual fallback flow

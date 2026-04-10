@@ -2,21 +2,21 @@
 
 ## 1. Core Principle
 
-- Workflow rules live under `docs/context/rules/`
-- Runtime state lives in `docs/context/rules/workflow-runtime.yaml`
-- Lifecycle hooks live under `docs/context/hooks/`
-- Each version keeps local state in `docs/versions/active/<version>/meta.yaml`
+- Workflow rules live under `workflow/context/rules/`
+- Runtime state lives in `workflow/context/rules/workflow-runtime.yaml`
+- Lifecycle hooks live under `workflow/context/hooks/`
+- Each version keeps local state in `workflow/versions/active/<version>/meta.yaml`
 - Before any requirement, change, plan, execution, or regression work, the agent must route through runtime state first
 
 ## 2. Routing Order
 
 Before doing any work:
 
-1. Read `docs/context/rules/workflow-runtime.yaml`
+1. Read `workflow/context/rules/workflow-runtime.yaml`
 2. Find `current_version`
 3. Read the current version `meta.yaml`
 4. Confirm `stage`, `status`, and `current_task`
-5. Re-index `docs/context/experience/index.md` and load the most relevant mature experience for the current task
+5. Re-index `workflow/context/experience/index.md` and load the most relevant mature experience for the current task
 6. Continue only if the state allows it
 
 If `current_version` is missing, version `meta.yaml` is missing, or runtime/config disagree, stop immediately and require `harness active "<version>"` before continuing. Do not bypass workflow with a manual fallback process.
@@ -65,8 +65,8 @@ Additional guardrails:
 - Do not advance work without a confirmed current version
 - During `requirement_review`, do not treat extra implementation detail as permission to code
 - During regression flow, do not jump straight back into coding before the human confirms it is a real problem
-- Long-term regression history lives in `docs/versions/active/<version>/regressions/`; it should not permanently occupy the main version workflow state
+- Long-term regression history lives in `workflow/versions/active/<version>/regressions/`; it should not permanently occupy the main version workflow state
 - `ff` skips discussion gates, not the final execution confirmation
 - If workflow state is missing, inconsistent, or blocked, the agent must stop and require repair instead of manually simulating the workflow
-- After each stage-level task completes, check whether new lessons should be captured; mature lessons should be fused into `docs/context/experience/` or formal rules
+- After each stage-level task completes, check whether new lessons should be captured; mature lessons should be fused into `workflow/context/experience/` or formal rules
 - Any `harness` command should automatically enter harness conversation mode; while that mode is active, the conversation must remain constrained to the locked workflow node until `harness exit`

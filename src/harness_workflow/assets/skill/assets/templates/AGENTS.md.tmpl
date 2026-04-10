@@ -4,14 +4,14 @@
 
 ## 优先阅读
 
-1. 在需求分析、change 拆分、plan 制定或执行前，先读取 `docs/context/rules/workflow-runtime.yaml`
+1. 在需求分析、change 拆分、plan 制定或执行前，先读取 `workflow/context/rules/workflow-runtime.yaml`
 2. 根据 `current_version` 继续读取对应 version 的 `meta.yaml`
-3. 再读取 `docs/memory/constitution.md`
-4. 在分析、设计、实施、自检前读取 `docs/context/experience/index.md`
-5. 在执行任何任务前读取 `docs/context/rules/risk-rules.md`
-6. 仅按关键词加载命中的经验文件，不全量读取 `docs/context/experience/`
-7. 详细执行流程请读取 `docs/context/rules/agent-workflow.md`、`docs/context/rules/development-flow.md` 与 `docs/context/hooks/README.md`
-8. 如需了解项目事实或开发规范，继续读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
+3. 再读取 `workflow/memory/constitution.md`
+4. 在分析、设计、实施、自检前读取 `workflow/context/experience/index.md`
+5. 在执行任何任务前读取 `workflow/context/rules/risk-rules.md`
+6. 仅按关键词加载命中的经验文件，不全量读取 `workflow/context/experience/`
+7. 详细执行流程请读取 `workflow/context/rules/agent-workflow.md`、`workflow/context/rules/development-flow.md` 与 `workflow/context/hooks/README.md`
+8. 如需了解项目事实或开发规范，继续读取 `workflow/context/project/project-overview.md` 与 `workflow/context/team/development-standards.md`
 9. 在进入新节点、切换子模块或怀疑上下文已不再影响下一步时，先执行 `context-maintenance` 判断：无关上下文优先 `/clear`，仍有用但可压缩的上下文优先 `/compact`
 10. 执行 `/clear` 或 `/compact` 后，重新读取 `workflow-runtime.yaml`、当前 version `meta.yaml` 与命中的 hooks
 9. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止并提示修复，不允许绕过工作流手工推进
@@ -25,12 +25,12 @@
 
 ## 关键入口
 
-- `docs/README.md`：文档总入口
-- `docs/context/`：团队规范、项目事实、经验索引与执行规则
-- `docs/context/rules/workflow-runtime.yaml`：当前工作流运行态
-- `docs/context/hooks/README.md`：按调用时机组织的 Hooks 入口
-- `docs/versions/active/<version>/`：当前版本下的需求、变更与计划工作区
-- `docs/runbooks/`：操作手册
+- `workflow/README.md`：文档总入口
+- `workflow/context/`：团队规范、项目事实、经验索引与执行规则
+- `workflow/context/rules/workflow-runtime.yaml`：当前工作流运行态
+- `workflow/context/hooks/README.md`：按调用时机组织的 Hooks 入口
+- `workflow/versions/active/<version>/`：当前版本下的需求、变更与计划工作区
+- `workflow/runbooks/`：操作手册
 
 ## Harness 命令入口
 

@@ -3,7 +3,7 @@
 ## Canonical Structure
 
 ```text
-docs/
+workflow/
 ├── README.md
 ├── context/
 │   ├── team/
@@ -27,13 +27,13 @@ docs/
 
 ## Meaning
 
-- `docs/context/team/`: stable team-wide rules and conventions
-- `docs/context/project/`: current project facts and architecture
-- `docs/context/experience/`: indexed lessons, pitfalls, self-checks
-- `docs/context/rules/`: detailed agent workflow and execution rules
-- `docs/changes/`: per-change workspace with requirement, design, plan, acceptance, and session memory
-- `docs/plans/`: cross-change or shared plans
-- `docs/decisions/`: architecture and technical decisions
-- `docs/runbooks/`: startup, deploy, recovery, troubleshooting guides
-- `docs/templates/`: reusable document templates
-- `docs/memory/`: durable memory that survives across changes and sessions
+- `workflow/context/team/`: stable team-wide rules and conventions
+- `workflow/context/project/`: current project facts and architecture
+- `workflow/context/experience/`: indexed lessons, pitfalls, self-checks
+- `workflow/context/rules/`: detailed agent workflow and execution rules
+- `workflow/changes/`: per-change workspace with requirement, design, plan, acceptance, and session memory
+- `workflow/plans/`: cross-change or shared plans
+- `workflow/decisions/`: architecture and technical decisions
+- `workflow/runbooks/`: startup, deploy, recovery, troubleshooting guides
+- `workflow/templates/`: reusable document templates
+- `workflow/memory/`: durable memory that survives across changes and sessions

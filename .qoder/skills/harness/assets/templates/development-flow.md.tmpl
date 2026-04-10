@@ -1,0 +1,71 @@
+# 研发流程
+
+## 1. 核心原则
+
+- 工作流规则统一放在 `docs/context/rules/`
+- 运行态统一记录在 `docs/context/rules/workflow-runtime.yaml`
+- 生命周期 hooks 统一记录在 `docs/context/hooks/`
+- 每个 version 的局部状态统一记录在 `docs/versions/active/<version>/meta.yaml`
+- Agent 在开始 requirement、change、plan、execution、regression 前，必须先读取运行态并定位当前 version
+
+## 2. 路由顺序
+
+执行任何工作前：
+
+1. 读取 `docs/context/rules/workflow-runtime.yaml`
+2. 找到 `current_version`
+3. 读取当前 version 的 `meta.yaml`
+4. 确认当前 `stage`、`status`、`current_task`
+5. 索引 `docs/context/experience/index.md`，加载与当前任务最相关的成熟经验
+6. 只有在状态允许时才继续执行
+
+如果缺少 `current_version`、当前 version `meta.yaml`、或 runtime/config 不一致，立即停止，并要求用户先用 `harness active "<version>"` 修复当前活动 version。不要绕过 workflow 手工推进。
+
+## 3. 阶段定义
+
+- `idle`：version 已创建，但还未进入正式评审阶段
+- `requirement_review`：需求初稿已生成，等待审核与讨论
+- `changes_review`：changes 已拆分，等待审核与讨论
+- `plan_review`：plan 已生成，等待审核与讨论
+- `ready_for_execution`：已到执行前确认点
+- `executing`：已确认执行，进入代码实施
+- `done`：本 version 已完成
+- `regression`：进入问题确认流，先判断是不是真问题，再决定是否转换成新的 requirement 或 change
+
+补充约束：
+
+- 每个 change 完成后的验收必须包含一次 `mvn compile`
+- 每个 requirement 完成后的收尾必须包含项目启动测试成功
+- 如果编译失败或启动失败，不允许绕过，必须先进入 `harness regression "<问题描述>"`
+- 如果本机已经能直接获取启动日志、编译输出、测试堆栈或运行时报错，先由 AI 自行采集和分析
+- 如果继续修复前需要用户提供配置、测试数据、账号或外部依赖信息，必须先填写对应 change 的 `regression/required-inputs.md`，再提示用户补充；不允许跳过模板直接在对话里提问
+
+## 4. 命令语义
+
+- `harness version "<name>"`：创建或切换 version，并将其设为当前工作 version
+- `harness active "<name>"`：显式修复或切换当前活动 version
+- `harness use "<name>"`：切换当前工作 version
+- `harness enter`：进入当前 version 和当前 workflow 节点对应的 harness 会话模式
+- `harness exit`：退出 harness 会话模式，不改变当前 stage，只解除会话锁
+- `harness rename version|requirement|change "<old>" "<new>"`：正式改名并同步元数据
+- `harness archive "<requirement>"`：归档某个已完成 requirement 及其 linked changes
+- `harness regression "<问题描述>"`：启动回归确认流
+- `harness regression --confirm|--reject|--cancel`：推进当前回归诊断
+- `harness regression --change "<标题>"`：将已确认问题转成新的 change
+- `harness regression --requirement "<标题>"`：将已确认问题转成新的 requirement 增补
+- `harness status`：查看当前运行态
+- `harness next`：推进到下一阶段
+- `harness next --execute`：在 `ready_for_execution` 阶段确认执行
+- `harness ff`：跳过中间审核阶段，直接推进到执行前确认点
+
+## 5. 约束
+
+- 不允许跳过运行态路由直接开始写代码
+- 不允许在未确认当前 version 的情况下推进 requirement 或 change
+- requirement_review 阶段不允许直接开始实现；即使用户补充了实现型 prompt，也只能先讨论并更新需求文档
+- 回归阶段不允许直接跳回编码，必须先和用户确认是否是真问题
+- regression 的长期留存放在 `docs/versions/active/<version>/regressions/` 目录中，不长期占用 version 主状态
+- `ff` 只跳过讨论，不跳过最终执行确认
+- 如果 workflow 状态缺失、冲突或阻塞，Agent 必须停止工作并要求修复，不允许手工模拟流程继续推进
+- 每个阶段的任务完成后，必须检查是否产生了可沉淀经验；成熟经验应融合进 `docs/context/experience/` 或正式规则
+- 任何 `harness` 命令默认都会进入 harness 会话模式；如果处于该模式，对话必须持续受当前锁定节点约束，直到显式执行 `harness exit`
