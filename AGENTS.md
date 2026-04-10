@@ -1,0 +1,42 @@
+# AGENTS.md
+
+This repository uses the Harness workflow for agent collaboration.
+
+## Read First
+
+1. Before requirement, change, plan, or execution work, read `docs/context/rules/workflow-runtime.yaml`
+2. Use `current_version` to read the active version `meta.yaml`
+3. Read `docs/memory/constitution.md`
+4. Read `docs/context/experience/index.md`
+5. Read `docs/context/rules/risk-rules.md`
+6. Load only matching experience files
+7. Read `docs/context/rules/agent-workflow.md`, `docs/context/rules/development-flow.md`, and `docs/context/hooks/README.md`
+8. Read `docs/context/project/project-overview.md` and `docs/context/team/development-standards.md` as needed
+9. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask for repair instead of improvising a manual fallback flow
+10. Before each stage starts a concrete task, re-index experience; after each stage completes, check whether new lessons should be captured or fused
+11. If the human is unhappy with a completed result, start `harness regression "<issue>"` first and confirm the problem before creating new work
+12. Every completed change must include `mvn compile`; every completed requirement must include successful project startup validation
+13. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
+14. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
+15. If the current stage is `requirement_review`, even a detailed implementation prompt must be treated as discussion input only; do not start coding yet
+16. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
+
+## Main Entry
+
+- `harness version "<name>"`
+- `harness active "<name>"`
+- `harness use "<name>"`
+- `harness enter`
+- `harness exit`
+- `harness status`
+- `harness next`
+- `harness ff`
+- `harness requirement "<title>"`
+- `harness change "<title>"`
+- `harness plan "<change>"`
+- `harness regression "<issue>"`
+- `harness rename version|requirement|change "<old>" "<new>"`
+- `harness archive "<requirement>"`
+- `harness update`
+
+If workflow state is missing or inconsistent, stop and require `harness active "<version>"` or restoration of the missing workflow files before continuing.

@@ -100,7 +100,45 @@ harness regression "按钮交互动效不符合预期"
 harness archive "在线健康服务"
 harness rename requirement "在线健康服务" "无人机任务编排"
 harness update
+harness feedback
 ```
+
+### 自进化机制
+
+harness 内置两条进化线，让项目越用越聪明：
+
+**应用项目线（经验沉淀）**
+
+```text
+session-memory.md → docs/context/experience/ → 正式 rules/
+```
+
+- Agent 被纠正、发现约束、路径失败、MCP 成功解决问题时自动记录
+- 经验按命中次数升级置信度：`low`(新) → `medium`(3次+) → `high`(7次+)
+- `high` 置信度 + 广泛适用 → 晋升为正式规则
+- 90 天未命中标记 stale，再 90 天归档，不自动删除
+
+**工具项目线（反馈回流）**
+
+```text
+.harness/feedback.jsonl → harness feedback → JSON → 工具仓库聚合 → 优化提案
+```
+
+- `ff`、`next`、`regression` 等命令自动记录结构事件
+- `harness feedback` 导出统计摘要到当前目录，格式兼容 MCP / curl
+- 工具仓库聚合多项目反馈后生成优化提案 → 人工确认 → 发版
+
+### MCP 能力索引
+
+安装时自动生成 `docs/context/mcp-registry.yaml`（项目级）和 `docs/templates/mcp-catalog.yaml`（工具级推荐表）。
+
+Agent 向用户索要外部信息前，决策链为：
+
+```text
+查经验 → 查 MCP 注册表 → 扫依赖匹配 catalog → 搜社区 MCP → 其他方式 → 才问人
+```
+
+MCP 使用记录随 feedback 回流到工具仓库，adoption 积累后自动升级推荐等级。
 
 ### 三端入口
 
@@ -160,8 +198,9 @@ README 不再展开详细硬规则，统一从这些文件进入：
 ```text
 docs/
 ├── context/
-│   ├── hooks/
-│   ├── experience/
+│   ├── hooks/              # 按调用时机组织的硬门禁
+│   ├── experience/         # 经验索引与条目
+│   ├── mcp-registry.yaml   # 项目级 MCP 注册表
 │   ├── project/
 │   ├── team/
 │   └── rules/
@@ -176,8 +215,11 @@ docs/
 │   │       └── meta.yaml
 │   └── archive/
 ├── templates/
+│   └── mcp-catalog.yaml    # 工具级 MCP 推荐表
 ├── decisions/
 └── runbooks/
+.harness/
+└── feedback.jsonl           # 使用事件静默记录
 ```
 
 ### 升级已有项目
@@ -343,7 +385,45 @@ harness regression "Button interaction feels wrong"
 harness archive "Online Health Service"
 harness rename requirement "Online Health Service" "Customer Health Service"
 harness update
+harness feedback
 ```
+
+### Self-Evolution
+
+harness has two built-in evolution lines that make projects smarter over time:
+
+**Application project line (experience accumulation)**
+
+```text
+session-memory.md → docs/context/experience/ → formal rules/
+```
+
+- Lessons captured when the agent is corrected, constraints discovered, paths fail, or MCPs solve problems
+- Confidence upgrades by hit count: `low`(new) → `medium`(3+) → `high`(7+)
+- `high` confidence + broadly applicable → promoted to formal rule
+- 90 days without a hit marks stale, another 90 days archives; never auto-deleted
+
+**Tool project line (feedback loop)**
+
+```text
+.harness/feedback.jsonl → harness feedback → JSON → tool repo aggregation → optimization proposals
+```
+
+- `ff`, `next`, `regression` commands silently record structural events
+- `harness feedback` exports a summary to the current directory, compatible with MCP / curl
+- Tool repo aggregates multi-project feedback → proposals → human approval → release
+
+### MCP Capability Index
+
+`harness install` generates `docs/context/mcp-registry.yaml` (project-level) and `docs/templates/mcp-catalog.yaml` (tool-level recommendations).
+
+Before asking the user for external information, the agent follows this decision chain:
+
+```text
+check experience → check MCP registry → scan deps against catalog → search community MCPs → other methods → then ask human
+```
+
+MCP usage flows back via feedback, and adoption counts drive recommendation upgrades.
 
 ### Tool Entry Points
 
@@ -401,8 +481,9 @@ For agents:
 ```text
 docs/
 ├── context/
-│   ├── hooks/
-│   ├── experience/
+│   ├── hooks/              # hard gates by invocation timing
+│   ├── experience/         # experience index and entries
+│   ├── mcp-registry.yaml   # project-level MCP registry
 │   ├── project/
 │   ├── team/
 │   └── rules/
@@ -417,8 +498,11 @@ docs/
 │   │       └── meta.yaml
 │   └── archive/
 ├── templates/
+│   └── mcp-catalog.yaml    # tool-level MCP recommendations
 ├── decisions/
 └── runbooks/
+.harness/
+└── feedback.jsonl           # silent usage event log
 ```
 
 ### Upgrade an Existing Repository

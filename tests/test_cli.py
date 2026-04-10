@@ -59,6 +59,30 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
         self.assertTrue((self.repo / "docs" / "context" / "hooks" / "README.md").exists())
         self.assertTrue((self.repo / "docs" / "context" / "hooks" / "session-start.md").exists())
+        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "context-maintenance.md").exists())
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "20-decide-clear-or-compact.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "executing" / "10-keep-active-plan-and-code-context.md").exists()
+        )
+        context_policy = (
+            self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("80%", context_policy)
+        self.assertIn("60%", context_policy)
+        self.assertIn("32k", context_policy)
+        context_modes = (
+            self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Plan Mode", context_modes)
+        self.assertIn("Act Mode", context_modes)
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "10-discussion-only.md").exists()
         )
@@ -97,6 +121,21 @@ class HarnessCliTest(unittest.TestCase):
         )
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "during-task" / "ready-for-execution" / "10-no-implementation-before-confirmation.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "done" / "10-request-lesson-capture-before-closure.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "done" / "10-verify-lessons-before-closeout.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "done" / "10-no-closeout-before-lesson-capture.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-complete" / "40-require-session-memory-sync.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-complete" / "50-require-experience-promotion-check.md").exists()
         )
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "node-entry" / "idle" / "10-formalize-workspace-first.md").exists()
@@ -193,6 +232,23 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(ff_result.returncode, 0, msg=ff_result.stderr or ff_result.stdout)
         self.assertIn("ready_for_execution", ff_result.stdout)
         self.assertEqual(self.read_version_meta("v1.0.0")["stage"], "ready_for_execution")
+
+    def test_done_stage_requires_verification_and_lesson_capture(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo), "--execute")
+        result = self.run_cli("next", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["stage"], "done")
+        self.assertIn("session-memory.md", str(meta["assistant_prompt"]))
+        self.assertIn("promoted", str(meta["assistant_prompt"]))
+        self.assertIn("session-memory.md", str(meta["next_action"]))
 
     def test_use_switches_current_version(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
@@ -491,6 +547,140 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("workflow action required:", result.stdout)
         self.assertIn('harness active "v1.0.0"', result.stdout)
 
+    def test_init_standalone_creates_docs_structure(self) -> None:
+        result = self.run_cli("init", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertTrue((self.repo / "docs" / "context").exists())
+        self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
+        self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
+
+    def test_plan_with_nonexistent_change_fails(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        result = self.run_cli("plan", "No Such Change", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Change does not exist", result.stderr)
+
+    def test_version_with_empty_name_fails(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        result = self.run_cli("version", "", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("version name is required", result.stderr.lower())
+
+    def test_requirement_duplicate_title_is_idempotent(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        first = self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.assertEqual(first.returncode, 0, msg=first.stderr or first.stdout)
+        second = self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.assertEqual(second.returncode, 0, msg=second.stderr or second.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["requirement_ids"].count("online-health-service"), 1)
+
+    def test_change_duplicate_title_is_idempotent(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        first = self.run_cli("change", "Online Booking", "--root", str(self.repo))
+        self.assertEqual(first.returncode, 0, msg=first.stderr or first.stdout)
+        second = self.run_cli("change", "Online Booking", "--root", str(self.repo))
+        self.assertEqual(second.returncode, 0, msg=second.stderr or second.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["change_ids"].count("online-booking"), 1)
+
+    def test_regression_reject_clears_regression_state(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("regression", "Broken layout", "--root", str(self.repo))
+        result = self.run_cli("regression", "--reject", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Regression rejected", result.stdout)
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["mode"], "normal")
+        self.assertEqual(runtime["current_regression"], "")
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["regression_status"], "")
+        self.assertEqual(meta["current_regression"], "")
+        self.assertNotIn("broken-layout", meta["regression_ids"])
+
+    def test_regression_cancel_clears_regression_state(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("regression", "Broken layout", "--root", str(self.repo))
+        result = self.run_cli("regression", "--cancel", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Regression cancelled", result.stdout)
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["mode"], "normal")
+        self.assertEqual(runtime["current_regression"], "")
+
+    def test_regression_status_shows_active_regression(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("regression", "Broken layout", "--root", str(self.repo))
+        result = self.run_cli("regression", "--status", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("current_regression: broken-layout", result.stdout)
+        self.assertIn("regression_status: analysis", result.stdout)
+
+    def test_next_from_idle_stage_fails_without_requirement(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        result = self.run_cli("next", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requirement", result.stderr.lower())
+
+    def test_next_from_done_stage_fails(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo), "--execute")
+        self.run_cli("next", "--root", str(self.repo))
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["stage"], "done")
+        result = self.run_cli("next", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_enter_when_no_version_exists(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        result = self.run_cli("enter", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Entered harness mode", result.stdout)
+        runtime = self.read_runtime()
+        self.assertEqual(runtime["conversation_mode"], "harness")
+
+    def test_rename_change_updates_version_meta(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo), "--requirement", "online-health-service")
+        result = self.run_cli("rename", "change", "Online Booking", "Booking Revamp", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Change renamed", result.stdout)
+        new_change_dir = self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "booking-revamp"
+        self.assertTrue((new_change_dir / "change.md").exists())
+        self.assertFalse(
+            (self.repo / "docs" / "versions" / "active" / "v1.0.0" / "changes" / "online-booking").exists()
+        )
+        meta = self.read_version_meta("v1.0.0")
+        self.assertIn("booking-revamp", meta["change_ids"])
+        self.assertNotIn("online-booking", meta["change_ids"])
+
+    def test_language_with_invalid_value_fails(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        result = self.run_cli("language", "klingon", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unsupported language", result.stderr)
+
+    def test_active_with_nonexistent_version_fails(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        result = self.run_cli("active", "no-such-version", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Version does not exist", result.stderr)
+
     def test_installed_skill_uses_global_harness_commands(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
         skill_text = (self.repo / ".codex" / "skills" / "harness" / "SKILL.md").read_text(encoding="utf-8")
@@ -498,6 +688,153 @@ class HarnessCliTest(unittest.TestCase):
         self.assertNotIn("python3 scripts/harness.py", skill_text)
         self.assertIn("python3 tools/lint_harness_repo.py", skill_text)
         self.assertNotIn("python3 scripts/lint_harness_repo.py", skill_text)
+
+
+    def test_feedback_collects_events_and_exports_json(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Test Req", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("change", "Test Change", "--root", str(self.repo))
+        self.run_cli("ff", "--root", str(self.repo))
+
+        # Should have recorded stage_advance and ff events
+        feedback_log = self.repo / ".harness" / "feedback.jsonl"
+        self.assertTrue(feedback_log.exists())
+        lines = feedback_log.read_text(encoding="utf-8").strip().splitlines()
+        self.assertGreater(len(lines), 0)
+        events = [json.loads(line) for line in lines]
+        event_types = [e["event"] for e in events]
+        self.assertIn("stage_advance", event_types)
+        self.assertIn("ff", event_types)
+
+        # Export feedback
+        result = self.run_cli("feedback", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Feedback exported", result.stdout)
+
+    def test_feedback_events_are_recorded_on_ff(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Test Req", "--root", str(self.repo))
+        result = self.run_cli("ff", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        feedback_log = self.repo / ".harness" / "feedback.jsonl"
+        self.assertTrue(feedback_log.exists(), "feedback.jsonl should exist after ff")
+        lines = [line for line in feedback_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+        self.assertTrue(len(lines) >= 1, "At least one event should be recorded")
+        events = [json.loads(line) for line in lines]
+        event_types = [e["event"] for e in events]
+        self.assertIn("stage_skip", event_types)
+        self.assertIn("ff", event_types)
+        skip_event = next(e for e in events if e["event"] == "stage_skip")
+        self.assertIn("from_stage", skip_event["data"])
+
+    def test_feedback_command_exports_summary(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Test Req", "--root", str(self.repo))
+        self.run_cli("ff", "--root", str(self.repo))
+        result = self.run_cli("feedback", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        out_path = self.repo / "harness-feedback.json"
+        self.assertTrue(out_path.exists(), "harness-feedback.json should exist after feedback export")
+        summary = json.loads(out_path.read_text(encoding="utf-8"))
+        self.assertIn("generated_at", summary)
+        self.assertIn("project_hash", summary)
+        self.assertIn("summary", summary)
+        self.assertIn("stage_skips", summary["summary"])
+        self.assertIn("events_total", summary)
+        self.assertGreaterEqual(summary["events_total"], 1)
+
+    def test_install_creates_mcp_registry_and_catalog(self) -> None:
+        result = self.run_cli("install", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertTrue((self.repo / "docs" / "context" / "mcp-registry.yaml").exists())
+        self.assertTrue((self.repo / "docs" / "templates" / "mcp-catalog.yaml").exists())
+        registry = (self.repo / "docs" / "context" / "mcp-registry.yaml").read_text(encoding="utf-8")
+        self.assertIn("mcps:", registry)
+        catalog = (self.repo / "docs" / "templates" / "mcp-catalog.yaml").read_text(encoding="utf-8")
+        self.assertIn("catalog:", catalog)
+        # Check that before-human-input hook mentions MCP
+        hooks_dir = self.repo / "docs" / "context" / "hooks" / "before-human-input"
+        mcp_hook = hooks_dir / "05-check-mcp-registry.md"
+        self.assertTrue(mcp_hook.exists())
+        self.assertIn("MCP", mcp_hook.read_text(encoding="utf-8"))
+
+    def test_feedback_reset_clears_log(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Test Req", "--root", str(self.repo))
+        self.run_cli("ff", "--root", str(self.repo))
+        result = self.run_cli("feedback", "--reset", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        out_path = self.repo / "harness-feedback.json"
+        self.assertTrue(out_path.exists())
+        feedback_log = self.repo / ".harness" / "feedback.jsonl"
+        self.assertTrue(feedback_log.exists())
+        content = feedback_log.read_text(encoding="utf-8").strip()
+        self.assertEqual(content, "", "Feedback log should be empty after reset")
+
+    def test_init_creates_docs_without_skills(self) -> None:
+        result = self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertTrue((self.repo / "docs" / "context").exists())
+        self.assertTrue((self.repo / "docs" / "versions" / "active").exists())
+        self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
+        # init does NOT copy the full skill tree into .claude/skills/harness or .qoder/skills/harness
+        self.assertFalse((self.repo / ".claude" / "skills" / "harness" / "SKILL.md").exists())
+        self.assertFalse((self.repo / ".qoder" / "skills" / "harness" / "SKILL.md").exists())
+
+    def test_version_requires_name(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        result = self.run_cli("version", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_requirement_requires_active_version(self) -> None:
+        # Without install, the harness workspace does not exist, so requirement creation fails
+        result = self.run_cli("requirement", "Some Feature", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("harness", result.stderr.lower())
+
+    def test_change_requires_active_version(self) -> None:
+        # Without install, the harness workspace does not exist, so change creation fails
+        result = self.run_cli("change", "Some Change", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("harness", result.stderr.lower())
+
+    def test_plan_requires_existing_change(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        result = self.run_cli("plan", "nonexistent", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Change does not exist", result.stderr)
+
+    def test_next_from_idle_fails_without_requirement(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        result = self.run_cli("next", "--root", str(self.repo))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requirement", result.stderr.lower())
+
+    def test_ff_skips_to_ready_for_execution_from_idle(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo))
+        result = self.run_cli("ff", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("ready_for_execution", result.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["stage"], "ready_for_execution")
+
+    def test_language_aliases_accepted(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        for alias, expected in [("en", "english"), ("zh", "cn"), ("chinese", "cn")]:
+            result = self.run_cli("language", alias, "--root", str(self.repo))
+            self.assertEqual(result.returncode, 0, msg=f"Alias '{alias}' failed: {result.stderr or result.stdout}")
+            config = self.read_config()
+            self.assertEqual(config["language"], expected, msg=f"Alias '{alias}' should map to '{expected}'")
 
 
 if __name__ == "__main__":

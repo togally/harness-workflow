@@ -12,14 +12,16 @@ This repository uses the Harness workflow for agent collaboration.
 6. Load only matching experience files
 7. Read `docs/context/rules/agent-workflow.md`, `docs/context/rules/development-flow.md`, and `docs/context/hooks/README.md`
 8. Read `docs/context/project/project-overview.md` and `docs/context/team/development-standards.md` as needed
-9. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask for repair instead of improvising a manual fallback flow
-10. Before each stage starts a concrete task, re-index experience; after each stage completes, check whether new lessons should be captured or fused
-11. If the human is unhappy with a completed result, start `harness regression "<issue>"` first and confirm the problem before creating new work
-12. Every completed change must include `mvn compile`; every completed requirement must include successful project startup validation
-13. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
-14. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
-15. If the current stage is `requirement_review`, even a detailed implementation prompt must be treated as discussion input only; do not start coding yet
-16. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
+9. When entering a new node, switching submodules, or noticing that old context no longer affects the next task, run a `context-maintenance` check first: prefer `/clear` for irrelevant context and `/compact` for still-useful but compressible context
+10. After `/clear` or `/compact`, re-read `workflow-runtime.yaml`, the current version `meta.yaml`, and the matched hooks
+11. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask for repair instead of improvising a manual fallback flow
+12. Before each stage starts a concrete task, re-index experience; after each stage completes, check whether new lessons should be captured or fused
+13. If the human is unhappy with a completed result, start `harness regression "<issue>"` first and confirm the problem before creating new work
+14. Every completed change must include `mvn compile`; every completed requirement must include successful project startup validation
+15. If startup logs, compile output, or test failures are available locally, the AI should inspect them first
+16. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
+17. If the current stage is `requirement_review`, even a detailed implementation prompt must be treated as discussion input only; do not start coding yet
+18. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
 
 ## Main Entry
 

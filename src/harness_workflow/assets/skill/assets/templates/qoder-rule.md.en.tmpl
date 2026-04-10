@@ -11,8 +11,10 @@ This repository uses the Harness workflow for requirement, change, plan, executi
    - `docs/context/rules/agent-workflow.md`
    - `docs/context/rules/risk-rules.md`
    - `docs/context/experience/index.md`
-4. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and do not improvise a manual fallback flow
-5. If `suggested_skill` is present, prefer it for the current stage
+4. When entering a new node, switching submodules, or noticing that old context no longer affects the next task, run a `context-maintenance` check first: prefer `/clear` for irrelevant context and `/compact` for still-useful but compressible context
+5. After `/clear` or `/compact`, re-read `workflow-runtime.yaml`, the current version `meta.yaml`, and the matched hooks
+6. If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and do not improvise a manual fallback flow
+7. If `suggested_skill` is present, prefer it for the current stage
 
 ## Shared Entry
 

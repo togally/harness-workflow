@@ -47,6 +47,30 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((self.repo / "docs" / "context" / "rules" / "workflow-runtime.yaml").exists())
         self.assertTrue((self.repo / "docs" / "context" / "hooks" / "README.md").exists())
         self.assertTrue((self.repo / "docs" / "context" / "hooks" / "session-start.md").exists())
+        self.assertTrue((self.repo / "docs" / "context" / "hooks" / "context-maintenance.md").exists())
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "20-decide-clear-or-compact.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "executing" / "10-keep-active-plan-and-code-context.md").exists()
+        )
+        context_policy = (
+            self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "10-classify-project-scale.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("80%", context_policy)
+        self.assertIn("60%", context_policy)
+        self.assertIn("32k", context_policy)
+        context_modes = (
+            self.repo / "docs" / "context" / "hooks" / "context-maintenance" / "30-switch-plan-and-act-mode.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Plan Mode", context_modes)
+        self.assertIn("Act Mode", context_modes)
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "node-entry" / "requirement-review" / "10-discussion-only.md").exists()
         )
@@ -85,6 +109,21 @@ class HarnessCliTest(unittest.TestCase):
         )
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "during-task" / "ready-for-execution" / "10-no-implementation-before-confirmation.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-reply" / "done" / "10-request-lesson-capture-before-closure.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "node-entry" / "done" / "10-verify-lessons-before-closeout.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "during-task" / "done" / "10-no-closeout-before-lesson-capture.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-complete" / "40-require-session-memory-sync.md").exists()
+        )
+        self.assertTrue(
+            (self.repo / "docs" / "context" / "hooks" / "before-complete" / "50-require-experience-promotion-check.md").exists()
         )
         self.assertTrue(
             (self.repo / "docs" / "context" / "hooks" / "node-entry" / "idle" / "10-formalize-workspace-first.md").exists()
@@ -150,6 +189,23 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("current_version: v1.0.0", status.stdout)
         self.assertIn("suggested_skill:", status.stdout)
         self.assertIn("conversation_mode: harness", status.stdout)
+
+    def test_done_stage_requires_verification_and_lesson_capture(self) -> None:
+        self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")
+        self.run_cli("version", "v1.0.0", "--root", str(self.repo))
+        self.run_cli("requirement", "Online Health Service", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("change", "Online Booking", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo))
+        self.run_cli("next", "--root", str(self.repo), "--execute")
+        result = self.run_cli("next", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        meta = self.read_version_meta("v1.0.0")
+        self.assertEqual(meta["stage"], "done")
+        self.assertIn("session-memory.md", str(meta["assistant_prompt"]))
+        self.assertIn("promoted", str(meta["assistant_prompt"]))
+        self.assertIn("session-memory.md", str(meta["next_action"]))
 
     def test_enter_and_exit_toggle_harness_conversation_mode(self) -> None:
         self.run_cli("init", "--root", str(self.repo), "--write-agents", "--write-claude")

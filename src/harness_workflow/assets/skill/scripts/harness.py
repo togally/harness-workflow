@@ -203,6 +203,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "",
                 f"- 优先围绕 `{cli_command}` 的语义推进当前任务",
                 "- 不要绕过 workflow 手工推进 requirement / change / plan / execution",
+                "- 在新节点、子模块切换或上下文压力升高时，先做 context maintenance 判断；无关上下文优先 `/clear`，仍需保留但可压缩的上下文优先 `/compact`",
                 "- 如果 workflow 状态缺失或冲突，停止并提示运行 `harness active \"<version>\"`",
                 "- 如果编译失败、启动失败或需要用户提供外部信息，先进入 regression",
                 "- 若需要用户补信息，先填写对应 change `regression/required-inputs.md`",
@@ -296,6 +297,7 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
                 "",
                 f"- treat `{cli_command}` as the primary action",
                 "- do not improvise a parallel workflow",
+                "- when entering a new node, switching submodules, or nearing context limits, run a context-maintenance check first; prefer `/clear` for irrelevant context and `/compact` for still-relevant but compressible context",
                 "- if state is missing or inconsistent, stop and tell the user to run `harness active \"<version>\"`",
                 "- if the global `harness` CLI is unavailable, fall back to `.codex/skills/harness/scripts/harness.py`",
             ]
@@ -590,6 +592,20 @@ HOOK_TIMINGS = [
                 },
             },
             {
+                "path": "done/10-request-lesson-capture-before-closure.md",
+                "title": {"cn": "收尾前先确认经验沉淀", "english": "Done Stage Requests Lesson Capture Before Closure"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `done`，回复应先确认 `session-memory.md` 是否已更新，以及成熟经验是否已检查。",
+                        "不要在经验沉淀缺失时直接宣称工作已完整收尾。",
+                    ],
+                    "english": [
+                        "When the current stage is `done`, first confirm that `session-memory.md` has been updated and mature lessons were reviewed.",
+                        "Do not declare the work fully closed while lesson capture is still missing.",
+                    ],
+                },
+            },
+            {
                 "path": "idle/10-offer-only-workflow-actions.md",
                 "title": {"cn": "空闲阶段只提供工作流动作", "english": "Idle Stage Offers Workflow Actions Only"},
                 "body": {
@@ -758,6 +774,20 @@ HOOK_TIMINGS = [
                 },
             },
             {
+                "path": "done/10-verify-lessons-before-closeout.md",
+                "title": {"cn": "收尾节点先确认经验闭环", "english": "Done Node Verifies Lessons Before Closeout"},
+                "body": {
+                    "cn": [
+                        "当前节点先做最终验证、更新 `session-memory.md`，并检查是否有成熟经验需要融入经验库。",
+                        "只有验证和经验闭环都完成后，才允许把工作视为完整结束。",
+                    ],
+                    "english": [
+                        "At this node, perform final verification, update `session-memory.md`, and check whether mature lessons belong in the experience library.",
+                        "Treat the work as fully complete only after both verification and lesson capture are finished.",
+                    ],
+                },
+            },
+            {
                 "path": "executing/10-execution-only.md",
                 "title": {"cn": "实施节点才允许编码", "english": "Only Executing Node May Code"},
                 "body": {
@@ -852,6 +882,166 @@ HOOK_TIMINGS = [
                     "english": [
                         "Before a stage-level task begins, re-index experience.",
                         "Check whether a mature lesson should be reused or fused into the current work.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "slug": "context-maintenance",
+        "title": {"cn": "上下文维护 Hooks", "english": "Context Maintenance Hooks"},
+        "purpose": {
+            "cn": "在进入新节点、开启新子任务或上下文接近阈值时，判断是否应保留、压缩或清空上下文，并切换合适的上下文加载模式。",
+            "english": "When entering a new node, starting a new subtask, or nearing token limits, decide whether context should be kept, compacted, or cleared and switch to the appropriate loading mode.",
+        },
+        "trigger": {
+            "cn": ["进入新节点后", "开始新子任务前", "完成一个子功能模块后", "怀疑上下文已经影响下一步判断时"],
+            "english": ["after entering a new node", "before a new subtask starts", "after a sub-feature/module completes", "when accumulated context may distort the next step"],
+        },
+        "items": [
+            {
+                "path": "10-classify-project-scale.md",
+                "title": {"cn": "按项目规模选择上下文策略", "english": "Choose Context Strategy by Project Scale"},
+                "body": {
+                    "cn": [
+                        "小型项目（< 50 个文件）：临界点为约 80% 标记利用率。优先使用 GPT-4o、DeepSeek 等高性价比模型，依赖全对话历史即可，无需过早清理。",
+                        "中型项目（50 - 500 个文件）：临界点为约 60% 标记利用率，或每完成一个子功能模块。优先开启自动压缩，并切换 `Plan Mode` / `Act Mode`。",
+                        "大型或企业级项目（> 500 个文件）：临界点为 GPT 系列约 32k 标记、Claude 系列约 150k 标记。必须采用 Repo-map + RAG 的混合策略，禁止一次性读取超过 10 个完整文件，并优先用多智能体拆模块。",
+                    ],
+                    "english": [
+                        "Small projects (< 50 files): use about 80% token utilization as the cleanup threshold. Prefer cost-effective models such as GPT-4o or DeepSeek and keep the full conversation history unless pressure is real.",
+                        "Medium projects (50 - 500 files): use about 60% token utilization, or the completion of each sub-feature/module, as the threshold. Prefer auto-compact and switch between `Plan Mode` and `Act Mode`.",
+                        "Large or enterprise projects (> 500 files): use about 32k tokens for GPT-family models or 150k for Claude-family models as the threshold. Enforce a Repo-map + RAG hybrid strategy, never read more than 10 full files at once, and prefer multi-agent module isolation.",
+                    ],
+                },
+            },
+            {
+                "path": "20-decide-clear-or-compact.md",
+                "title": {"cn": "决定 /clear 还是 /compact", "english": "Decide Between /clear and /compact"},
+                "body": {
+                    "cn": [
+                        "如果之前的上下文对接下来的任务已经没有影响，执行 `/clear`，然后重新读取 `workflow-runtime.yaml`、当前 version `meta.yaml` 和命中的 hooks。",
+                        "如果之前的上下文仍有用，但大段细节已不再需要，执行 `/compact`，保留当前 version、stage、artifact、当前计划、未解决问题与必要路径。",
+                        "不要在不清楚当前阶段、当前焦点对象和剩余验证动作时贸然清空上下文。",
+                    ],
+                    "english": [
+                        "If previous context no longer affects the next task, run `/clear`, then re-read `workflow-runtime.yaml`, the current version `meta.yaml`, and the matched hooks.",
+                        "If previous context still matters but large details no longer do, run `/compact` and retain the current version, stage, artifact, active plan, unresolved issues, and critical paths.",
+                        "Do not clear context blindly when the current stage, focus object, or remaining verification work is still unclear.",
+                    ],
+                },
+            },
+            {
+                "path": "30-switch-plan-and-act-mode.md",
+                "title": {"cn": "切换 Plan Mode 与 Act Mode", "english": "Switch Between Plan Mode and Act Mode"},
+                "body": {
+                    "cn": [
+                        "`Plan Mode`：只加载文件树、运行态、version `meta.yaml`、需求/变更/计划索引与最少量规则，用来判断范围、拆分工作、安排顺序。",
+                        "`Act Mode`：只加载当前要改的具体文件、活跃 change / plan、验证命令与相关日志，避免把无关文件树长期留在窗口里。",
+                        "从计划切到实施前，先做一次上下文维护；从一个子模块切到下一个子模块前，也先做一次上下文维护。",
+                    ],
+                    "english": [
+                        "`Plan Mode`: load only the file tree, workflow state, version `meta.yaml`, requirement/change/plan indexes, and the smallest useful rules to scope and sequence the work.",
+                        "`Act Mode`: load only the concrete files being changed, the active change / plan, verification commands, and relevant logs; do not keep the whole file tree in context.",
+                        "Run one context-maintenance check before switching from planning to acting, and again before moving from one submodule to the next.",
+                    ],
+                },
+            },
+            {
+                "path": "idle/10-keep-only-routing-and-user-intent.md",
+                "title": {"cn": "空闲阶段只保留路由与用户意图", "english": "Idle Keeps Only Routing and User Intent"},
+                "body": {
+                    "cn": [
+                        "在 `idle` 阶段，只保留 runtime、version `meta.yaml`、用户最新目标与必要的 hooks。",
+                        "旧的实现细节、历史日志、代码片段如果与 requirement / change 尚未正式建立无关，应优先 `/clear` 或 `/compact`。",
+                    ],
+                    "english": [
+                        "During `idle`, keep only runtime, version `meta.yaml`, the latest user intent, and necessary hooks.",
+                        "Old implementation details, historical logs, and code snippets that are unrelated before requirement / change creation should be cleared or compacted first.",
+                    ],
+                },
+            },
+            {
+                "path": "requirement-review/10-keep-requirement-context-only.md",
+                "title": {"cn": "需求评审只保留需求上下文", "english": "Requirement Review Keeps Requirement Context Only"},
+                "body": {
+                    "cn": [
+                        "在 `requirement_review` 阶段，只保留 requirement 文档、范围、验收边界、相关经验与必要项目事实。",
+                        "与后续实现有关的大段代码、技术细节或旧方案，如果暂时不影响需求判断，应 `/compact` 或 `/clear`。",
+                    ],
+                    "english": [
+                        "During `requirement_review`, keep only the requirement document, scope, acceptance boundaries, relevant experience, and necessary project facts.",
+                        "Large implementation details, code, or old solution trails that are not needed for requirement decisions should be compacted or cleared.",
+                    ],
+                },
+            },
+            {
+                "path": "changes-review/10-keep-change-split-context-only.md",
+                "title": {"cn": "变更评审只保留拆分上下文", "english": "Changes Review Keeps Change-Splitting Context Only"},
+                "body": {
+                    "cn": [
+                        "在 `changes_review` 阶段，只保留 requirement 结论、change 列表、影响范围、风险与验收方式。",
+                        "已经不影响 change 拆分的 requirement 讨论细节，可优先 `/compact`。",
+                    ],
+                    "english": [
+                        "During `changes_review`, keep only the approved requirement outcome, change list, impact scope, risks, and acceptance method.",
+                        "Requirement discussion details that no longer affect change splitting should be compacted first.",
+                    ],
+                },
+            },
+            {
+                "path": "plan-review/10-keep-active-plan-context-only.md",
+                "title": {"cn": "计划评审只保留活跃计划上下文", "english": "Plan Review Keeps Active Plan Context Only"},
+                "body": {
+                    "cn": [
+                        "在 `plan_review` 阶段，只保留当前 focus change、plan 文档、验证步骤、风险与必要依赖关系。",
+                        "其他 change 的实现细节若不影响当前计划评审，应优先 `/compact`。",
+                    ],
+                    "english": [
+                        "During `plan_review`, keep only the focused change, plan document, verification steps, risks, and required dependencies.",
+                        "Implementation details for unrelated changes should be compacted if they do not affect the active plan review.",
+                    ],
+                },
+            },
+            {
+                "path": "executing/10-keep-active-plan-and-code-context.md",
+                "title": {"cn": "实施阶段只保留当前计划与代码上下文", "english": "Executing Keeps the Active Plan and Code Context"},
+                "body": {
+                    "cn": [
+                        "在 `executing` 阶段，只保留当前活跃 plan、当前修改文件、验证命令、必要日志和未解决问题。",
+                        "不要把已经完成的子模块代码、无关 change 文档、旧调试日志长期留在窗口里；完成一个子模块后优先 `/compact`，完全无关时 `/clear`。",
+                    ],
+                    "english": [
+                        "During `executing`, keep only the active plan, currently edited files, verification commands, relevant logs, and unresolved issues.",
+                        "Do not keep completed submodule code, unrelated change docs, or stale debug logs in the window; compact after each finished submodule and clear when the old context is fully irrelevant.",
+                    ],
+                },
+            },
+            {
+                "path": "regression/10-keep-diagnostic-context-only.md",
+                "title": {"cn": "回归阶段只保留诊断上下文", "english": "Regression Keeps Diagnostic Context Only"},
+                "body": {
+                    "cn": [
+                        "在 `regression` 阶段，只保留失败证据、诊断结论、用户反馈和相关工作项文档。",
+                        "与当前回归无关的实现历史如果不再支持问题确认，应优先 `/compact` 或 `/clear`。",
+                    ],
+                    "english": [
+                        "During `regression`, keep only failure evidence, diagnostic conclusions, human feedback, and related work item docs.",
+                        "Implementation history unrelated to the active regression should be compacted or cleared when it no longer supports problem confirmation.",
+                    ],
+                },
+            },
+            {
+                "path": "done/10-clear-implementation-context-after-capture.md",
+                "title": {"cn": "收尾后清理实现上下文", "english": "Clear Implementation Context After Capture"},
+                "body": {
+                    "cn": [
+                        "在 `done` 阶段，完成最终验证、`session-memory.md` 更新和经验升级检查后，应主动清理实现期上下文。",
+                        "如果接下来要转入新 requirement / change，优先 `/clear`；如果只需保留简短收尾摘要，优先 `/compact`。",
+                    ],
+                    "english": [
+                        "During `done`, after final verification, `session-memory.md` updates, and experience-promotion checks, actively clear implementation-time context.",
+                        "If the next step is a new requirement / change, prefer `/clear`; if only a short closeout summary should remain, prefer `/compact`.",
                     ],
                 },
             },
@@ -964,6 +1154,20 @@ HOOK_TIMINGS = [
                     "english": [
                         "During `ready_for_execution`, do not read source code for implementation prep, write production code, or start execution tasks.",
                         "Only after explicit human approval or `harness next --execute` may the workflow enter `executing`.",
+                    ],
+                },
+            },
+            {
+                "path": "done/10-no-closeout-before-lesson-capture.md",
+                "title": {"cn": "经验未沉淀前禁止直接收尾", "english": "No Closeout Before Lesson Capture"},
+                "body": {
+                    "cn": [
+                        "在 `done` 阶段，不要在 `session-memory.md` 仍为空或经验尚未检查时直接结束对话或宣称任务闭环。",
+                        "先补齐经验沉淀，再做最终完成表达。",
+                    ],
+                    "english": [
+                        "During `done`, do not end the task or claim closure while `session-memory.md` is still empty or lesson promotion has not been checked.",
+                        "Capture lessons first, then make the final completion claim.",
                     ],
                 },
             },
@@ -1135,6 +1339,34 @@ HOOK_TIMINGS = [
                     ],
                 },
             },
+            {
+                "path": "40-require-session-memory-sync.md",
+                "title": {"cn": "完成前必须同步 session-memory", "english": "Completion Requires session-memory Sync"},
+                "body": {
+                    "cn": [
+                        "在宣称 change、requirement 或 version 完成前，先更新相关 change 的 `session-memory.md`。",
+                        "没有经验沉淀记录时，不允许宣称工作已完整完成。",
+                    ],
+                    "english": [
+                        "Before claiming a change, requirement, or version is complete, update the related change `session-memory.md` first.",
+                        "Do not claim the work is fully complete without lesson capture records.",
+                    ],
+                },
+            },
+            {
+                "path": "50-require-experience-promotion-check.md",
+                "title": {"cn": "完成前必须检查成熟经验升级", "english": "Completion Requires an Experience Promotion Check"},
+                "body": {
+                    "cn": [
+                        "在完成前，检查本次任务是否产生了可升级进 `docs/context/experience/` 或正式规则的成熟经验。",
+                        "即使最终没有升级，也要完成一次显式检查。",
+                    ],
+                    "english": [
+                        "Before completion, check whether this task produced mature lessons that should be promoted into `docs/context/experience/` or formal rules.",
+                        "Even if nothing is promoted, perform the check explicitly.",
+                    ],
+                },
+            },
         ],
     },
 ]
@@ -1157,7 +1389,7 @@ def render_hooks_index(language: str) -> str:
         "",
         "1. 读取 `docs/context/rules/workflow-runtime.yaml`" if is_cn else "1. Read `docs/context/rules/workflow-runtime.yaml`",
         "2. 根据 `current_version` 读取当前 version `meta.yaml`" if is_cn else "2. Use `current_version` to read the active version `meta.yaml`",
-        "3. 判断当前调用时机，例如 `session-start`、`before-reply`、`before-task`、`during-task`、`before-human-input`、`after-task`、`before-complete`" if is_cn else "3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `during-task`, `before-human-input`, `after-task`, or `before-complete`",
+        "3. 判断当前调用时机，例如 `session-start`、`before-reply`、`before-task`、`context-maintenance`、`during-task`、`before-human-input`、`after-task`、`before-complete`" if is_cn else "3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `context-maintenance`, `during-task`, `before-human-input`, `after-task`, or `before-complete`",
         "4. 读取对应的 `<timing>.md` 说明文档" if is_cn else "4. Read the matching `<timing>.md` overview document",
         "5. 按编号顺序读取 `<timing>/` 下的通用 hook 文件" if is_cn else "5. Read the general hook files under `<timing>/` in numeric order",
         "6. 如果存在当前节点对应的子目录，例如 `requirement-review/`、`executing/`、`regression/`，继续按编号加载" if is_cn else "6. If there is a stage-specific subdirectory such as `requirement-review/`, `executing/`, or `regression/`, load those files in numeric order as well",
@@ -1619,7 +1851,7 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
                 "current_artifact_kind": "change" if focus_change else str(payload.get("current_artifact_kind", "")),
                 "current_artifact_id": focus_change or str(payload.get("current_artifact_id", "")),
                 "suggested_skill": "executing-plans",
-                "assistant_prompt": "Use executing-plans or subagent-driven-development to implement the approved plan. Keep documents and verification in sync while executing.",
+                "assistant_prompt": "Use executing-plans or subagent-driven-development to implement the approved plan. Keep documents and verification in sync while executing. As each task settles, update the relevant `session-memory.md` instead of postponing lesson capture until the very end.",
                 "approval_required": False,
             }
         )
@@ -1631,9 +1863,9 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
                 "stage": "done",
                 "status": "done",
                 "current_task": "Execution finished. Summarize and verify outcomes",
-                "next_action": "Verify `mvn compile` for each completed change and successful project startup for the completed requirement before closing. If either check fails, start `harness regression \"<issue>\"`.",
+                "next_action": "Verify `mvn compile` for each completed change, successful project startup for the completed requirement, update the related `session-memory.md`, and check whether mature lessons should be promoted before closing. If verification fails, start `harness regression \"<issue>\"`.",
                 "suggested_skill": "verification-before-completion",
-                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
+                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. Before claiming completion, update the related `session-memory.md` and explicitly check whether mature lessons should be promoted into `docs/context/experience/` or formal rules. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
                 "approval_required": False,
             }
         )

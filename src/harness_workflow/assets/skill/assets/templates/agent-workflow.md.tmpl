@@ -14,6 +14,8 @@
 8. 再按任务需要读取项目上下文文件，通常优先补充读取 `docs/context/project/project-overview.md` 与 `docs/context/team/development-standards.md`
 9. 如果是恢复会话，继续读取当前 change 目录下的 `session-memory.md`、需求、设计与计划文件
 10. 在每个阶段开始执行具体任务前，都先重新索引 `docs/context/experience/index.md` 与当前任务相关经验，确认是否有可直接复用或可融合的成熟经验
+11. 在进入新节点、切换子模块或怀疑旧上下文已不再影响下一步时，先执行 `context-maintenance` 判断：无关上下文优先 `/clear`，仍有用但可压缩的上下文优先 `/compact`
+12. 执行 `/clear` 或 `/compact` 后，重新读取 `workflow-runtime.yaml`、当前 version `meta.yaml` 与命中的 hooks
 
 禁止：一次性加载 `docs/context/` 下所有文件。始终遵循即时加载原则。
 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，必须立即停止并提示用户先修复 workflow 状态，不允许手工拼装一个“类似流程”继续推进。
@@ -45,6 +47,8 @@
 22. 每个阶段的任务执行完成后，主动复盘本阶段新增经验，先沉淀到 `session-memory.md`；若已足够成熟，再融合进 `docs/context/experience/` 或正式规则
 23. 如果用户对已完成结果不满意，不要直接返工；先使用 `harness regression "<问题描述>"` 进入回归诊断流，和用户确认是否是真问题，再决定转成新的 requirement 或 change
 24. 任何 `harness` 命令都视为自动进入 harness 会话模式；只有显式执行 `harness exit` 才能解除会话锁
+25. 小型项目（< 50 文件）在约 80% 标记利用率前一般不急于清理；中型项目（50 - 500 文件）在约 60% 标记利用率或完成一个子模块后优先自动压缩；大型项目（> 500 文件）必须限制一次性完整读取文件数量，并结合 Repo-map、RAG 与多智能体隔离上下文
+26. `Plan Mode` 只保留文件树、运行态、meta 与最少量规则；`Act Mode` 只保留当前 change / plan、当前修改文件、验证命令与必要日志
 
 ## 3. Harness 生命周期
 

@@ -1,0 +1,30 @@
+{
+  "id": "v0.1.0-self-optimization",
+  "title": "v0.1.0-self-optimization",
+  "status": "done",
+  "stage": "done",
+  "current_task": "Execution finished. Summarize and verify outcomes",
+  "next_action": "Verify `mvn compile` for each completed change and successful project startup for the completed requirement before closing. If either check fails, start `harness regression \"<issue>\"`.",
+  "current_artifact_kind": "change",
+  "current_artifact_id": "mcp",
+  "suggested_skill": "verification-before-completion",
+  "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
+  "approval_required": false,
+  "completed_tasks": [],
+  "pending_tasks": [],
+  "requirement_ids": [
+    "harness"
+  ],
+  "change_ids": [
+    "现有能力审计与测试补全",
+    "已知缺陷修复",
+    "自进化规范设计",
+    "工具反馈回流设计与实现",
+    "自进化核心实现",
+    "工具项目自优化规范设计",
+    "mcp"
+  ],
+  "regression_ids": [],
+  "current_regression": "",
+  "regression_status": ""
+}

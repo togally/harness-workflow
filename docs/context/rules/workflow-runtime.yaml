@@ -1,0 +1,25 @@
+{
+  "current_version": "v0.1.0-self-optimization",
+  "executing_version": "",
+  "mode": "normal",
+  "conversation_mode": "harness",
+  "locked_version": "v0.1.0-self-optimization",
+  "locked_stage": "done",
+  "locked_artifact_kind": "change",
+  "locked_artifact_id": "mcp",
+  "current_regression": "",
+  "active_versions": {
+    "v0.1.0-self-optimization": {
+      "status": "done",
+      "stage": "done",
+      "current_task": "Execution finished. Summarize and verify outcomes",
+      "next_action": "Verify `mvn compile` for each completed change and successful project startup for the completed requirement before closing. If either check fails, start `harness regression \"<issue>\"`.",
+      "current_artifact_kind": "change",
+      "current_artifact_id": "mcp",
+      "suggested_skill": "verification-before-completion",
+      "approval_required": false,
+      "current_regression": "",
+      "regression_status": ""
+    }
+  }
+}

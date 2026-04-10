@@ -12,6 +12,7 @@ from harness_workflow.core import (
     create_version,
     enter_workflow,
     exit_workflow,
+    export_feedback,
     init_repo,
     install_repo,
     rename_change,
@@ -123,6 +124,10 @@ def build_parser() -> argparse.ArgumentParser:
     regression_parser.add_argument("--change", dest="change_title", default="", help="Convert the confirmed regression into a new change.")
     regression_parser.add_argument("--requirement", dest="requirement_title", default="", help="Convert the confirmed regression into a new requirement update.")
 
+    feedback_parser = subparsers.add_parser("feedback", help="Export feedback event summary.")
+    feedback_parser.add_argument("--root", default=".", help="Repository root.")
+    feedback_parser.add_argument("--reset", action="store_true", help="Clear the feedback log after export.")
+
     return parser
 
 
@@ -187,6 +192,8 @@ def main() -> int:
             change_title=args.change_title,
             requirement_title=args.requirement_title,
         )
+    if args.command == "feedback":
+        return export_feedback(root, reset=args.reset)
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

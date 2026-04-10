@@ -13,18 +13,26 @@ REQUIRED_FILES = [
     "docs/context/experience/index.md",
     "docs/context/rules/agent-workflow.md",
     "docs/context/rules/risk-rules.md",
-    "docs/context/project/仓库概览.md",
-    "docs/context/team/开发规范.md",
 ]
 
+REQUIRED_FILES_LOCALIZED = {
+    "english": [
+        "docs/context/project/project-overview.md",
+        "docs/context/team/development-standards.md",
+    ],
+    "cn": [
+        "docs/context/project/project-overview.md",
+        "docs/context/team/development-standards.md",
+    ],
+}
+
 REQUIRED_DIRS = [
-    "docs/requirements/active",
-    "docs/requirements/archive",
-    "docs/changes/active",
-    "docs/changes/archive",
-    "docs/plans/active",
-    "docs/plans/archive",
     "docs/versions",
+    "docs/versions/active",
+    "docs/context/hooks",
+    "docs/context/rules",
+    "docs/context/experience",
+    "docs/templates",
 ]
 
 
@@ -42,45 +50,39 @@ def main() -> int:
     for relative in REQUIRED_FILES:
         if not (root / relative).exists():
             missing.append(relative)
+    for localized_files in REQUIRED_FILES_LOCALIZED.values():
+        for relative in localized_files:
+            if not (root / relative).exists():
+                missing.append(relative)
+                break
     for relative in REQUIRED_DIRS:
         if not (root / relative).exists():
             missing.append(relative)
+
+    agent_guide_refs = [
+        "docs/memory/constitution.md",
+        "docs/context/experience/index.md",
+        "docs/context/rules/agent-workflow.md",
+        "docs/context/rules/risk-rules.md",
+    ]
 
     agents = root / "AGENTS.md"
     if args.strict_agents and not agents.exists():
         missing.append("AGENTS.md")
     elif agents.exists():
         text = agents.read_text(encoding="utf-8")
-        if "docs/memory/constitution.md" not in text:
-            warnings.append("AGENTS.md does not mention docs/memory/constitution.md")
-        if "docs/context/experience/index.md" not in text:
-            warnings.append("AGENTS.md does not mention docs/context/experience/index.md")
-        if "docs/context/rules/agent-workflow.md" not in text:
-            warnings.append("AGENTS.md does not mention docs/context/rules/agent-workflow.md")
-        if "docs/context/rules/risk-rules.md" not in text:
-            warnings.append("AGENTS.md does not mention docs/context/rules/risk-rules.md")
-        if "docs/context/project/仓库概览.md" not in text:
-            warnings.append("AGENTS.md does not mention docs/context/project/仓库概览.md")
-        if "docs/context/team/开发规范.md" not in text:
-            warnings.append("AGENTS.md does not mention docs/context/team/开发规范.md")
+        for ref in agent_guide_refs:
+            if ref not in text:
+                warnings.append(f"AGENTS.md does not mention {ref}")
 
     claude = root / "CLAUDE.md"
     if args.strict_claude and not claude.exists():
         missing.append("CLAUDE.md")
     elif claude.exists():
         text = claude.read_text(encoding="utf-8")
-        if "docs/memory/constitution.md" not in text:
-            warnings.append("CLAUDE.md does not mention docs/memory/constitution.md")
-        if "docs/context/experience/index.md" not in text:
-            warnings.append("CLAUDE.md does not mention docs/context/experience/index.md")
-        if "docs/context/rules/agent-workflow.md" not in text:
-            warnings.append("CLAUDE.md does not mention docs/context/rules/agent-workflow.md")
-        if "docs/context/rules/risk-rules.md" not in text:
-            warnings.append("CLAUDE.md does not mention docs/context/rules/risk-rules.md")
-        if "docs/context/project/仓库概览.md" not in text:
-            warnings.append("CLAUDE.md does not mention docs/context/project/仓库概览.md")
-        if "docs/context/team/开发规范.md" not in text:
-            warnings.append("CLAUDE.md does not mention docs/context/team/开发规范.md")
+        for ref in agent_guide_refs:
+            if ref not in text:
+                warnings.append(f"CLAUDE.md does not mention {ref}")
 
     readme = root / "docs" / "README.md"
     if readme.exists():
@@ -89,9 +91,6 @@ def main() -> int:
             "memory/constitution.md",
             "context/experience/index.md",
             "context/rules/agent-workflow.md",
-            "context/rules/risk-rules.md",
-            "context/project/仓库概览.md",
-            "context/team/开发规范.md",
         ]:
             if expected not in text:
                 warnings.append(f"docs/README.md does not mention {expected}")
