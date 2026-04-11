@@ -1,37 +1,17 @@
 {
-  "current_version": "v0.2.0-refactor",
+  "current_version": "",
   "executing_version": "",
   "mode": "normal",
-  "conversation_mode": "harness",
-  "locked_version": "v0.2.0-refactor",
-  "locked_stage": "done",
-  "locked_artifact_kind": "change",
-  "locked_artifact_id": "harness-update",
+  "conversation_mode": "open",
+  "locked_version": "",
+  "locked_stage": "",
+  "locked_artifact_kind": "",
+  "locked_artifact_id": "",
   "current_regression": "",
-  "active_versions": {
-    "v0.1.0-self-optimization": {
-      "status": "in_progress",
-      "stage": "requirement_review",
-      "current_task": "Review requirement harness",
-      "next_action": "Discuss and confirm the requirement, then run `harness next` to move into change design.",
-      "current_artifact_kind": "requirement",
-      "current_artifact_id": "harness",
-      "suggested_skill": "brainstorming",
-      "approval_required": true,
-      "current_regression": "",
-      "regression_status": ""
-    },
-    "v0.2.0-refactor": {
-      "status": "in_progress",
-      "stage": "done",
-      "current_task": "Review change harness-update",
-      "next_action": "Discuss the change list and confirm the active change, then run `harness next`.",
-      "current_artifact_kind": "change",
-      "current_artifact_id": "harness-update",
-      "suggested_skill": "brainstorming",
-      "approval_required": true,
-      "current_regression": "",
-      "regression_status": ""
-    }
+  "active_versions": {},
+  "context_maintenance": {
+    "turn_threshold": 10,
+    "file_threshold": 15,
+    "auto_suggest": true
   }
 }

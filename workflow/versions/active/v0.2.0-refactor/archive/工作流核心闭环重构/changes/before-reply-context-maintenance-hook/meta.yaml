@@ -1,0 +1,7 @@
+id: before-reply-context-maintenance-hook
+title: before-reply 新增主动 context-maintenance 触发 hook
+requirement: None
+status: completed
+created_at: "2026-04-11"
+completed_at: "2026-04-11"
+linked_regression: context-maintenance

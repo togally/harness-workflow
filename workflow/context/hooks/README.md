@@ -20,6 +20,10 @@ This directory organizes hooks by invocation timing. The agent should identify t
 - `session-start/`: concrete hook files and node subdirectories for that timing
 - `before-reply.md`: Before Reply Hooks. Before every substantive reply, verify that the next response still stays inside the current Harness node.
 - `before-reply/`: concrete hook files and node subdirectories for that timing
+  - `10-context-maintenance-check.md`: 主动检查 session 上下文状态，防止上下文累积过高（轮次、文件数、阶段切换触发）
+  - `20-conversation-lock-check.md`: 检查对话锁状态
+  - `30-workflow-drift-check.md`: 检查工作流是否偏离当前节点
+  - `40-stage-boundary-check.md`: 检查阶段边界
 - `node-entry.md`: Workflow Node Hooks. Load node-specific constraints that define what is allowed and forbidden in the current workflow node.
 - `node-entry/`: concrete hook files and node subdirectories for that timing
 - `before-task.md`: Before Task Hooks. Before reading code, writing docs, coding, or running commands, confirm that the action matches the current node.

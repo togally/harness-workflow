@@ -25,3 +25,4 @@
 {"ts": "2026-04-11T07:54:59.049115+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 47.117004}}
 {"ts": "2026-04-11T07:54:59.049309+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
 {"ts": "2026-04-11T07:58:25.427028+00:00", "event": "regression_created", "data": {"regression_id": "harness-update-testing-acceptance", "version": "v0.2.0-refactor"}}
+{"ts": "2026-04-11T08:37:18.410482+00:00", "event": "regression_created", "data": {"regression_id": "context-maintenance", "version": "v0.2.0-refactor"}}

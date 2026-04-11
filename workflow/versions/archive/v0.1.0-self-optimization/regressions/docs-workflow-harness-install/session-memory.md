@@ -1,22 +1,5 @@
 # Session Memory
 
-## Session State Tracking
-
-> 此区域由 before-reply 阶段的 context-maintenance hook 自动维护
-> 用于追踪 session 状态，防止上下文累积过高
-
-### Conversation Turns
-- Current: 0
-- Last Maintenance: 0
-- Threshold: 10
-
-### Files Read
-- Current: 0
-- Last Maintenance: 0
-- Threshold: 15
-
----
-
 ## 1. Current Goal
 
 - Describe the current goal for this change.
