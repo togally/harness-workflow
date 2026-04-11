@@ -499,6 +499,20 @@ HOOK_TIMINGS = [
                     ],
                 },
             },
+            {
+                "path": "15-detect-subagent-mode.md",
+                "title": {"cn": "识别 Subagent 模式", "english": "Detect Subagent Mode"},
+                "body": {
+                    "cn": [
+                        "如果你是作为 subagent 被派发来执行特定任务：不要读取 `workflow-runtime.yaml` 或尝试通过工作流状态路由；从给定的文件或 prompt 中读取任务上下文；只执行分配的任务；将结果写入分配的 change/testing/acceptance 目录下的 `session-memory.md`；不要运行 `harness next` 或任何推进阶段的命令；完成任务后退出。",
+                        "如果你是主 agent（通过 `harness enter` 或 harness slash 命令进入）：按正常工作流路由进行；由你控制阶段转换和 subagent 派发。",
+                    ],
+                    "english": [
+                        "If you were dispatched as a subagent to execute a specific task: do NOT read `workflow-runtime.yaml` or attempt to route through workflow state; read your task context from the file or prompt you were given; execute only the assigned task; write results to `session-memory.md` in the assigned change/testing/acceptance directory; do not run `harness next` or any stage-advancing command; exit after completing your task.",
+                        "If you are the main agent (you entered via `harness enter` or a harness slash command): proceed with normal workflow routing; you control stage transitions and subagent dispatch.",
+                    ],
+                },
+            },
         ],
     },
     {
@@ -610,6 +624,42 @@ HOOK_TIMINGS = [
                     "english": [
                         "When the current stage is `idle`, replies may only guide requirement / change workspace creation or continue requirement clarification.",
                         "Even if the user provides an implementation-oriented prompt, do not promise implementation, analyze implementation details, or prepare to code in the reply.",
+                    ],
+                },
+            },
+            {
+                "path": "testing/10-no-advance-before-cases-pass.md",
+                "title": {"cn": "测试阶段：所有用例通过前不推进", "english": "Testing Stage: No Advance Before Cases Pass"},
+                "body": {
+                    "cn": [
+                        "如果当前 stage 是 `testing`，且仍有测试用例失败，不要建议或执行 `harness next`。",
+                        "如果 `testing/bugs/` 中仍有未关闭的 bug，不要建议或执行 `harness next`。",
+                        "如果用户要求推进，先检查 `testing/test-cases.md` 和 `testing/bugs/`。",
+                        "只有所有用例通过且无未关闭 bug 时，才可在确认用户意图后推进。",
+                    ],
+                    "english": [
+                        "Do not suggest or perform `harness next` if any test cases are still failing.",
+                        "Do not suggest or perform `harness next` if any bugs in `testing/bugs/` are still open.",
+                        "If the user asks to advance, check `testing/test-cases.md` and `testing/bugs/` first.",
+                        "If all cases pass and no open bugs: confirm with the user before advancing.",
+                    ],
+                },
+            },
+            {
+                "path": "acceptance/10-require-document-basis.md",
+                "title": {"cn": "验收阶段：决策必须有文档依据", "english": "Acceptance Stage: Require Document Basis"},
+                "body": {
+                    "cn": [
+                        "所有验收决策必须基于 `acceptance/acceptance-checklist.md` 中已记录的标准。",
+                        "不得仅凭主观印象接受或拒绝。",
+                        "如果某个检查项不清晰，应对照需求文档进行澄清。",
+                        "没有完整的 `acceptance/sign-off.md` 时，不得推进到 `done`。",
+                    ],
+                    "english": [
+                        "All acceptance decisions must be based on documented criteria in `acceptance/acceptance-checklist.md`.",
+                        "Do not accept or reject based on subjective impressions alone.",
+                        "If a checklist item is unclear, clarify against the requirement document.",
+                        "Do not advance to `done` without a completed `acceptance/sign-off.md`.",
                     ],
                 },
             },
@@ -806,6 +856,42 @@ HOOK_TIMINGS = [
                     "english": [
                         "Confirm whether it is a real problem before converting it into a requirement or change.",
                         "Do not jump straight into rework.",
+                    ],
+                },
+            },
+            {
+                "path": "testing/10-spawn-testing-subagent.md",
+                "title": {"cn": "测试阶段：派发测试 Subagent", "english": "Testing Stage Entry"},
+                "body": {
+                    "cn": [
+                        "进入 `testing` 阶段时：读取 `testing/test-plan.md`，若不存在则先从模板创建；读取 `testing/test-cases.md`，若不存在则先从模板创建。",
+                        "派发 subagent 执行测试计划：subagent 读取测试计划和用例，更新 `testing/test-cases.md` 中的状态列，并将摘要写入 `testing/session-memory.md`。",
+                        "subagent 完成后，检查 `testing/test-cases.md` 中的失败项；如有失败，确保每个失败在 `testing/bugs/` 中有对应的 bug 文件。",
+                        "所有测试用例通过且无未关闭 bug 前，不得推进到 `acceptance`。",
+                    ],
+                    "english": [
+                        "On entering the `testing` stage: read `testing/test-plan.md` — if it does not exist, create it from the template before proceeding; read `testing/test-cases.md` — if it does not exist, create it from the template.",
+                        "Dispatch a subagent to execute the test plan: subagent reads the plan and cases, updates the status column in `testing/test-cases.md`, and writes a summary to `testing/session-memory.md`.",
+                        "After subagent completes, review `testing/test-cases.md` for failures; if failures exist, ensure each failure has a corresponding bug file in `testing/bugs/`.",
+                        "Do not advance to `acceptance` until all test cases pass and no bugs are open.",
+                    ],
+                },
+            },
+            {
+                "path": "acceptance/10-spawn-acceptance-subagent.md",
+                "title": {"cn": "验收阶段：派发验收 Subagent", "english": "Acceptance Stage Entry"},
+                "body": {
+                    "cn": [
+                        "进入 `acceptance` 阶段时：读取 `acceptance/acceptance-checklist.md`，若不存在则先从模板创建；读取需求文档以了解验收标准。",
+                        "派发 subagent 执行验收清单：subagent 读取需求、设计文档和验收清单，对照实际交付物核实每个清单项，将结果写入 `acceptance/acceptance-checklist.md` 和 `acceptance/sign-off.md`，并将摘要写入 `acceptance/session-memory.md`。",
+                        "subagent 完成后，检查 `acceptance/sign-off.md`。",
+                        "sign-off 决策为 Accepted 前，不得推进到 `done`。",
+                    ],
+                    "english": [
+                        "On entering the `acceptance` stage: read `acceptance/acceptance-checklist.md` — if it does not exist, create it from the template; read the requirement document to understand acceptance criteria.",
+                        "Dispatch a subagent to execute the acceptance checklist: subagent reads requirement, design docs, and the checklist, verifies each item against actual deliverables, writes results to `acceptance/acceptance-checklist.md` and `acceptance/sign-off.md`, and writes summary to `acceptance/session-memory.md`.",
+                        "After subagent completes, review `acceptance/sign-off.md`.",
+                        "Do not advance to `done` until sign-off decision is \"Accepted\".",
                     ],
                 },
             },
@@ -1039,6 +1125,36 @@ HOOK_TIMINGS = [
                     ],
                 },
             },
+            {
+                "path": "testing/10-keep-testing-context-only.md",
+                "title": {"cn": "测试阶段：只保留测试相关上下文", "english": "Context Maintenance: Testing Stage"},
+                "body": {
+                    "cn": [
+                        "在 `testing` 阶段，只保留：`testing/test-plan.md`、`testing/test-cases.md`、`testing/bugs/`（仅未关闭的 bug）、`testing/session-memory.md`、`workflow-runtime.yaml` 和 version `meta.yaml`。",
+                        "如果开发阶段的实现细节仍在上下文中，执行 `/clear`。",
+                        "如果测试用例细节有用但占用过多空间，执行 `/compact`。",
+                    ],
+                    "english": [
+                        "In the `testing` stage, keep only: `testing/test-plan.md`, `testing/test-cases.md`, `testing/bugs/` (open bugs only), `testing/session-memory.md`, `workflow-runtime.yaml` and version `meta.yaml`.",
+                        "Use `/clear` if implementation details from the development stage are still in context.",
+                        "Use `/compact` if test case details are useful but taking too much space.",
+                    ],
+                },
+            },
+            {
+                "path": "acceptance/10-keep-acceptance-context-only.md",
+                "title": {"cn": "验收阶段：只保留验收相关上下文", "english": "Context Maintenance: Acceptance Stage"},
+                "body": {
+                    "cn": [
+                        "在 `acceptance` 阶段，只保留：`acceptance/acceptance-checklist.md`、`acceptance/sign-off.md`、需求文档、`acceptance/session-memory.md`、`workflow-runtime.yaml` 和 version `meta.yaml`。",
+                        "在开始验收前，执行 `/clear` 以移除测试和实现上下文。",
+                    ],
+                    "english": [
+                        "In the `acceptance` stage, keep only: `acceptance/acceptance-checklist.md`, `acceptance/sign-off.md`, the requirement document, `acceptance/session-memory.md`, `workflow-runtime.yaml` and version `meta.yaml`.",
+                        "Use `/clear` to remove testing and implementation context before starting acceptance.",
+                    ],
+                },
+            },
         ],
     },
     {
@@ -1190,6 +1306,42 @@ HOOK_TIMINGS = [
                     "english": [
                         "Once in `executing`, implementation and verification steps should advance in pairs.",
                         "Do not turn execution into unplanned free-form coding.",
+                    ],
+                },
+            },
+            {
+                "path": "testing/10-subagent-reports-to-session-memory.md",
+                "title": {"cn": "测试阶段：Subagent 汇报到 session-memory", "english": "Testing Stage: Subagent Reporting"},
+                "body": {
+                    "cn": [
+                        "在 `testing` 阶段，subagent 必须将所有测试结果写入 `testing/test-cases.md`（更新 Status 列）。",
+                        "每个发现的 bug 必须使用 bug 模板写入 `testing/bugs/<bug-id>.md`。",
+                        "subagent 退出前必须将摘要写入 `testing/session-memory.md`。",
+                        "主 agent 通过读取 `testing/session-memory.md` 来决定下一步。",
+                    ],
+                    "english": [
+                        "Subagents must write all test results to `testing/test-cases.md` (update Status column).",
+                        "Each discovered bug must be written to `testing/bugs/<bug-id>.md` using the bug template.",
+                        "Subagents must write a summary to `testing/session-memory.md` before exiting.",
+                        "Main agent reads `testing/session-memory.md` to determine next steps.",
+                    ],
+                },
+            },
+            {
+                "path": "acceptance/10-checklist-driven-only.md",
+                "title": {"cn": "验收阶段：仅以清单为驱动", "english": "Acceptance Stage: Checklist-Driven Only"},
+                "body": {
+                    "cn": [
+                        "在 `acceptance` 阶段，所有核验必须遵循 `acceptance/acceptance-checklist.md` 中的条目。",
+                        "不得跳过任何清单项。",
+                        "每个条目必须注明所依据的文档或制品，并记录通过/失败及备注。",
+                        "所有条目记录完成后，才能填写 `acceptance/sign-off.md`。",
+                    ],
+                    "english": [
+                        "All verification must follow items in `acceptance/acceptance-checklist.md`.",
+                        "Do not skip checklist items.",
+                        "Each item must reference the document or artifact used as basis; record pass/fail with notes.",
+                        "Only after all items are recorded should `acceptance/sign-off.md` be filled.",
                     ],
                 },
             },
@@ -1374,6 +1526,46 @@ HOOK_TIMINGS = [
                     "english": [
                         "Before completion, check whether this task produced mature lessons that should be promoted into `workflow/context/experience/` or formal rules.",
                         "Even if nothing is promoted, perform the check explicitly.",
+                    ],
+                },
+            },
+            {
+                "path": "testing/10-require-all-cases-recorded.md",
+                "title": {"cn": "完成测试阶段前：所有用例必须已记录", "english": "Before Completing Testing Stage"},
+                "body": {
+                    "cn": [
+                        "验证 `testing/test-cases.md` 中所有测试用例已有记录状态（非 pending）。",
+                        "验证没有任何测试用例状态为 fail。",
+                        "验证 `testing/bugs/` 中所有 bug 状态为 Fixed 或 Verified。",
+                        "验证 `testing/session-memory.md` 已更新为最终摘要。",
+                        "如有任何条件未满足，不得推进——修复问题或将其记录为已知风险。",
+                    ],
+                    "english": [
+                        "Verify that ALL test cases in `testing/test-cases.md` have a recorded status (not \"pending\").",
+                        "Verify that zero test cases have status \"fail\".",
+                        "Verify that all bugs in `testing/bugs/` have status \"Fixed\" or \"Verified\".",
+                        "Verify that `testing/session-memory.md` has been updated with the final summary.",
+                        "If any condition is not met, do not advance — fix the issue or document it as a known risk.",
+                    ],
+                },
+            },
+            {
+                "path": "acceptance/10-require-sign-off.md",
+                "title": {"cn": "完成验收阶段前：必须有 sign-off", "english": "Before Completing Acceptance Stage"},
+                "body": {
+                    "cn": [
+                        "验证 `acceptance/acceptance-checklist.md` 所有条目已填写。",
+                        "验证 `acceptance/sign-off.md` 存在且决策为 Accepted。",
+                        "验证 `acceptance/session-memory.md` 已更新。",
+                        "将相关经验沉淀到 `workflow/context/experience/stage/acceptance.md`。",
+                        "如果 sign-off 为 Rejected，改为启动 `harness regression` 而非推进。",
+                    ],
+                    "english": [
+                        "Verify that `acceptance/acceptance-checklist.md` has all items filled.",
+                        "Verify that `acceptance/sign-off.md` exists and decision is \"Accepted\".",
+                        "Verify that `acceptance/session-memory.md` has been updated.",
+                        "Capture any lessons into `workflow/context/experience/stage/acceptance.md`.",
+                        "If sign-off is \"Rejected\", start `harness regression` instead of advancing.",
                     ],
                 },
             },
@@ -1590,6 +1782,12 @@ def _required_dirs(root: Path) -> list[Path]:
         root / "workflow" / "context" / "team",
         root / "workflow" / "context" / "project",
         root / "workflow" / "context" / "experience",
+        root / "workflow" / "context" / "experience" / "stage",
+        root / "workflow" / "context" / "experience" / "tool",
+        root / "workflow" / "context" / "experience" / "business",
+        root / "workflow" / "context" / "experience" / "architecture",
+        root / "workflow" / "context" / "experience" / "debug",
+        root / "workflow" / "context" / "experience" / "risk",
         root / "workflow" / "context" / "hooks",
         root / "workflow" / "context" / "rules",
         root / "workflow" / "versions" / "active",
@@ -1601,6 +1799,25 @@ def _required_dirs(root: Path) -> list[Path]:
         root / "tools",
         root / HARNESS_DIR,
     ]
+
+
+def _experience_stub(title: str, path: str, language: str) -> str:
+    """Return a minimal placeholder for a new experience file (write_if_missing mode)."""
+    if language == "cn":
+        return (
+            f"# {title}\n\n"
+            f"> 经验文件占位。请根据实际项目经验补充内容。\n\n"
+            f"## 核心约束\n\n<!-- 在此记录必须遵守的约束 -->\n\n"
+            f"## 最佳实践\n\n<!-- 在此记录推荐做法 -->\n\n"
+            f"## 常见错误\n\n<!-- 在此记录常见错误 -->\n"
+        )
+    return (
+        f"# {title}\n\n"
+        f"> Placeholder experience file. Fill in based on actual project lessons.\n\n"
+        f"## Key Constraints\n\n<!-- Record must-follow constraints here -->\n\n"
+        f"## Best Practices\n\n<!-- Record recommended approaches here -->\n\n"
+        f"## Common Mistakes\n\n<!-- Record common errors here -->\n"
+    )
 
 
 def _managed_file_contents(root: Path, language: str, include_agents: bool, include_claude: bool) -> dict[str, str]:
@@ -1628,10 +1845,66 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         "workflow/templates/regression-analysis.md": render_template("regression-analysis.md.tmpl", repo_name, language),
         "workflow/templates/regression-decision.md": render_template("regression-decision.md.tmpl", repo_name, language),
         "workflow/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
+        "workflow/context/experience/stage/requirement.md": _experience_stub(
+            "需求阶段经验" if language == "cn" else "Requirement Stage Experience",
+            "stage/requirement.md",
+            language,
+        ),
+        "workflow/context/experience/stage/development.md": _experience_stub(
+            "开发阶段经验" if language == "cn" else "Development Stage Experience",
+            "stage/development.md",
+            language,
+        ),
+        "workflow/context/experience/stage/testing.md": _experience_stub(
+            "测试阶段经验" if language == "cn" else "Testing Stage Experience",
+            "stage/testing.md",
+            language,
+        ),
+        "workflow/context/experience/stage/acceptance.md": _experience_stub(
+            "验收阶段经验" if language == "cn" else "Acceptance Stage Experience",
+            "stage/acceptance.md",
+            language,
+        ),
+        "workflow/context/experience/stage/regression.md": _experience_stub(
+            "回归阶段经验" if language == "cn" else "Regression Stage Experience",
+            "stage/regression.md",
+            language,
+        ),
+        "workflow/context/experience/tool/harness.md": _experience_stub(
+            "Harness 工具使用经验" if language == "cn" else "Harness Tool Experience",
+            "tool/harness.md",
+            language,
+        ),
+        "workflow/context/experience/tool/playwright.md": _experience_stub(
+            "Playwright 工具使用经验" if language == "cn" else "Playwright Tool Experience",
+            "tool/playwright.md",
+            language,
+        ),
+        "workflow/context/experience/tool/mysql-mcp.md": _experience_stub(
+            "MySQL MCP 工具使用经验" if language == "cn" else "MySQL MCP Tool Experience",
+            "tool/mysql-mcp.md",
+            language,
+        ),
+        "workflow/context/experience/tool/nacos-mcp.md": _experience_stub(
+            "Nacos MCP 工具使用经验" if language == "cn" else "Nacos MCP Tool Experience",
+            "tool/nacos-mcp.md",
+            language,
+        ),
+        "workflow/context/experience/risk/known-risks.md": _experience_stub(
+            "已知风险与缓解方案" if language == "cn" else "Known Risks and Mitigations",
+            "risk/known-risks.md",
+            language,
+        ),
         "workflow/context/mcp-registry.yaml": render_template("mcp-registry.yaml.tmpl", repo_name, language),
         "workflow/templates/mcp-catalog.yaml": render_template("mcp-catalog.yaml.tmpl", repo_name, language),
         "workflow/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
         "workflow/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
+        "workflow/templates/test-plan.md": render_template("test-plan.md.tmpl", repo_name, language),
+        "workflow/templates/test-cases.md": render_template("test-cases.md.tmpl", repo_name, language),
+        "workflow/templates/bug.md": render_template("bug.md.tmpl", repo_name, language),
+        "workflow/templates/acceptance-checklist.md": render_template("acceptance-checklist.md.tmpl", repo_name, language),
+        "workflow/templates/sign-off.md": render_template("sign-off.md.tmpl", repo_name, language),
+        "workflow/templates/self-test.md": render_template("self-test.md.tmpl", repo_name, language),
         ".qoder/commands/harness.md": render_template("qoder-command.md.tmpl", repo_name, language),
         ".qoder/rules/harness-workflow.md": render_template("qoder-rule.md.tmpl", repo_name, language),
         "tools/lint_harness_repo.py": SKILL_ROOT.joinpath("scripts", "lint_harness_repo.py").read_text(encoding="utf-8"),
@@ -1945,6 +2218,42 @@ def save_version_meta(root: Path, version_id: str, meta: dict[str, object]) -> N
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+DEFAULT_PROGRESS = {
+    "stage": "requirement_review",
+    "stages": {
+        "requirement": {"status": "pending"},
+        "development": {"status": "pending", "changes_total": 0, "changes_done": 0},
+        "testing": {"status": "pending", "cases_total": 0, "cases_passed": 0, "cases_failed": 0, "bugs_total": 0, "bugs_fixed": 0, "bugs_open": 0},
+        "acceptance": {"status": "pending"},
+        "done": {"status": "pending"},
+    },
+}
+
+
+def load_progress(root: Path, version_id: str) -> dict:
+    path = root / "workflow" / "versions" / "active" / version_id / "progress.yaml"
+    if not path.exists():
+        import copy
+        return copy.deepcopy(DEFAULT_PROGRESS)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    import copy
+    payload = copy.deepcopy(DEFAULT_PROGRESS)
+    payload.update(data)
+    if "stages" in data and isinstance(data["stages"], dict):
+        for stage_key, stage_val in data["stages"].items():
+            if stage_key in payload["stages"] and isinstance(stage_val, dict):
+                payload["stages"][stage_key].update(stage_val)
+            elif isinstance(stage_val, dict):
+                payload["stages"][stage_key] = stage_val
+    return payload
+
+
+def save_progress(root: Path, version_id: str, progress: dict) -> None:
+    path = root / "workflow" / "versions" / "active" / version_id / "progress.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(progress, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def ensure_workflow_state(root: Path) -> tuple[dict[str, str], dict[str, object]]:
     config = ensure_harness_root(root)
     runtime = load_runtime(root)
@@ -2207,6 +2516,36 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
         return payload
 
     if stage == "executing":
+        payload.update(
+            {
+                "stage": "testing",
+                "status": "in_progress",
+                "current_task": "设计并执行测试用例",
+                "next_action": "Subagent 执行测试计划，结果写入 testing/test-cases.md 和 progress.yaml",
+                "suggested_skill": "subagent-driven-development",
+                "assistant_prompt": "Use subagent-driven-development to design and execute test cases for all completed changes. Record results in testing/test-cases.md and update progress.yaml. If bugs are found, use `harness regression --testing` to roll back to testing stage and document the bug.",
+                "approval_required": False,
+                "stage_entered_at": now_iso,
+            }
+        )
+        return payload
+
+    if stage == "testing":
+        payload.update(
+            {
+                "stage": "acceptance",
+                "status": "in_progress",
+                "current_task": "依据文档执行人工验收",
+                "next_action": "对照 acceptance-checklist.md 逐项验收，结果写入 acceptance/sign-off.md",
+                "suggested_skill": "verification-before-completion",
+                "assistant_prompt": "Execute acceptance testing based on the acceptance-checklist.md. Record the sign-off results in acceptance/sign-off.md. Verify each acceptance criterion and stop for human confirmation before advancing.",
+                "approval_required": True,
+                "stage_entered_at": now_iso,
+            }
+        )
+        return payload
+
+    if stage == "acceptance":
         payload.update(
             {
                 "stage": "done",
@@ -2480,7 +2819,38 @@ def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
     return 0
 
 
+def migrate_legacy_docs_to_workflow(root: Path) -> list[str]:
+    """Migrate legacy docs/ workflow data to workflow/ when upgrading from older harness versions."""
+    old_root = root / "docs"
+    new_root = root / "workflow"
+    markers = [
+        old_root / "context" / "rules" / "workflow-runtime.yaml",
+        old_root / "versions",
+    ]
+    if not any(m.exists() for m in markers):
+        return []
+    actions: list[str] = []
+    for src in sorted(old_root.rglob("*")):
+        if not src.is_file():
+            continue
+        relative = src.relative_to(old_root)
+        dst = new_root / relative
+        if dst.exists():
+            actions.append(f"skipped (exists) workflow/{relative}")
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        actions.append(f"migrated docs/{relative} → workflow/{relative}")
+    return actions
+
+
 def install_repo(root: Path, force_skill: bool = False) -> int:
+    migration_actions = migrate_legacy_docs_to_workflow(root)
+    if migration_actions:
+        print("Migrated legacy docs/ → workflow/:")
+        for action in migration_actions:
+            print(f"- {action}")
+        print("")
     skill_paths = install_local_skills(root, force=force_skill)
     print("Installed local skills:")
     for skill_path in skill_paths:
@@ -2492,6 +2862,14 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     config = ensure_harness_root(root)
     language = config["language"]
     runtime = load_runtime(root)
+    if not check:
+        migration_actions = migrate_legacy_docs_to_workflow(root)
+        if migration_actions:
+            print("Migrated legacy docs/ → workflow/:")
+            for action in migration_actions:
+                print(f"- {action}")
+            print("")
+            runtime = load_runtime(root)
     for directory in _required_dirs(root):
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -2499,6 +2877,20 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     managed_state = _load_managed_state(root)
     refreshed_state = dict(managed_state)
     actions: list[str] = []
+
+    # Backfill lifecycle directories for existing versions
+    active_versions_root = root / "workflow" / "versions" / "active"
+    if active_versions_root.exists():
+        lifecycle_subdirs = ["testing", "testing/bugs", "acceptance"]
+        for version_dir in sorted(active_versions_root.iterdir()):
+            if not version_dir.is_dir():
+                continue
+            for sub in lifecycle_subdirs:
+                target = version_dir / sub
+                if not target.exists():
+                    if not check:
+                        target.mkdir(parents=True, exist_ok=True)
+                    actions.append(f"{'would create' if check else 'created'} {version_dir.name}/{sub}/")
 
     if check:
         actions.append("would refresh .codex/skills/harness")
@@ -2560,6 +2952,17 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
         save_config(root, config)
         save_runtime(root, runtime)
 
+    # Detect versions in 'executing' stage — warn that next `harness next` will enter 'testing' (new behavior)
+    current_version = str(runtime.get("current_version", "")).strip()
+    if current_version:
+        _vmeta_path = version_meta_path(root, current_version)
+        _vmeta = load_version_meta(root, current_version) if _vmeta_path.exists() else {}
+        if str(_vmeta.get("stage", "")) == "executing":
+            actions.append(
+                "WARNING: version is in 'executing' stage — next `harness next` will enter 'testing' stage (new behavior). "
+                "If development is already complete and you want to proceed, run `harness next` to enter testing."
+            )
+
     blockers = workflow_blockers(root, config, runtime)
     for blocker in blockers:
         actions.append(f"workflow action required: {blocker}")
@@ -2604,6 +3007,9 @@ def create_version(root: Path, version_name: str) -> int:
     layout["plans_dir"].mkdir(parents=True, exist_ok=True)
     layout["regressions_dir"].mkdir(parents=True, exist_ok=True)
     layout["archive_dir"].mkdir(parents=True, exist_ok=True)
+    (layout["version_dir"] / "testing").mkdir(parents=True, exist_ok=True)
+    (layout["version_dir"] / "testing" / "bugs").mkdir(parents=True, exist_ok=True)
+    (layout["version_dir"] / "acceptance").mkdir(parents=True, exist_ok=True)
 
     replacements = {"VERSION_ID": version_id}
     write_if_missing(layout["version_dir"] / "README.md", render_template("version-readme.md.tmpl", repo_name, config["language"], replacements), created, skipped)
@@ -2827,6 +3233,7 @@ def regression_action(
     cancel: bool = False,
     change_title: str = "",
     requirement_title: str = "",
+    to_testing: bool = False,
 ) -> int:
     config, runtime = ensure_workflow_state(root)
     version_id = require_active_version_id(root, config, runtime)
@@ -2844,9 +3251,43 @@ def regression_action(
         print(f"regression_path: {regression_dir}")
         return 0
 
-    chosen = sum(bool(value) for value in [confirm, reject, cancel, bool(change_title), bool(requirement_title)])
+    chosen = sum(bool(value) for value in [confirm, reject, cancel, to_testing, bool(change_title), bool(requirement_title)])
     if chosen != 1:
-        raise SystemExit("Choose exactly one regression action: --confirm, --reject, --cancel, --change, or --requirement.")
+        raise SystemExit("Choose exactly one regression action: --confirm, --reject, --cancel, --testing, --change, or --requirement.")
+
+    if to_testing:
+        if str(meta.get("regression_status", "")) != "confirmed":
+            raise SystemExit("Regression is not confirmed yet. Use `harness regression --confirm` first before rolling back to testing.")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        layout = resolve_version_layout(root, version_id, config["language"])
+        bugs_dir = layout["version_dir"] / "testing" / "bugs"
+        bugs_dir.mkdir(parents=True, exist_ok=True)
+        bug_id = regression_id
+        bug_file = bugs_dir / f"{bug_id}.md"
+        if not bug_file.exists():
+            regression_doc = regression_dir / "regression.md"
+            bug_content = regression_doc.read_text(encoding="utf-8") if regression_doc.exists() else f"# Bug: {regression_id}\n\nNo details available.\n"
+            bug_file.write_text(bug_content, encoding="utf-8")
+        meta["current_regression"] = ""
+        meta["regression_status"] = ""
+        meta["regression_ids"] = [str(item) for item in meta.get("regression_ids", []) if str(item) != regression_id]
+        meta.update(
+            {
+                "stage": "testing",
+                "status": "in_progress",
+                "current_task": "设计并执行测试用例",
+                "next_action": "Subagent 执行测试计划，结果写入 testing/test-cases.md 和 progress.yaml",
+                "suggested_skill": "subagent-driven-development",
+                "assistant_prompt": f"Bug {bug_id} has been logged to testing/bugs/{bug_id}.md. Use subagent-driven-development to fix and re-run test cases. Record results in testing/test-cases.md and update progress.yaml.",
+                "approval_required": False,
+                "stage_entered_at": now_iso,
+            }
+        )
+        update_item_meta(regression_dir / "meta.yaml", {"status": "rolled_back_to_testing"})
+        runtime = enter_harness_mode(root, set_regression_mode(runtime, ""), version_id, meta)
+        persist_workflow_state(root, version_id, meta, runtime)
+        print(f"Regression {regression_id} confirmed as bug. Bug logged to testing/bugs/{bug_id}.md. Stage rolled back to testing.")
+        return 0
 
     if confirm:
         meta["regression_status"] = "confirmed"
@@ -3151,7 +3592,152 @@ def workflow_status(root: Path) -> int:
         print(f"regression_status: {meta.get('regression_status', '') or '(none)'}")
         print(f"suggested_skill: {meta.get('suggested_skill', '') or '(none)'}")
         print(f"approval_required: {bool(meta.get('approval_required', False))}")
+        # Progress tree
+        _print_progress_tree(root, current_version)
     return 0
+
+
+def _print_progress_tree(root: Path, version_id: str) -> None:
+    """Print a visual progress tree from progress.yaml."""
+    _STAGE_ICON = {"done": "✅", "in_progress": "🔄", "pending": "⏳"}
+    _STAGE_LABELS = [
+        ("requirement", "需求"),
+        ("development", "开发"),
+        ("testing", "测试"),
+        ("acceptance", "验收"),
+        ("done", "完成"),
+    ]
+    progress = load_progress(root, version_id)
+    stages = progress.get("stages", {})
+    print("Progress:")
+    for key, label in _STAGE_LABELS:
+        info = stages.get(key, {})
+        status = str(info.get("status", "pending"))
+        icon = _STAGE_ICON.get(status, "⏳")
+        detail = ""
+        if key == "development":
+            total = int(info.get("changes_total", 0))
+            done = int(info.get("changes_done", 0))
+            if total > 0:
+                detail = f"  ({done}/{total} changes)"
+        elif key == "testing":
+            total = int(info.get("cases_total", 0))
+            passed = int(info.get("cases_passed", 0))
+            failed = int(info.get("cases_failed", 0))
+            bugs_open = int(info.get("bugs_open", 0))
+            bugs_total = int(info.get("bugs_total", 0))
+            if total > 0 or bugs_total > 0:
+                detail = f"  ({passed}/{total} passed | {bugs_total} bugs: {bugs_open} open)"
+        print(f"  {icon} {label}    {status}{detail}")
+
+
+def _sync_artifact_statuses(root: Path, config: dict[str, object], version_id: str, meta: dict[str, object]) -> None:
+    """Sync individual change/requirement meta.yaml status to match the current workflow stage."""
+    new_stage = str(meta.get("stage", ""))
+    language = str(config.get("language", "english"))
+    layout = resolve_version_layout(root, version_id, language)
+
+    if new_stage == "executing":
+        focus_change = select_focus_change(meta)
+        if focus_change:
+            change_meta_path = layout["changes_dir"] / focus_change / "meta.yaml"
+            if change_meta_path.exists():
+                update_item_meta(change_meta_path, {"status": "in_progress"})
+
+    elif new_stage == "testing":
+        focus_change = select_focus_change(meta)
+        if focus_change:
+            change_meta_path = layout["changes_dir"] / focus_change / "meta.yaml"
+            if change_meta_path.exists():
+                update_item_meta(change_meta_path, {"status": "testing"})
+
+    elif new_stage == "acceptance":
+        if layout["changes_dir"].exists():
+            for change_dir in layout["changes_dir"].iterdir():
+                meta_path = change_dir / "meta.yaml"
+                if change_dir.is_dir() and meta_path.exists():
+                    current = load_item_meta(meta_path)
+                    if str(current.get("status", "")) not in ("done", "acceptance"):
+                        update_item_meta(meta_path, {"status": "acceptance"})
+
+    elif new_stage == "done":
+        if layout["changes_dir"].exists():
+            for change_dir in layout["changes_dir"].iterdir():
+                meta_path = change_dir / "meta.yaml"
+                if change_dir.is_dir() and meta_path.exists():
+                    current = load_item_meta(meta_path)
+                    if str(current.get("status", "")) not in ("done",):
+                        update_item_meta(meta_path, {"status": "done"})
+        if layout["requirements_dir"].exists():
+            for req_dir in layout["requirements_dir"].iterdir():
+                meta_path = req_dir / "meta.yaml"
+                if req_dir.is_dir() and meta_path.exists():
+                    current = load_item_meta(meta_path)
+                    if str(current.get("status", "")) not in ("done",):
+                        update_item_meta(meta_path, {"status": "done"})
+
+
+def _sync_progress(root: Path, version_id: str, meta: dict, config: dict | None = None) -> None:
+    """根据当前 stage 和版本数据更新 progress.yaml"""
+    stage = str(meta.get("stage", ""))
+    progress = load_progress(root, version_id)
+    progress["stage"] = stage
+
+    stages = progress["stages"]
+
+    def set_status(key: str, value: str) -> None:
+        if key in stages:
+            stages[key]["status"] = value
+
+    # Determine language for changes directory lookup
+    language = "english"
+    if config:
+        language = str(config.get("language", "english"))
+    spec = language_spec(language)
+    changes_dir = root / "workflow" / "versions" / "active" / version_id / spec["changes_dir"]
+
+    # Compute change counts
+    changes_total = 0
+    changes_done = 0
+    if changes_dir.exists():
+        for change_dir in changes_dir.iterdir():
+            meta_path = change_dir / "meta.yaml"
+            if change_dir.is_dir() and meta_path.exists():
+                changes_total += 1
+                item_meta = load_item_meta(meta_path)
+                if str(item_meta.get("status", "")) in ("done",):
+                    changes_done += 1
+
+    if stage in ("requirement_review", "changes_review", "plan_review", "ready_for_execution"):
+        set_status("requirement", "in_progress")
+    elif stage == "executing":
+        set_status("requirement", "done")
+        set_status("development", "in_progress")
+        stages["development"]["changes_total"] = changes_total
+        stages["development"]["changes_done"] = changes_done
+    elif stage == "testing":
+        set_status("requirement", "done")
+        set_status("development", "done")
+        stages["development"]["changes_total"] = changes_total
+        stages["development"]["changes_done"] = changes_done
+        set_status("testing", "in_progress")
+    elif stage == "acceptance":
+        set_status("requirement", "done")
+        set_status("development", "done")
+        stages["development"]["changes_total"] = changes_total
+        stages["development"]["changes_done"] = changes_done
+        set_status("testing", "done")
+        set_status("acceptance", "in_progress")
+    elif stage == "done":
+        set_status("requirement", "done")
+        set_status("development", "done")
+        stages["development"]["changes_total"] = changes_total
+        stages["development"]["changes_done"] = changes_done
+        set_status("testing", "done")
+        set_status("acceptance", "done")
+        set_status("done", "done")
+
+    save_progress(root, version_id, progress)
 
 
 def workflow_next(root: Path, execute: bool = False) -> int:
@@ -3161,11 +3747,37 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     current_version = require_active_version_id(root, config, runtime)
     meta = load_version_meta(root, current_version)
     prev_stage = str(meta.get("stage", "idle"))
+
+    # Gate checks before stage transition
+    language = str(config.get("language", "english"))
+    spec = language_spec(language)
+    changes_dir = root / "workflow" / "versions" / "active" / current_version / spec["changes_dir"]
+    if prev_stage == "executing":
+        progress = load_progress(root, current_version)
+        dev = progress["stages"].get("development", {})
+        total = int(dev.get("changes_total", 0))
+        done = int(dev.get("changes_done", 0))
+        if total > 0 and done < total:
+            raise SystemExit(
+                f"Gate check failed: {done}/{total} changes are done. All changes must be done before moving to testing."
+            )
+    elif prev_stage == "testing":
+        progress = load_progress(root, current_version)
+        tst = progress["stages"].get("testing", {})
+        cases_failed = int(tst.get("cases_failed", 0))
+        bugs_open = int(tst.get("bugs_open", 0))
+        if cases_failed > 0 or bugs_open > 0:
+            raise SystemExit(
+                f"Gate check failed: {cases_failed} failed cases and {bugs_open} open bugs. All must be resolved before acceptance."
+            )
+
     prev_entered_at = str(meta.get("stage_entered_at", ""))
     meta = apply_stage_transition(meta, execute=execute)
     runtime["executing_version"] = current_version if meta.get("stage") == "executing" else ""
     runtime = enter_harness_mode(root, runtime, current_version, meta)
     persist_workflow_state(root, current_version, meta, runtime)
+    _sync_artifact_statuses(root, config, current_version, meta)
+    _sync_progress(root, current_version, meta, config)
     duration_seconds: float | None = None
     if prev_entered_at:
         try:

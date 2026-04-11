@@ -22,6 +22,9 @@ This repository uses the Harness workflow for agent collaboration.
 16. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
 17. If the current stage is `requirement_review`, even a detailed implementation prompt must be treated as discussion input only; do not start coding yet
 18. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
+19. `testing` and `acceptance` are independent stages that follow `executing` and precede `done` — do not skip them; each has its own directory under the active version
+20. `harness status` displays the full stage progress tree including testing and acceptance progress
+21. Experience files are organized by category (`stage/`, `tool/`, `business/`, `architecture/`, `debug/`, `risk/`) — load only the category relevant to the current task
 
 ## Main Entry
 

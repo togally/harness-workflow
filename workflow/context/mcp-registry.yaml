@@ -1,0 +1,19 @@
+# MCP Registry - harness-workflow
+# This file tracks MCP servers available in this project.
+# Updated: 2026-04-11
+
+# How to use:
+# 1. Before asking the user for external information, check this registry
+# 2. If a matching MCP exists, use it instead of asking the user
+# 3. After successfully using an MCP, update the hit_count
+# 4. New MCPs discovered during work should be added here
+
+mcps: []
+# Example entry:
+# - id: nacos
+#   description: "Application configuration and service discovery"
+#   server: "mcp-nacos-server"
+#   solves: ["configuration", "service discovery", "environment variables"]
+#   status: active
+#   hit_count: 0
+#   added: "2026-04-11"

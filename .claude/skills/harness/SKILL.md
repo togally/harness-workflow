@@ -84,8 +84,8 @@ Capture lessons in these moments:
 
 Default write locations:
 
-- current-task notes and failed paths: `docs/versions/active/<version-id>/<changes-dir>/<change-id>/session-memory.md`
-- reusable indexed lessons: `docs/context/experience/`
+- current-task notes and failed paths: `workflow/versions/active/<version-id>/<changes-dir>/<change-id>/session-memory.md`
+- reusable indexed lessons: `workflow/context/experience/`
 
 Use `session-memory.md` as the first landing zone. Promote only validated lessons into indexed experience.
 Before each stage starts a concrete task, re-index relevant experience. After each stage completes, capture new lessons and fuse mature experience back into the current requirement, change, plan, or execution approach when useful.
@@ -124,7 +124,7 @@ harness install --root /path/to/repo
 This should create:
 
 - thin `AGENTS.md` and `CLAUDE.md`
-- `docs/context/`, `docs/memory/`, `docs/versions/`, and reusable `docs/templates/`
+- `workflow/context/`, `workflow/memory/`, `workflow/versions/`, and reusable `workflow/templates/`
 - templates for requirements, changes, plans, acceptance, and session memory
 - repository lint helper
 - repository config at `.codex/harness/config.json`
@@ -232,7 +232,7 @@ harness version "v1.0.0" --root /path/to/repo
 ```
 
 This should create `requirements`, `changes`, and `plans` containers under the active version.
-Use versions as the main work container, while `docs/context/` remains repository-level knowledge.
+Use versions as the main work container, while `workflow/context/` remains repository-level knowledge.
 When a requirement is complete, record successful project startup validation in its `completion.md`. If startup fails, enter regression first.
 Local startup logs, compiler output, and stack traces should be collected by the agent before it asks the human for help.
 `harness enter` should lock the conversation to the current version and workflow node. `harness exit` should release that lock without mutating the current stage.
@@ -240,18 +240,18 @@ Local startup logs, compiler output, and stack traces should be collected by the
 ## Root Guides
 
 Keep `AGENTS.md` and `CLAUDE.md` thin.
-They should route the agent into `docs/` and never become full business handbooks.
-For Qoder, keep `.qoder/commands/harness-*.md` and `.qoder/rules/harness-workflow.md` equally thin and route them to the same shared `docs/context/rules/*` and version state files.
+They should route the agent into `workflow/` and never become full business handbooks.
+For Qoder, keep `.qoder/commands/harness-*.md` and `.qoder/rules/harness-workflow.md` equally thin and route them to the same shared `workflow/context/rules/*` and version state files.
 For Claude Code, keep `.claude/commands/harness-*.md` thin in the same way.
 For Codex, keep `.codex/skills/harness-*` as thin wrappers instead of copying business rules into many separate skills.
 
 Detailed rules belong in:
 
-- `docs/context/rules/agent-workflow.md`
-- `docs/context/hooks/README.md`
-- `docs/context/rules/risk-rules.md`
-- `docs/context/project/project-overview.md`
-- `docs/context/team/development-standards.md`
+- `workflow/context/rules/agent-workflow.md`
+- `workflow/context/hooks/README.md`
+- `workflow/context/rules/risk-rules.md`
+- `workflow/context/project/project-overview.md`
+- `workflow/context/team/development-standards.md`
 
 Root guides should also remind the agent to read indexed experience before working and to update working memory when new lessons appear.
 

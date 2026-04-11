@@ -1,0 +1,30 @@
+{
+  "id": "v0.2.0-refactor",
+  "title": "v0.2.0-refactor",
+  "status": "in_progress",
+  "stage": "done",
+  "current_task": "Review change harness-update",
+  "next_action": "Discuss the change list and confirm the active change, then run `harness next`.",
+  "current_artifact_kind": "change",
+  "current_artifact_id": "harness-update",
+  "suggested_skill": "brainstorming",
+  "assistant_prompt": "Use brainstorming to refine change harness-update, fill the change document, and stop for human review.",
+  "approval_required": true,
+  "completed_tasks": [],
+  "pending_tasks": [],
+  "requirement_ids": [
+    "工作流核心闭环重构"
+  ],
+  "change_ids": [
+    "stage",
+    "文档模板新增",
+    "hook",
+    "经验体系重构",
+    "harness-update",
+    "进度监控"
+  ],
+  "regression_ids": [],
+  "current_regression": "",
+  "regression_status": "",
+  "stage_entered_at": "2026-04-11T07:54:59.045076+00:00"
+}

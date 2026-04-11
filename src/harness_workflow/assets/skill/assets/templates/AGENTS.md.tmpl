@@ -22,6 +22,9 @@
 14. 如果编译失败、启动失败，或继续修复前仍然需要用户提供数据，先进入 regression，并先填写对应 change `regression/required-inputs.md`，再提示用户补充
 15. 如果当前处于 `requirement_review`，即使用户补充了实现型 prompt，也只能先讨论、澄清并更新需求文档，不允许直接开始编码
 16. 如果 `workflow-runtime.yaml` 中 `conversation_mode` 为 `harness`，后续对话必须严格围绕 `locked_version`、`locked_stage` 和当前锁定节点推进；除非用户显式执行 `harness exit`，否则不允许脱离 harness 工作流去做无关实现或自由发挥
+17. `testing` 和 `acceptance` 是独立阶段，在 `executing` 之后、`done` 之前，不允许跳过；每个阶段在当前 version 目录下有独立的子目录
+18. `harness status` 会显示完整阶段进度树，包含 testing 和 acceptance 的进度
+19. 经验文件已按类别分类（`stage/`、`tool/`、`business/`、`architecture/`、`debug/`、`risk/`），按当前任务场景按需加载对应类别，不要全量读取
 
 ## 关键入口
 

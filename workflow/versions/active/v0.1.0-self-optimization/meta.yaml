@@ -1,15 +1,15 @@
 {
   "id": "v0.1.0-self-optimization",
   "title": "v0.1.0-self-optimization",
-  "status": "done",
-  "stage": "done",
-  "current_task": "Execution finished. Summarize and verify outcomes",
-  "next_action": "Verify `mvn compile` for each completed change and successful project startup for the completed requirement before closing. If either check fails, start `harness regression \"<issue>\"`.",
-  "current_artifact_kind": "change",
-  "current_artifact_id": "mcp",
-  "suggested_skill": "verification-before-completion",
-  "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
-  "approval_required": false,
+  "status": "in_progress",
+  "stage": "requirement_review",
+  "current_task": "Review requirement harness",
+  "next_action": "Discuss and confirm the requirement, then run `harness next` to move into change design.",
+  "current_artifact_kind": "requirement",
+  "current_artifact_id": "harness",
+  "suggested_skill": "brainstorming",
+  "assistant_prompt": "Use brainstorming to draft and refine requirement harness in its document. Treat any implementation-oriented prompt as discussion input only. Do not write production code, modify source files, or start implementation during requirement_review. Stop for human review before any change design or coding.",
+  "approval_required": true,
   "completed_tasks": [],
   "pending_tasks": [],
   "requirement_ids": [
@@ -22,9 +22,12 @@
     "工具反馈回流设计与实现",
     "自进化核心实现",
     "工具项目自优化规范设计",
-    "mcp"
+    "mcp",
+    "change-requirement-meta-yaml-status",
+    "harness-install-update-docs-workflow"
   ],
   "regression_ids": [],
   "current_regression": "",
-  "regression_status": ""
+  "regression_status": "",
+  "stage_entered_at": "2026-04-11T06:07:11.003439+00:00"
 }

@@ -123,6 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
     regression_parser.add_argument("--cancel", action="store_true", help="Cancel the current regression flow.")
     regression_parser.add_argument("--change", dest="change_title", default="", help="Convert the confirmed regression into a new change.")
     regression_parser.add_argument("--requirement", dest="requirement_title", default="", help="Convert the confirmed regression into a new requirement update.")
+    regression_parser.add_argument("--testing", action="store_true", help="Roll back to testing stage and log the confirmed regression as a bug in testing/bugs/.")
 
     feedback_parser = subparsers.add_parser("feedback", help="Export feedback event summary.")
     feedback_parser.add_argument("--root", default=".", help="Repository root.")
@@ -181,7 +182,7 @@ def main() -> int:
             return rename_requirement(root, args.current, args.new, version_name=args.version)
         return rename_change(root, args.current, args.new, version_name=args.version)
     if args.command == "regression":
-        if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title]):
+        if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title, args.testing]):
             return create_regression(root, args.title)
         return regression_action(
             root,
@@ -191,6 +192,7 @@ def main() -> int:
             cancel=args.cancel,
             change_title=args.change_title,
             requirement_title=args.requirement_title,
+            to_testing=args.testing,
         )
     if args.command == "feedback":
         return export_feedback(root, reset=args.reset)

@@ -1,0 +1,4 @@
+id: "harness-install-update-docs-workflow"
+title: "harness install/update 支持 docs/ → workflow/ 自动迁移"
+status: "done"
+requirement: "None"

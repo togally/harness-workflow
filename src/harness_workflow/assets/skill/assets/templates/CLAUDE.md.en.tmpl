@@ -24,6 +24,9 @@ This repository uses the Harness workflow for Claude Code.
 18. If compilation fails, startup fails, or repair still needs human input, move into regression and fill the related change `regression/required-inputs.md` first, then ask the human to complete it
 19. If the current stage is `requirement_review`, even a detailed implementation prompt must be used only for requirement discussion and document refinement; do not start implementation
 20. If `workflow-runtime.yaml` shows `conversation_mode: harness`, keep every following reply inside the locked `version`, `stage`, and workflow node until the human explicitly runs `harness exit`
+21. `testing` and `acceptance` are independent stages that follow `executing` and precede `done` — do not skip them; each has its own directory under the active version
+22. `harness status` displays the full stage progress tree including testing and acceptance progress
+23. Experience files are organized by category (`stage/`, `tool/`, `business/`, `architecture/`, `debug/`, `risk/`) — load only the category relevant to the current task
 
 ## Main Entry
 

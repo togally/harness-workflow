@@ -7,14 +7,14 @@ This command maps to `harness status`.
 
 Before acting:
 
-1. Read `docs/context/rules/workflow-runtime.yaml`
+1. Read `workflow/context/rules/workflow-runtime.yaml`
 2. Use `current_version` to read the active version `meta.yaml`
 3. Then read:
-   - `docs/context/rules/development-flow.md`
-   - `docs/context/hooks/README.md`
-   - `docs/context/rules/agent-workflow.md`
-   - `docs/context/rules/risk-rules.md`
-   - `docs/context/experience/index.md`
+   - `workflow/context/rules/development-flow.md`
+   - `workflow/context/hooks/README.md`
+   - `workflow/context/rules/agent-workflow.md`
+   - `workflow/context/rules/risk-rules.md`
+   - `workflow/context/experience/index.md`
 4. Prefer the root `AGENTS.md`
 5. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill
 
