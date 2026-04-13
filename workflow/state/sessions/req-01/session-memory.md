@@ -39,13 +39,22 @@
 
 ## 当前状态
 
-### ▶ Testing 阶段开始
+### ▶ Testing 阶段 - Regression 修复完成
 - 开始时间: 2026-04-12
-- 待验证项:
-  1. 无旧代码残留
-  2. 经验可以正常沉淀
-  3. 正向研发流程工作正常
-  4. 中断恢复工作正常
+- 第一轮测试: 2026-04-13（4项全部失败，发现 7 个问题）
+- Regression 修复: 2026-04-13（7 个问题全部修复并提交）
+- 第二轮测试: 2026-04-13（TC-02/03/04 通过，TC-01 仍失败）
+- 追加修复: 2026-04-13（清除旧 harness assets/agents 文件，提交工作区变更）
+- 待执行: 第三轮测试验证 TC-01
+
+### 已修复问题清单
+1. ✅ workflow/context/index.md 填写完整加载规则
+2. ✅ runtime.yaml 新增 stage: testing 字段
+3. ✅ flow/requirements/req-01-版本重做/requirement.md 创建
+4. ✅ req-01-版本重做.yaml 状态文件填写
+5. ✅ 旧版 harness assets/agents 文件彻底删除（git rm）
+6. ✅ session-start hooks 路径修正（新路径 workflow/state/runtime.yaml）
+7. ✅ experience 双体系冲突解决（state/experience/index.md 统一指向 context/experience/）
 
 ---
 
