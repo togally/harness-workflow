@@ -39,7 +39,7 @@
 
 ## 当前状态
 
-### ▶ Testing 阶段 - Regression 修复完成
+### ▶ Testing 阶段 - 完成 ✅
 - 开始时间: 2026-04-12
 - 第一轮测试: 2026-04-13（4项全部失败，发现 7 个问题）
 - Regression 修复（第一轮）: 2026-04-13（7 个问题全部修复并提交）
@@ -48,7 +48,8 @@
 - 第三轮测试: 2026-04-13（TC-01 通过，4项全部通过）
 - 新 Regression: 2026-04-13（发现 test_harness_cli.py 15 个用例全部失败）
 - Chg-01 修复: 2026-04-13（恢复 assets/templates/，scripts/ → tools/，15/15 测试通过）
-- 待执行: 第四轮测试验证 TC-01（CLI 可用性）
+- 第四轮测试: 2026-04-13（5项全部通过，包括 CLI 兼容性验证）
+- 完成时间: 2026-04-13
 
 ### 已修复问题清单
 1. ✅ workflow/context/index.md 填写完整加载规则
@@ -59,6 +60,15 @@
 6. ✅ session-start hooks 路径修正（新路径 workflow/state/runtime.yaml）
 7. ✅ experience 双体系冲突解决（state/experience/index.md 统一指向 context/experience/）
 8. ✅ CLI 测试全部通过（恢复 assets/templates/，scripts/ → tools/ 重命名）
+
+### 测试通过情况（第四轮）
+| 用例 | 测试项 | 结果 |
+|------|--------|------|
+| TC-01 | 无旧代码残留 | ✅ |
+| TC-01-CLI | CLI 可用性 | ✅ |
+| TC-02 | 经验可以正常沉淀 | ✅ |
+| TC-03 | 正向研发流程工作正常 | ✅ |
+| TC-04 | 中断恢复工作正常 | ✅ |
 
 ---
 
