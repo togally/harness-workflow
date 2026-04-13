@@ -8,31 +8,31 @@ from pathlib import Path
 
 
 REQUIRED_FILES = [
-    "workflow/README.md",
-    "workflow/memory/constitution.md",
-    "workflow/context/experience/index.md",
-    "workflow/context/rules/agent-workflow.md",
-    "workflow/context/rules/risk-rules.md",
+    ".workflow/README.md",
+    ".workflow/memory/constitution.md",
+    ".workflow/context/experience/index.md",
+    ".workflow/context/rules/agent-workflow.md",
+    ".workflow/context/rules/risk-rules.md",
 ]
 
 REQUIRED_FILES_LOCALIZED = {
     "english": [
-        "workflow/context/project/project-overview.md",
-        "workflow/context/team/development-standards.md",
+        ".workflow/context/project/project-overview.md",
+        ".workflow/context/team/development-standards.md",
     ],
     "cn": [
-        "workflow/context/project/project-overview.md",
-        "workflow/context/team/development-standards.md",
+        ".workflow/context/project/project-overview.md",
+        ".workflow/context/team/development-standards.md",
     ],
 }
 
 REQUIRED_DIRS = [
-    "workflow/versions",
-    "workflow/versions/active",
-    "workflow/context/hooks",
-    "workflow/context/rules",
-    "workflow/context/experience",
-    "workflow/templates",
+    ".workflow/versions",
+    ".workflow/versions/active",
+    ".workflow/context/hooks",
+    ".workflow/context/rules",
+    ".workflow/context/experience",
+    ".workflow/templates",
 ]
 
 
@@ -60,10 +60,10 @@ def main() -> int:
             missing.append(relative)
 
     agent_guide_refs = [
-        "workflow/memory/constitution.md",
-        "workflow/context/experience/index.md",
-        "workflow/context/rules/agent-workflow.md",
-        "workflow/context/rules/risk-rules.md",
+        ".workflow/memory/constitution.md",
+        ".workflow/context/experience/index.md",
+        ".workflow/context/rules/agent-workflow.md",
+        ".workflow/context/rules/risk-rules.md",
     ]
 
     agents = root / "AGENTS.md"
@@ -93,7 +93,7 @@ def main() -> int:
             "context/rules/agent-workflow.md",
         ]:
             if expected not in text:
-                warnings.append(f"workflow/README.md does not mention {expected}")
+                warnings.append(f".workflow/README.md does not mention {expected}")
 
     if missing:
         print("Missing required files:")

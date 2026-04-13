@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional
+
+import questionary
 
 from harness_workflow.core import (
     archive_requirement,
@@ -27,6 +30,48 @@ from harness_workflow.core import (
     workflow_next,
     workflow_status,
 )
+
+
+def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> list[str]:
+    """
+    交互式平台多选
+
+    Args:
+        current_platforms: 当前已激活的平台列表（用于预选）
+
+    Returns:
+        用户选择的平台列表
+    """
+    import sys
+
+    # If not in an interactive terminal, return current or default
+    if not sys.stdin.isatty():
+        if current_platforms:
+            return current_platforms
+        return ["codex", "qoder", "cc"]
+
+    platforms = questionary.checkbox(
+        "选择要支持的平台（空格选择，回车确认）:",
+        choices=[
+            {
+                "name": "codex (AGENTS.md)",
+                "value": "codex",
+                "checked": current_platforms is None or "codex" in (current_platforms or [])
+            },
+            {
+                "name": "qoder (.qoder/skills/harness/SKILL.md)",
+                "value": "qoder",
+                "checked": current_platforms is None or "qoder" in (current_platforms or [])
+            },
+            {
+                "name": "cc (.claude/commands/)",
+                "value": "cc",
+                "checked": current_platforms is None or "cc" in (current_platforms or [])
+            },
+        ]
+    ).ask()
+
+    return platforms or []
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -170,7 +170,7 @@ class HarnessCliTest(unittest.TestCase):
 
         plan = self.run_cli("plan", "在线问诊预约", "--root", str(self.repo))
         self.assertEqual(plan.returncode, 0, msg=plan.stderr or plan.stdout)
-        self.assertIn("workflow/versions/active/v1.0.0/变更/在线问诊预约/plan.md", plan.stdout)
+        self.assertIn(".workflow/versions/active/v1.0.0/变更/在线问诊预约/plan.md", plan.stdout)
         self.assertEqual(self.read_version_meta("v1.0.0")["suggested_skill"], "writing-plans")
 
         next_result = self.run_cli("next", "--root", str(self.repo))
@@ -272,9 +272,9 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("missing .qoder/commands/harness-requirement.md", check.stdout)
         self.assertIn("missing .claude/commands/harness-requirement.md", check.stdout)
         self.assertIn("missing .codex/skills/harness-requirement/SKILL.md", check.stdout)
-        self.assertIn("missing workflow/templates/session-memory.md", check.stdout)
+        self.assertIn("missing .workflow/templates/session-memory.md", check.stdout)
         self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
-        self.assertIn("missing workflow/context/hooks/README.md", check.stdout)
+        self.assertIn("missing .workflow/context/hooks/README.md", check.stdout)
         self.assertFalse(session_memory.exists())
 
         result = self.run_cli("update", "--root", str(self.repo))

@@ -12,8 +12,8 @@ Keep `AGENTS.md` small and route into stable documents instead of duplicating th
 
 ### Separate durable memory from working memory
 
-- Durable memory belongs in `workflow/memory/`
-- Change-specific working memory belongs in `workflow/changes/active/<change-id>/session-memory.md`
+- Durable memory belongs in `.workflow/memory/`
+- Change-specific working memory belongs in `.workflow/changes/active/<change-id>/session-memory.md`
 
 ### Keep context layered
 

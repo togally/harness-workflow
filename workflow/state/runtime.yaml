@@ -1,8 +1,0 @@
-current_requirement: req-01
-stage: acceptance
-conversation_mode: open
-locked_requirement: ""
-locked_stage: ""
-current_regression: ""
-active_requirements:
-  - req-01

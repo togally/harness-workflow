@@ -10,15 +10,27 @@ from importlib.resources import files
 from pathlib import Path
 
 from harness_workflow import __version__
+from harness_workflow.backup import (
+    get_active_platforms,
+    get_backup_path,
+    get_platform_file_patterns,
+    read_platforms_config,
+    sync_platforms_state,
+)
 
 
 PACKAGE_ROOT = files("harness_workflow")
+PACKAGE_FS_ROOT = Path(__file__).resolve().parent
 SKILL_ROOT = PACKAGE_ROOT.joinpath("assets", "skill")
 TEMPLATE_ROOT = SKILL_ROOT.joinpath("assets", "templates")
+SCAFFOLD_V2_ROOT = PACKAGE_FS_ROOT / "assets" / "scaffold_v2"
 HARNESS_DIR = Path(".codex") / "harness"
 MANAGED_STATE_PATH = HARNESS_DIR / "managed-files.json"
 CONFIG_PATH = HARNESS_DIR / "config.json"
-WORKFLOW_RUNTIME_PATH = Path("workflow") / "context" / "rules" / "workflow-runtime.yaml"
+LEGACY_WORKFLOW_RUNTIME_PATH = Path(".workflow") / "context" / "rules" / "workflow-runtime.yaml"
+WORKFLOW_RUNTIME_PATH = LEGACY_WORKFLOW_RUNTIME_PATH
+STATE_RUNTIME_PATH = Path(".workflow") / "state" / "runtime.yaml"
+WORKFLOW_ENTRYPOINT_PATH = Path("WORKFLOW.md")
 
 DEFAULT_LANGUAGE = "english"
 DEFAULT_CONFIG = {"language": DEFAULT_LANGUAGE, "current_version": ""}
@@ -41,6 +53,40 @@ DEFAULT_RUNTIME = {
     "current_regression": "",
     "active_versions": {},
 }
+DEFAULT_STATE_RUNTIME = {
+    "current_requirement": "",
+    "stage": "",
+    "conversation_mode": "open",
+    "locked_requirement": "",
+    "locked_stage": "",
+    "current_regression": "",
+    "active_requirements": [],
+}
+LEGACY_CLEANUP_ROOT = Path(".workflow") / "context" / "backup" / "legacy-cleanup"
+LEGACY_CLEANUP_TARGETS = [
+    Path("flow"),
+    Path(".workflow") / "README.md",
+    Path(".workflow") / "versions",
+    Path(".workflow") / "memory",
+    Path(".workflow") / "decisions",
+    Path(".workflow") / "runbooks",
+    Path(".workflow") / "templates",
+    Path(".workflow") / "tools",
+    Path(".workflow") / "context" / "hooks",
+    Path(".workflow") / "context" / "rules",
+    Path(".workflow") / "context" / "mcp-registry.yaml",
+    Path(".workflow") / "context" / "experience" / "index.md",
+    Path(".workflow") / "context" / "experience" / "business",
+    Path(".workflow") / "context" / "experience" / "architecture",
+    Path(".workflow") / "context" / "experience" / "debug",
+    Path(".workflow") / "context" / "experience" / "tool" / "playwright.md",
+    Path(".workflow") / "context" / "experience" / "tool" / "mysql-mcp.md",
+    Path(".workflow") / "context" / "experience" / "tool" / "nacos-mcp.md",
+    Path(".workflow") / "state" / "constitution.md",
+]
+OPTIONAL_EMPTY_DIRS = [
+    Path(".workflow") / "flow" / "archive",
+]
 DEFAULT_VERSION_META = {
     "id": "",
     "title": "",
@@ -171,6 +217,122 @@ def render_template(
     return text
 
 
+def _parse_simple_yaml_scalar(value: str) -> object:
+    text = value.strip()
+    if text == "[]":
+        return []
+    if text.startswith('"') and text.endswith('"'):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return text.strip('"')
+    if text.lower() == "true":
+        return True
+    if text.lower() == "false":
+        return False
+    return text
+
+
+def load_simple_yaml(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    payload: dict[str, object] = {}
+    current_list_key = ""
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if current_list_key and stripped.startswith("- "):
+            items = payload.setdefault(current_list_key, [])
+            if isinstance(items, list):
+                items.append(_parse_simple_yaml_scalar(stripped[2:].strip()))
+            continue
+        current_list_key = ""
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if not value:
+            payload[key] = []
+            current_list_key = key
+            continue
+        payload[key] = _parse_simple_yaml_scalar(value)
+    return payload
+
+
+def save_simple_yaml(path: Path, payload: dict[str, object], ordered_keys: list[str] | None = None) -> None:
+    keys = ordered_keys or list(payload.keys())
+    lines: list[str] = []
+    for key in keys:
+        if key not in payload:
+            continue
+        value = payload[key]
+        if isinstance(value, list):
+            if not value:
+                lines.append(f"{key}: []")
+                continue
+            lines.append(f"{key}:")
+            for item in value:
+                lines.append(f"  - {item}")
+            continue
+        if isinstance(value, bool):
+            rendered = "true" if value else "false"
+        else:
+            rendered = json.dumps("" if value is None else str(value), ensure_ascii=False)
+        lines.append(f"{key}: {rendered}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def requirement_workflow_enabled(root: Path) -> bool:
+    return (root / WORKFLOW_ENTRYPOINT_PATH).exists() or (root / STATE_RUNTIME_PATH).exists()
+
+
+def load_requirement_runtime(root: Path) -> dict[str, object]:
+    payload = dict(DEFAULT_STATE_RUNTIME)
+    payload.update(load_simple_yaml(root / STATE_RUNTIME_PATH))
+    active_requirements = payload.get("active_requirements", [])
+    if not isinstance(active_requirements, list):
+        payload["active_requirements"] = []
+    return payload
+
+
+def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
+    payload = dict(DEFAULT_STATE_RUNTIME)
+    payload.update(runtime)
+    save_simple_yaml(
+        root / STATE_RUNTIME_PATH,
+        payload,
+        ordered_keys=[
+            "current_requirement",
+            "stage",
+            "conversation_mode",
+            "locked_requirement",
+            "locked_stage",
+            "current_regression",
+            "active_requirements",
+        ],
+    )
+
+
+def _scaffold_v2_file_contents(root: Path, include_agents: bool, include_claude: bool, language: str) -> dict[str, str]:
+    managed: dict[str, str] = {}
+    if SCAFFOLD_V2_ROOT.exists():
+        for path in sorted(SCAFFOLD_V2_ROOT.rglob("*")):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(SCAFFOLD_V2_ROOT).as_posix()
+            managed[relative] = path.read_text(encoding="utf-8")
+    repo_name = root.name
+    if include_agents:
+        managed["AGENTS.md"] = render_template("AGENTS.md.tmpl", repo_name, language)
+    if include_claude:
+        managed["CLAUDE.md"] = render_template("CLAUDE.md.tmpl", repo_name, language)
+    return managed
+
+
 def render_agent_command(command_name: str, cli_command: str, argument_hint: str, language: str) -> str:
     is_cn = normalize_language(language) == "cn"
     description = (
@@ -196,18 +358,19 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
             [
                 f"本命令对应 `{cli_command}`。",
                 "",
+                "## Hard Gate",
+                "",
+                "未读取 `WORKFLOW.md`、`.workflow/context/index.md`、`.workflow/state/runtime.yaml` 前，立即停止，不执行任何动作。",
+                "如果这三个文件任一缺失、冲突或无法解析，立即停止，不允许回退旧入口。",
+                "",
                 "执行前请先：",
                 "",
-                "1. 读取 `workflow/context/rules/workflow-runtime.yaml`",
-                "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
-                "3. 继续读取：",
-                "   - `workflow/context/rules/development-flow.md`",
-                "   - `workflow/context/hooks/README.md`",
-                "   - `workflow/context/rules/agent-workflow.md`",
-                "   - `workflow/context/rules/risk-rules.md`",
-                "   - `workflow/context/experience/index.md`",
-                "4. 优先遵循根目录 `AGENTS.md`",
-                "5. 如果存在 `.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
+                "1. 读取根目录 `WORKFLOW.md`",
+                "2. 读取 `.workflow/context/index.md`",
+                "3. 再读取 `.workflow/state/runtime.yaml`",
+                "4. 如有需要，再按 `.workflow/context/index.md` 的路由读取对应角色、经验和约束文件",
+                "5. 优先遵循根目录 `AGENTS.md`",
+                "6. 如果存在 `.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
                 "",
                 "执行要求：",
                 "",
@@ -227,18 +390,19 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
             [
                 f"This command maps to `{cli_command}`.",
                 "",
+                "## Hard Gate",
+                "",
+                "Do not act until `WORKFLOW.md`, `.workflow/context/index.md`, and `.workflow/state/runtime.yaml` have been read.",
+                "If any of those files are missing, inconsistent, or unreadable, stop immediately and do not fall back to a legacy entrypoint.",
+                "",
                 "Before acting:",
                 "",
-                "1. Read `workflow/context/rules/workflow-runtime.yaml`",
-                "2. Use `current_version` to read the active version `meta.yaml`",
-                "3. Then read:",
-                "   - `workflow/context/rules/development-flow.md`",
-                "   - `workflow/context/hooks/README.md`",
-                "   - `workflow/context/rules/agent-workflow.md`",
-                "   - `workflow/context/rules/risk-rules.md`",
-                "   - `workflow/context/experience/index.md`",
-                "4. Prefer the root `AGENTS.md`",
-                "5. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
+                "1. Read the root `WORKFLOW.md`",
+                "2. Read `.workflow/context/index.md`",
+                "3. Then read `.workflow/state/runtime.yaml`",
+                "4. Load any additional role / experience / constraint files by following `.workflow/context/index.md`",
+                "5. Prefer the root `AGENTS.md`",
+                "6. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
                 "",
                 "Execution rules:",
                 "",
@@ -277,11 +441,16 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
             [
                 f"这是 `{cli_command}` 的薄包装 skill。",
                 "",
+                "## Hard Gate",
+                "",
+                "未读取 `WORKFLOW.md`、`.workflow/context/index.md`、`.workflow/state/runtime.yaml` 前，立即停止，不执行任何动作。",
+                "如果这三个文件任一缺失、冲突或无法解析，立即停止，不允许回退旧入口。",
+                "",
                 "执行前：",
                 "",
-                "1. 先读取 `workflow/context/rules/workflow-runtime.yaml`",
-                "2. 根据 `current_version` 读取对应 version 的 `meta.yaml`",
-                "3. 再读取 `workflow/context/hooks/README.md`、当前调用时机的 hook 文档、根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
+                "1. 先读取根目录 `WORKFLOW.md`",
+                "2. 再读取 `.workflow/context/index.md` 和 `.workflow/state/runtime.yaml`",
+                "3. 按 `.workflow/context/index.md` 的路由继续读取匹配的角色、经验和约束文件，再读取根目录 `AGENTS.md` 和主 harness skill：`.codex/skills/harness/SKILL.md`",
                 "",
                 "规则：",
                 "",
@@ -297,11 +466,16 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
             [
                 f"This is a thin wrapper skill for `{cli_command}`.",
                 "",
+                "## Hard Gate",
+                "",
+                "Do not act until `WORKFLOW.md`, `.workflow/context/index.md`, and `.workflow/state/runtime.yaml` have been read.",
+                "If any of those files are missing, inconsistent, or unreadable, stop immediately and do not fall back to a legacy entrypoint.",
+                "",
                 "Before acting:",
                 "",
-                "1. Read `workflow/context/rules/workflow-runtime.yaml`",
-                "2. Use `current_version` to read the active version `meta.yaml`",
-                "3. Then read `workflow/context/hooks/README.md`, the hook doc for the current timing, the root `AGENTS.md`, and the main harness skill at `.codex/skills/harness/SKILL.md`",
+                "1. Read the root `WORKFLOW.md`",
+                "2. Read `.workflow/context/index.md` and `.workflow/state/runtime.yaml`",
+                "3. Load the matching role / experience / constraint files by following `.workflow/context/index.md`, then read the root `AGENTS.md` and the main harness skill at `.codex/skills/harness/SKILL.md`",
                 "",
                 "Rules:",
                 "",
@@ -456,12 +630,12 @@ HOOK_TIMINGS = [
                 "title": {"cn": "加载运行态", "english": "Load Runtime"},
                 "body": {
                     "cn": [
-                        "先读取 `workflow/context/rules/workflow-runtime.yaml`。",
+                        "先读取 `.workflow/context/rules/workflow-runtime.yaml`。",
                         "根据 `current_version` 读取当前 version 的 `meta.yaml`。",
                         "如果当前没有 active version，也要明确当前处于未路由状态。",
                     ],
                     "english": [
-                        "Read `workflow/context/rules/workflow-runtime.yaml` first.",
+                        "Read `.workflow/context/rules/workflow-runtime.yaml` first.",
                         "Use `current_version` to read the active version `meta.yaml`.",
                         "If no active version exists, state clearly that the session is not yet routed.",
                     ],
@@ -472,14 +646,14 @@ HOOK_TIMINGS = [
                 "title": {"cn": "加载经验与风险规则", "english": "Load Experience and Risk Rules"},
                 "body": {
                     "cn": [
-                        "读取 `workflow/context/experience/index.md`，只按需加载命中经验。",
-                        "读取 `workflow/context/rules/risk-rules.md`，检查高风险关键词。",
-                        "不要一次性全量读取 `workflow/context/experience/`。",
+                        "读取 `.workflow/context/experience/index.md`，只按需加载命中经验。",
+                        "读取 `.workflow/context/rules/risk-rules.md`，检查高风险关键词。",
+                        "不要一次性全量读取 `.workflow/context/experience/`。",
                     ],
                     "english": [
-                        "Read `workflow/context/experience/index.md` and load only matching experience files.",
-                        "Read `workflow/context/rules/risk-rules.md` and scan for high-risk keywords.",
-                        "Do not bulk-load the entire `workflow/context/experience/` tree.",
+                        "Read `.workflow/context/experience/index.md` and load only matching experience files.",
+                        "Read `.workflow/context/rules/risk-rules.md` and scan for high-risk keywords.",
+                        "Do not bulk-load the entire `.workflow/context/experience/` tree.",
                     ],
                 },
             },
@@ -901,11 +1075,11 @@ HOOK_TIMINGS = [
                 "body": {
                     "cn": [
                         "每个阶段完成后，先回写 `session-memory.md`。",
-                        "成熟经验再融合进 `workflow/context/experience/` 或正式规则。",
+                        "成熟经验再融合进 `.workflow/context/experience/` 或正式规则。",
                     ],
                     "english": [
                         "After each stage, update `session-memory.md` first.",
-                        "Then promote mature lessons into `workflow/context/experience/` or formal rules.",
+                        "Then promote mature lessons into `.workflow/context/experience/` or formal rules.",
                     ],
                 },
             },
@@ -1364,12 +1538,12 @@ HOOK_TIMINGS = [
                 "title": {"cn": "先查 MCP 注册表", "english": "Check MCP Registry First"},
                 "body": {
                     "cn": [
-                        "向用户索要外部信息前，先查 `workflow/context/mcp-registry.yaml`。",
+                        "向用户索要外部信息前，先查 `.workflow/context/mcp-registry.yaml`。",
                         "如果注册表里有匹配的 MCP，优先调用 MCP 获取信息。",
                         "如果没有匹配但项目依赖提示可能有可用 MCP，建议用户安装。",
                     ],
                     "english": [
-                        "Before asking the human for external information, check `workflow/context/mcp-registry.yaml` first.",
+                        "Before asking the human for external information, check `.workflow/context/mcp-registry.yaml` first.",
                         "If a matching MCP exists in the registry, prefer calling the MCP to get the information.",
                         "If no match exists but project dependencies suggest a usable MCP, recommend installation.",
                     ],
@@ -1436,11 +1610,11 @@ HOOK_TIMINGS = [
                 "title": {"cn": "升级成熟经验", "english": "Promote Mature Lessons"},
                 "body": {
                     "cn": [
-                        "已经稳定、可复用的经验，再升级进 `workflow/context/experience/` 或正式规则。",
+                        "已经稳定、可复用的经验，再升级进 `.workflow/context/experience/` 或正式规则。",
                         "每个阶段都要判断是否值得融合成熟经验。",
                     ],
                     "english": [
-                        "Promote only stable, reusable lessons into `workflow/context/experience/` or formal rules.",
+                        "Promote only stable, reusable lessons into `.workflow/context/experience/` or formal rules.",
                         "After each stage, decide whether mature experience should now be fused into the workflow.",
                     ],
                 },
@@ -1520,11 +1694,11 @@ HOOK_TIMINGS = [
                 "title": {"cn": "完成前必须检查成熟经验升级", "english": "Completion Requires an Experience Promotion Check"},
                 "body": {
                     "cn": [
-                        "在完成前，检查本次任务是否产生了可升级进 `workflow/context/experience/` 或正式规则的成熟经验。",
+                        "在完成前，检查本次任务是否产生了可升级进 `.workflow/context/experience/` 或正式规则的成熟经验。",
                         "即使最终没有升级，也要完成一次显式检查。",
                     ],
                     "english": [
-                        "Before completion, check whether this task produced mature lessons that should be promoted into `workflow/context/experience/` or formal rules.",
+                        "Before completion, check whether this task produced mature lessons that should be promoted into `.workflow/context/experience/` or formal rules.",
                         "Even if nothing is promoted, perform the check explicitly.",
                     ],
                 },
@@ -1557,14 +1731,14 @@ HOOK_TIMINGS = [
                         "验证 `acceptance/acceptance-checklist.md` 所有条目已填写。",
                         "验证 `acceptance/sign-off.md` 存在且决策为 Accepted。",
                         "验证 `acceptance/session-memory.md` 已更新。",
-                        "将相关经验沉淀到 `workflow/context/experience/stage/acceptance.md`。",
+                        "将相关经验沉淀到 `.workflow/context/experience/stage/acceptance.md`。",
                         "如果 sign-off 为 Rejected，改为启动 `harness regression` 而非推进。",
                     ],
                     "english": [
                         "Verify that `acceptance/acceptance-checklist.md` has all items filled.",
                         "Verify that `acceptance/sign-off.md` exists and decision is \"Accepted\".",
                         "Verify that `acceptance/session-memory.md` has been updated.",
-                        "Capture any lessons into `workflow/context/experience/stage/acceptance.md`.",
+                        "Capture any lessons into `.workflow/context/experience/stage/acceptance.md`.",
                         "If sign-off is \"Rejected\", start `harness regression` instead of advancing.",
                     ],
                 },
@@ -1589,7 +1763,7 @@ def render_hooks_index(language: str) -> str:
         "",
         "## 匹配顺序" if is_cn else "## Matching Order",
         "",
-        "1. 读取 `workflow/context/rules/workflow-runtime.yaml`" if is_cn else "1. Read `workflow/context/rules/workflow-runtime.yaml`",
+        "1. 读取 `.workflow/context/rules/workflow-runtime.yaml`" if is_cn else "1. Read `.workflow/context/rules/workflow-runtime.yaml`",
         "2. 根据 `current_version` 读取当前 version `meta.yaml`" if is_cn else "2. Use `current_version` to read the active version `meta.yaml`",
         "3. 判断当前调用时机，例如 `session-start`、`before-reply`、`before-task`、`context-maintenance`、`during-task`、`before-human-input`、`after-task`、`before-complete`" if is_cn else "3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `context-maintenance`, `during-task`, `before-human-input`, `after-task`, or `before-complete`",
         "4. 读取对应的 `<timing>.md` 说明文档" if is_cn else "4. Read the matching `<timing>.md` overview document",
@@ -1633,8 +1807,8 @@ def render_hook_timing_doc(timing: dict[str, object], language: str) -> str:
     if is_cn:
         lines.extend(
             [
-                f"1. 先读取 `workflow/context/hooks/{timing['slug']}.md`",
-                f"2. 再按编号顺序读取 `workflow/context/hooks/{timing['slug']}/` 下的通用 hook",
+                f"1. 先读取 `.workflow/context/hooks/{timing['slug']}.md`",
+                f"2. 再按编号顺序读取 `.workflow/context/hooks/{timing['slug']}/` 下的通用 hook",
                 "3. 如果存在当前 stage 或当前节点对应的子目录，也继续按编号读取",
                 "4. 命中硬门禁时立即停止",
             ]
@@ -1642,8 +1816,8 @@ def render_hook_timing_doc(timing: dict[str, object], language: str) -> str:
     else:
         lines.extend(
             [
-                f"1. Read `workflow/context/hooks/{timing['slug']}.md` first",
-                f"2. Then read the general hooks under `workflow/context/hooks/{timing['slug']}/` in numeric order",
+                f"1. Read `.workflow/context/hooks/{timing['slug']}.md` first",
+                f"2. Then read the general hooks under `.workflow/context/hooks/{timing['slug']}/` in numeric order",
                 "3. If a subdirectory matches the current stage or node, read those files in numeric order too",
                 "4. Stop immediately if a hard gate blocks the action",
             ]
@@ -1666,13 +1840,13 @@ def render_hook_item_doc(timing_slug: str, item: dict[str, object], language: st
 
 
 def hook_managed_contents(language: str) -> dict[str, str]:
-    managed: dict[str, str] = {"workflow/context/hooks/README.md": render_hooks_index(language)}
+    managed: dict[str, str] = {".workflow/context/hooks/README.md": render_hooks_index(language)}
     for timing in HOOK_TIMINGS:
         slug = str(timing["slug"])
-        managed[f"workflow/context/hooks/{slug}.md"] = render_hook_timing_doc(timing, language)
+        managed[f".workflow/context/hooks/{slug}.md"] = render_hook_timing_doc(timing, language)
         for item in timing["items"]:  # type: ignore[index]
             path = str(item["path"])
-            managed[f"workflow/context/hooks/{slug}/{path}"] = render_hook_item_doc(slug, item, language)
+            managed[f".workflow/context/hooks/{slug}/{path}"] = render_hook_item_doc(slug, item, language)
     return managed
 
 
@@ -1706,6 +1880,21 @@ def _project_skill_targets(root: Path) -> list[Path]:
 
 def _managed_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _matches_platform_pattern(file_path: str, pattern: str) -> bool:
+    """Check if file path matches a platform pattern.
+
+    Args:
+        file_path: Relative file path
+        pattern: Platform pattern (may end with / for directory prefix)
+
+    Returns:
+        Whether the path matches
+    """
+    if pattern.endswith("/"):
+        return file_path.startswith(pattern)
+    return file_path == pattern
 
 
 def _load_json(path: Path, default: dict[str, str]) -> dict[str, str]:
@@ -1779,24 +1968,21 @@ def _save_managed_state(root: Path, managed_files: dict[str, str]) -> None:
 
 def _required_dirs(root: Path) -> list[Path]:
     return [
-        root / "workflow" / "context" / "team",
-        root / "workflow" / "context" / "project",
-        root / "workflow" / "context" / "experience",
-        root / "workflow" / "context" / "experience" / "stage",
-        root / "workflow" / "context" / "experience" / "tool",
-        root / "workflow" / "context" / "experience" / "business",
-        root / "workflow" / "context" / "experience" / "architecture",
-        root / "workflow" / "context" / "experience" / "debug",
-        root / "workflow" / "context" / "experience" / "risk",
-        root / "workflow" / "context" / "hooks",
-        root / "workflow" / "context" / "rules",
-        root / "workflow" / "versions" / "active",
-        root / "workflow" / "versions" / "archive",
-        root / "workflow" / "decisions",
-        root / "workflow" / "runbooks",
-        root / "workflow" / "templates",
-        root / "workflow" / "memory",
-        root / "tools",
+        root / ".workflow" / "state",
+        root / ".workflow" / "state" / "requirements",
+        root / ".workflow" / "state" / "sessions",
+        root / ".workflow" / "state" / "experience",
+        root / ".workflow" / "flow",
+        root / ".workflow" / "flow" / "requirements",
+        root / ".workflow" / "constraints",
+        root / ".workflow" / "evaluation",
+        root / ".workflow" / "context" / "roles",
+        root / ".workflow" / "context" / "team",
+        root / ".workflow" / "context" / "project",
+        root / ".workflow" / "context" / "experience",
+        root / ".workflow" / "context" / "experience" / "stage",
+        root / ".workflow" / "context" / "experience" / "tool",
+        root / ".workflow" / "context" / "experience" / "risk",
         root / HARNESS_DIR,
     ]
 
@@ -1822,98 +2008,13 @@ def _experience_stub(title: str, path: str, language: str) -> str:
 
 def _managed_file_contents(root: Path, language: str, include_agents: bool, include_claude: bool) -> dict[str, str]:
     repo_name = root.name
-    managed = {
-        "workflow/README.md": render_template("docs-README.md.tmpl", repo_name, language),
-        "workflow/memory/constitution.md": render_template("constitution.md.tmpl", repo_name, language),
-        "workflow/context/experience/index.md": render_template("experience-index.md.tmpl", repo_name, language),
-        "workflow/context/rules/agent-workflow.md": render_template("agent-workflow.md.tmpl", repo_name, language),
-        "workflow/context/rules/development-flow.md": render_template("development-flow.md.tmpl", repo_name, language),
-        "workflow/context/rules/risk-rules.md": render_template("risk-rules.md.tmpl", repo_name, language),
-        "workflow/context/project/project-overview.md": render_template("project-overview.md.tmpl", repo_name, language),
-        "workflow/context/team/development-standards.md": render_template("development-standards.md.tmpl", repo_name, language),
-        "workflow/templates/requirement.md": render_template("requirement.md.tmpl", repo_name, language),
-        "workflow/templates/requirement-completion.md": render_template("requirement-completion.md.tmpl", repo_name, language),
-        "workflow/templates/requirement-changes.md": render_template("requirement-changes.md.tmpl", repo_name, language),
-        "workflow/templates/change.md": render_template("change.md.tmpl", repo_name, language),
-        "workflow/templates/change-requirement.md": render_template("change-requirement.md.tmpl", repo_name, language),
-        "workflow/templates/change-design.md": render_template("change-design.md.tmpl", repo_name, language),
-        "workflow/templates/change-plan.md": render_template("change-plan.md.tmpl", repo_name, language),
-        "workflow/templates/change-acceptance.md": render_template("change-acceptance.md.tmpl", repo_name, language),
-        "workflow/templates/regression-required-inputs.md": render_template("regression-required-inputs.md.tmpl", repo_name, language),
-        "workflow/templates/session-memory.md": render_template("session-memory.md.tmpl", repo_name, language),
-        "workflow/templates/regression.md": render_template("regression.md.tmpl", repo_name, language),
-        "workflow/templates/regression-analysis.md": render_template("regression-analysis.md.tmpl", repo_name, language),
-        "workflow/templates/regression-decision.md": render_template("regression-decision.md.tmpl", repo_name, language),
-        "workflow/templates/regression-meta.yaml": render_template("regression-meta.yaml.tmpl", repo_name, language),
-        "workflow/context/experience/stage/requirement.md": _experience_stub(
-            "需求阶段经验" if language == "cn" else "Requirement Stage Experience",
-            "stage/requirement.md",
-            language,
-        ),
-        "workflow/context/experience/stage/development.md": _experience_stub(
-            "开发阶段经验" if language == "cn" else "Development Stage Experience",
-            "stage/development.md",
-            language,
-        ),
-        "workflow/context/experience/stage/testing.md": _experience_stub(
-            "测试阶段经验" if language == "cn" else "Testing Stage Experience",
-            "stage/testing.md",
-            language,
-        ),
-        "workflow/context/experience/stage/acceptance.md": _experience_stub(
-            "验收阶段经验" if language == "cn" else "Acceptance Stage Experience",
-            "stage/acceptance.md",
-            language,
-        ),
-        "workflow/context/experience/stage/regression.md": _experience_stub(
-            "回归阶段经验" if language == "cn" else "Regression Stage Experience",
-            "stage/regression.md",
-            language,
-        ),
-        "workflow/context/experience/tool/harness.md": _experience_stub(
-            "Harness 工具使用经验" if language == "cn" else "Harness Tool Experience",
-            "tool/harness.md",
-            language,
-        ),
-        "workflow/context/experience/tool/playwright.md": _experience_stub(
-            "Playwright 工具使用经验" if language == "cn" else "Playwright Tool Experience",
-            "tool/playwright.md",
-            language,
-        ),
-        "workflow/context/experience/tool/mysql-mcp.md": _experience_stub(
-            "MySQL MCP 工具使用经验" if language == "cn" else "MySQL MCP Tool Experience",
-            "tool/mysql-mcp.md",
-            language,
-        ),
-        "workflow/context/experience/tool/nacos-mcp.md": _experience_stub(
-            "Nacos MCP 工具使用经验" if language == "cn" else "Nacos MCP Tool Experience",
-            "tool/nacos-mcp.md",
-            language,
-        ),
-        "workflow/context/experience/risk/known-risks.md": _experience_stub(
-            "已知风险与缓解方案" if language == "cn" else "Known Risks and Mitigations",
-            "risk/known-risks.md",
-            language,
-        ),
-        "workflow/context/mcp-registry.yaml": render_template("mcp-registry.yaml.tmpl", repo_name, language),
-        "workflow/templates/mcp-catalog.yaml": render_template("mcp-catalog.yaml.tmpl", repo_name, language),
-        "workflow/templates/version-readme.md": render_template("version-readme.md.tmpl", repo_name, language),
-        "workflow/templates/version-memory.md": render_template("version-memory.md.tmpl", repo_name, language),
-        "workflow/templates/test-plan.md": render_template("test-plan.md.tmpl", repo_name, language),
-        "workflow/templates/test-cases.md": render_template("test-cases.md.tmpl", repo_name, language),
-        "workflow/templates/bug.md": render_template("bug.md.tmpl", repo_name, language),
-        "workflow/templates/acceptance-checklist.md": render_template("acceptance-checklist.md.tmpl", repo_name, language),
-        "workflow/templates/sign-off.md": render_template("sign-off.md.tmpl", repo_name, language),
-        "workflow/templates/self-test.md": render_template("self-test.md.tmpl", repo_name, language),
-        ".qoder/commands/harness.md": render_template("qoder-command.md.tmpl", repo_name, language),
-        ".qoder/rules/harness-workflow.md": render_template("qoder-rule.md.tmpl", repo_name, language),
-        "tools/lint_harness_repo.py": SKILL_ROOT.joinpath("scripts", "lint_harness_repo.py").read_text(encoding="utf-8"),
-    }
-    managed.update(hook_managed_contents(language))
-    if include_agents:
-        managed["AGENTS.md"] = render_template("AGENTS.md.tmpl", repo_name, language)
-    if include_claude:
-        managed["CLAUDE.md"] = render_template("CLAUDE.md.tmpl", repo_name, language)
+    managed = _scaffold_v2_file_contents(
+        root,
+        include_agents=include_agents,
+        include_claude=include_claude,
+        language=language,
+    )
+    managed[".qoder/rules/harness-workflow.md"] = render_template("qoder-rule.md.tmpl", repo_name, language)
     for command in COMMAND_DEFINITIONS:
         markdown = render_agent_command(command["name"], command["cli"], command["hint"], language)
         managed[f".qoder/commands/{command['name']}.md"] = markdown
@@ -1953,7 +2054,7 @@ def install_local_skills(root: Path, force: bool = False) -> list[Path]:
 
 
 def ensure_harness_root(root: Path) -> dict[str, str]:
-    required = [root / "workflow", root / "workflow" / "context", root / "workflow" / "versions" / "active"]
+    required = [root / ".workflow", root / ".workflow" / "context", root / ".workflow" / "versions" / "active"]
     missing = [str(path) for path in required if not path.exists()]
     if missing:
         raise SystemExit(f"Harness workspace is missing. Run `harness install` or `harness init` first. Missing: {', '.join(missing)}")
@@ -1998,7 +2099,7 @@ def resolve_title_and_id(
 
 def resolve_version_layout(root: Path, version_id: str, language: str) -> dict[str, Path]:
     spec = language_spec(language)
-    version_dir = root / "workflow" / "versions" / "active" / version_id
+    version_dir = root / ".workflow" / "versions" / "active" / version_id
     return {
         "version_dir": version_dir,
         "requirements_dir": version_dir / spec["requirements_dir"],
@@ -2118,7 +2219,7 @@ def fallback_stage_for_artifacts(meta: dict[str, object], requirement_ids: list[
 
 
 def list_existing_versions(root: Path) -> list[str]:
-    active_dir = root / "workflow" / "versions" / "active"
+    active_dir = root / ".workflow" / "versions" / "active"
     if not active_dir.exists():
         return []
     return sorted(path.name for path in active_dir.iterdir() if path.is_dir())
@@ -2166,7 +2267,7 @@ def workflow_blockers(root: Path, config: dict[str, str], runtime: dict[str, obj
 
     if effective_version not in version_ids:
         blockers.append(
-            f"active version `{effective_version}` does not exist under `workflow/versions/active/`. "
+            f"active version `{effective_version}` does not exist under `.workflow/versions/active/`. "
             f"{active_version_instruction(root)}"
         )
         return blockers
@@ -2193,7 +2294,7 @@ def current_version_layout(root: Path, config: dict[str, str]) -> dict[str, Path
 
 
 def version_meta_path(root: Path, version_id: str) -> Path:
-    return root / "workflow" / "versions" / "active" / version_id / "meta.yaml"
+    return root / ".workflow" / "versions" / "active" / version_id / "meta.yaml"
 
 
 def load_version_meta(root: Path, version_id: str) -> dict[str, object]:
@@ -2231,7 +2332,7 @@ DEFAULT_PROGRESS = {
 
 
 def load_progress(root: Path, version_id: str) -> dict:
-    path = root / "workflow" / "versions" / "active" / version_id / "progress.yaml"
+    path = root / ".workflow" / "versions" / "active" / version_id / "progress.yaml"
     if not path.exists():
         import copy
         return copy.deepcopy(DEFAULT_PROGRESS)
@@ -2249,7 +2350,7 @@ def load_progress(root: Path, version_id: str) -> dict:
 
 
 def save_progress(root: Path, version_id: str, progress: dict) -> None:
-    path = root / "workflow" / "versions" / "active" / version_id / "progress.yaml"
+    path = root / ".workflow" / "versions" / "active" / version_id / "progress.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(progress, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -2553,7 +2654,7 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
                 "current_task": "Execution finished. Summarize and verify outcomes",
                 "next_action": "Verify `mvn compile` for each completed change, successful project startup for the completed requirement, update the related `session-memory.md`, and check whether mature lessons should be promoted before closing. If verification fails, start `harness regression \"<issue>\"`.",
                 "suggested_skill": "verification-before-completion",
-                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. Before claiming completion, update the related `session-memory.md` and explicitly check whether mature lessons should be promoted into `workflow/context/experience/` or formal rules. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
+                "assistant_prompt": "Run final verification. Each completed change must include `mvn compile`. Completed requirement work must include successful project startup validation. Before claiming completion, update the related `session-memory.md` and explicitly check whether mature lessons should be promoted into `.workflow/context/experience/` or formal rules. If compilation or startup fails, stop and start `harness regression \"<issue>\"`. If user input is needed, fill the related change `regression/required-inputs.md` template and wait for the human response.",
                 "approval_required": False,
                 "stage_entered_at": now_iso,
             }
@@ -2619,7 +2720,7 @@ def rebuild_runtime_index(root: Path, runtime: dict[str, object]) -> dict[str, o
 def repair_identifier_drift(root: Path, config: dict[str, str], runtime: dict[str, object], check: bool) -> tuple[dict[str, str], dict[str, object], list[str]]:
     actions: list[str] = []
     version_map: dict[str, str] = {}
-    versions_root = root / "workflow" / "versions" / "active"
+    versions_root = root / ".workflow" / "versions" / "active"
     version_ids = list_existing_versions(root)
 
     for field in ("current_version",):
@@ -2791,38 +2892,165 @@ def repair_identifier_drift(root: Path, config: dict[str, str], runtime: dict[st
     return config, runtime, actions
 
 
-def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
-    created: list[str] = []
-    skipped: list[str] = []
+def _sync_requirement_workflow_managed_files(
+    root: Path,
+    *,
+    include_agents: bool,
+    include_claude: bool,
+    check: bool,
+    force_managed: bool,
+) -> tuple[dict[str, str], list[str]]:
     config = ensure_config(root)
     language = config["language"]
+    actions: list[str] = []
     for directory in _required_dirs(root):
-        directory.mkdir(parents=True, exist_ok=True)
-    managed_contents = _managed_file_contents(root, language=language, include_agents=write_agents, include_claude=write_claude)
+        if check:
+            if not directory.exists():
+                actions.append(f"would create {directory.relative_to(root).as_posix()}/")
+        else:
+            directory.mkdir(parents=True, exist_ok=True)
+
+    managed_contents = _managed_file_contents(root, language=language, include_agents=include_agents, include_claude=include_claude)
     managed_state = _load_managed_state(root)
+    refreshed_state = dict(managed_state)
     for relative, content in managed_contents.items():
-        write_if_missing(root / relative, content, created, skipped)
-    _save_managed_state(root, _refresh_managed_state(root, managed_contents, managed_state))
-    if not (root / WORKFLOW_RUNTIME_PATH).exists():
-        save_runtime(root, dict(DEFAULT_RUNTIME))
-        created.append(str(root / WORKFLOW_RUNTIME_PATH))
-    runtime = enter_harness_mode(root, load_runtime(root), str(config.get("current_version", "")).strip())
-    save_runtime(root, runtime)
+        path = root / relative
+        desired_hash = _managed_hash(content)
+        if not path.exists():
+            actions.append(f"{'missing' if check else 'created'} {relative}")
+            if not check:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+                refreshed_state[relative] = desired_hash
+            continue
+        current = path.read_text(encoding="utf-8")
+        current_hash = _managed_hash(current)
+        if current == content:
+            actions.append(f"current {relative}")
+            refreshed_state[relative] = desired_hash
+            continue
+        if managed_state.get(relative) == current_hash or force_managed:
+            label = "would update" if check else "updated"
+            if force_managed and managed_state.get(relative) != current_hash:
+                label = "would overwrite modified" if check else "overwrote modified"
+            actions.append(f"{label} {relative}")
+            if not check:
+                path.write_text(content, encoding="utf-8")
+                refreshed_state[relative] = desired_hash
+            continue
+        actions.append(f"skipped modified {relative}")
+
+    legacy_runtime = root / LEGACY_WORKFLOW_RUNTIME_PATH
+    if legacy_runtime.exists():
+        actions.append(
+            f"{'would remove legacy' if check else 'removed legacy'} {LEGACY_WORKFLOW_RUNTIME_PATH.as_posix()}"
+        )
+        if not check:
+            legacy_runtime.unlink()
+
+    if not check:
+        save_requirement_runtime(root, load_requirement_runtime(root))
+        _save_managed_state(root, _refresh_managed_state(root, managed_contents, refreshed_state))
+
+    return config, actions
+
+
+def _prune_empty_dirs(path: Path) -> None:
+    if not path.exists() or not path.is_dir():
+        return
+    for child in sorted(path.iterdir()):
+        if child.is_dir():
+            _prune_empty_dirs(child)
+    if not any(path.iterdir()):
+        path.rmdir()
+
+
+def _unique_backup_destination(root: Path, relative: Path) -> Path:
+    base = root / LEGACY_CLEANUP_ROOT / relative
+    if not base.exists():
+        return base
+    counter = 2
+    while True:
+        candidate = base.parent / f"{base.name}-{counter}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def cleanup_legacy_workflow_artifacts(root: Path, check: bool) -> list[str]:
+    actions: list[str] = []
+    for relative in LEGACY_CLEANUP_TARGETS:
+        path = root / relative
+        if not path.exists():
+            continue
+        if path.is_dir() and not check:
+            _prune_empty_dirs(path)
+            if not path.exists():
+                actions.append(f"removed empty legacy {relative.as_posix()}/")
+                continue
+        elif path.is_dir() and check:
+            # Predictive empty-prune for check mode.
+            has_payload = any(child for child in path.rglob("*") if child.is_file())
+            if not has_payload:
+                actions.append(f"would remove empty legacy {relative.as_posix()}/")
+                continue
+
+        if path.is_dir():
+            backup_destination = _unique_backup_destination(root, relative)
+            actions.append(
+                f"{'would archive legacy' if check else 'archived legacy'} {relative.as_posix()} -> {backup_destination.relative_to(root).as_posix()}"
+            )
+            if not check:
+                backup_destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(path), str(backup_destination))
+        elif path.is_file():
+            backup_destination = _unique_backup_destination(root, relative)
+            actions.append(
+                f"{'would archive legacy' if check else 'archived legacy'} {relative.as_posix()} -> {backup_destination.relative_to(root).as_posix()}"
+            )
+            if not check:
+                backup_destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(path), str(backup_destination))
+    for relative in OPTIONAL_EMPTY_DIRS:
+        path = root / relative
+        if not path.exists() or not path.is_dir():
+            continue
+        if check:
+            has_payload = any(child for child in path.rglob("*") if child.is_file())
+            if not has_payload:
+                actions.append(f"would remove empty optional {relative.as_posix()}/")
+            continue
+        _prune_empty_dirs(path)
+        if not path.exists():
+            actions.append(f"removed empty optional {relative.as_posix()}/")
+    return actions
+
+
+def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
+    _, actions = _sync_requirement_workflow_managed_files(
+        root,
+        include_agents=write_agents,
+        include_claude=write_claude,
+        check=False,
+        force_managed=False,
+    )
 
     print("Created files:")
-    for path in created:
-        print(f"- {path}")
+    for action in actions:
+        if action.startswith("created "):
+            print(f"- {root / action.removeprefix('created ')}")
     print("")
     print("Skipped existing files:")
-    for path in skipped:
-        print(f"- {path}")
+    for action in actions:
+        if action.startswith("current ") or action.startswith("skipped modified "):
+            print(f"- {root / action.split(' ', 1)[1]}")
     return 0
 
 
 def migrate_legacy_docs_to_workflow(root: Path) -> list[str]:
-    """Migrate legacy docs/ workflow data to workflow/ when upgrading from older harness versions."""
+    """Migrate legacy docs/ workflow data to .workflow/ when upgrading from older harness versions."""
     old_root = root / "docs"
-    new_root = root / "workflow"
+    new_root = root / ".workflow"
     markers = [
         old_root / "context" / "rules" / "workflow-runtime.yaml",
         old_root / "versions",
@@ -2836,62 +3064,110 @@ def migrate_legacy_docs_to_workflow(root: Path) -> list[str]:
         relative = src.relative_to(old_root)
         dst = new_root / relative
         if dst.exists():
-            actions.append(f"skipped (exists) workflow/{relative}")
+            actions.append(f"skipped (exists) .workflow/{relative}")
             continue
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
-        actions.append(f"migrated docs/{relative} → workflow/{relative}")
+        actions.append(f"migrated docs/{relative} → .workflow/{relative}")
     return actions
 
 
+def _ensure_workflow_dir_gitignore(root: Path) -> None:
+    """Ensure .workflow/ is not excluded by .gitignore."""
+    gitignore = root / ".gitignore"
+    marker = "!.workflow/"
+    if gitignore.exists():
+        content = gitignore.read_text(encoding="utf-8")
+        if marker in content:
+            return
+        if not content.endswith("\n"):
+            content += "\n"
+        content += f"\n# harness workflow directory (must not be ignored)\n{marker}\n"
+        gitignore.write_text(content, encoding="utf-8")
+    else:
+        gitignore.write_text(
+            f"# harness workflow directory (must not be ignored)\n{marker}\n",
+            encoding="utf-8",
+        )
+
+
+def _migrate_workflow_dir(root: Path) -> bool:
+    """Migrate .workflow/ → .workflow/ for backward compatibility. Returns True if migrated."""
+    old_dir = root / "workflow"
+    new_dir = root / ".workflow"
+    if old_dir.exists() and not new_dir.exists():
+        old_dir.rename(new_dir)
+        print(f"Migrated {old_dir.name}/ → {new_dir.name}/")
+        return True
+    return False
+
+
 def install_repo(root: Path, force_skill: bool = False) -> int:
+    # Lazy import to avoid circular dependency
+    from harness_workflow.cli import prompt_platform_selection
+
+    _migrate_workflow_dir(root)
+    _ensure_workflow_dir_gitignore(root)
+
     migration_actions = migrate_legacy_docs_to_workflow(root)
     if migration_actions:
-        print("Migrated legacy docs/ → workflow/:")
+        print("Migrated legacy docs/ → .workflow/:")
         for action in migration_actions:
             print(f"- {action}")
         print("")
+
+    # Capture platform state before local skills are installed; otherwise the just-copied
+    # qoder skill tree makes a brand-new repository look partially configured.
+    active_platforms = get_active_platforms(str(root))
+    active_list = [p for p, is_active in active_platforms.items() if is_active]
+
     skill_paths = install_local_skills(root, force=force_skill)
     print("Installed local skills:")
     for skill_path in skill_paths:
         print(f"- {skill_path}")
-    return init_repo(root, write_agents=True, write_claude=True)
+
+    # If no existing config, default to all platforms
+    if not active_list:
+        selected = ["codex", "qoder", "cc"]
+        print("\nNew installation: enabling all platforms (codex, qoder, cc)")
+    else:
+        # Interactive selection for re-install
+        print(f"\nCurrent active platforms: {', '.join(active_list)}")
+        selected = prompt_platform_selection(active_list)
+        if not selected:
+            selected = ["codex", "qoder", "cc"]
+            print("No selection made, using all platforms")
+
+    # Sync platform state (backup/restore)
+    result = sync_platforms_state(selected, str(root))
+    if result.get("backed_up"):
+        print(f"Backed up: {', '.join(result['backed_up'])}")
+    if result.get("restored"):
+        print(f"Restored from backup: {', '.join(result['restored'])}")
+    if result.get("need_generate"):
+        print(f"Generated new: {', '.join(result['need_generate'])}")
+    if result.get("kept"):
+        print(f"Kept: {', '.join(result['kept'])}")
+
+    # Generate configs for selected platforms
+    write_agents = "codex" in selected
+    write_claude = "cc" in selected
+
+    return init_repo(root, write_agents=write_agents, write_claude=write_claude)
 
 
 def update_repo(root: Path, check: bool = False, force_managed: bool = False) -> int:
-    config = ensure_harness_root(root)
-    language = config["language"]
-    runtime = load_runtime(root)
-    if not check:
-        migration_actions = migrate_legacy_docs_to_workflow(root)
-        if migration_actions:
-            print("Migrated legacy docs/ → workflow/:")
-            for action in migration_actions:
-                print(f"- {action}")
-            print("")
-            runtime = load_runtime(root)
-    for directory in _required_dirs(root):
-        directory.mkdir(parents=True, exist_ok=True)
-
-    managed_contents = _managed_file_contents(root, language=language, include_agents=True, include_claude=True)
-    managed_state = _load_managed_state(root)
-    refreshed_state = dict(managed_state)
     actions: list[str] = []
-
-    # Backfill lifecycle directories for existing versions
-    active_versions_root = root / "workflow" / "versions" / "active"
-    if active_versions_root.exists():
-        lifecycle_subdirs = ["testing", "testing/bugs", "acceptance"]
-        for version_dir in sorted(active_versions_root.iterdir()):
-            if not version_dir.is_dir():
-                continue
-            for sub in lifecycle_subdirs:
-                target = version_dir / sub
-                if not target.exists():
-                    if not check:
-                        target.mkdir(parents=True, exist_ok=True)
-                    actions.append(f"{'would create' if check else 'created'} {version_dir.name}/{sub}/")
-
+    if not check:
+        if _migrate_workflow_dir(root):
+            actions.append("migrated .workflow/ → .workflow/")
+        _ensure_workflow_dir_gitignore(root)
+    migration_actions = migrate_legacy_docs_to_workflow(root) if not check else []
+    if migration_actions:
+        print("Migrated legacy docs/ → .workflow/:")
+        for action in migration_actions:
+            print(f"- {action}")
+        print("")
     if check:
         actions.append("would refresh .codex/skills/harness")
         actions.append("would refresh .claude/skills/harness")
@@ -2901,71 +3177,15 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
         actions.append("refreshed .codex/skills/harness")
         actions.append("refreshed .claude/skills/harness")
         actions.append("refreshed .qoder/skills/harness")
-
-    for relative, content in managed_contents.items():
-        path = root / relative
-        desired_hash = _managed_hash(content)
-        if not path.exists():
-            actions.append(f"{'missing' if check else 'created'} {relative}")
-            if not check:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(content, encoding="utf-8")
-                refreshed_state[relative] = desired_hash
-            continue
-
-        current = path.read_text(encoding="utf-8")
-        current_hash = _managed_hash(current)
-        if current == content:
-            actions.append(f"current {relative}")
-            refreshed_state[relative] = desired_hash
-            continue
-
-        if managed_state.get(relative) == current_hash:
-            actions.append(f"{'would update' if check else 'updated'} {relative}")
-            if not check:
-                path.write_text(content, encoding="utf-8")
-                refreshed_state[relative] = desired_hash
-            continue
-
-        if force_managed:
-            actions.append(f"{'would overwrite modified' if check else 'overwrote modified'} {relative}")
-            if not check:
-                path.write_text(content, encoding="utf-8")
-                refreshed_state[relative] = desired_hash
-            continue
-
-        actions.append(f"skipped modified {relative}")
-
-    if not check:
-        save_config(root, config)
-        _save_managed_state(root, _refresh_managed_state(root, managed_contents, refreshed_state))
-        if not (root / WORKFLOW_RUNTIME_PATH).exists():
-            save_runtime(root, dict(DEFAULT_RUNTIME))
-            actions.append("created workflow/context/rules/workflow-runtime.yaml")
-            runtime = load_runtime(root)
-
-    config, runtime, repair_actions = repair_identifier_drift(root, config, runtime, check)
-    actions.extend(repair_actions)
-    if not check:
-        current_version = str(runtime.get("current_version", "") or config.get("current_version", "")).strip()
-        runtime = enter_harness_mode(root, runtime, current_version)
-        save_config(root, config)
-        save_runtime(root, runtime)
-
-    # Detect versions in 'executing' stage — warn that next `harness next` will enter 'testing' (new behavior)
-    current_version = str(runtime.get("current_version", "")).strip()
-    if current_version:
-        _vmeta_path = version_meta_path(root, current_version)
-        _vmeta = load_version_meta(root, current_version) if _vmeta_path.exists() else {}
-        if str(_vmeta.get("stage", "")) == "executing":
-            actions.append(
-                "WARNING: version is in 'executing' stage — next `harness next` will enter 'testing' stage (new behavior). "
-                "If development is already complete and you want to proceed, run `harness next` to enter testing."
-            )
-
-    blockers = workflow_blockers(root, config, runtime)
-    for blocker in blockers:
-        actions.append(f"workflow action required: {blocker}")
+    _, sync_actions = _sync_requirement_workflow_managed_files(
+        root,
+        include_agents=True,
+        include_claude=True,
+        check=check,
+        force_managed=force_managed,
+    )
+    actions.extend(sync_actions)
+    actions.extend(cleanup_legacy_workflow_artifacts(root, check))
 
     print("Update summary:")
     for action in actions:
@@ -2973,10 +3193,6 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     if check:
         print("")
         print("No files were changed.")
-    if blockers:
-        print("")
-        print("Workflow is blocked until the active version is explicitly repaired.")
-        return 1
     return 0
 
 
@@ -2984,8 +3200,11 @@ def set_language(root: Path, language: str) -> int:
     config = ensure_config(root)
     config["language"] = normalize_language(language)
     save_config(root, config)
-    runtime = enter_harness_mode(root, load_runtime(root), str(config.get("current_version", "")).strip())
-    save_runtime(root, runtime)
+    if requirement_workflow_enabled(root):
+        save_requirement_runtime(root, load_requirement_runtime(root))
+    else:
+        runtime = enter_harness_mode(root, load_runtime(root), str(config.get("current_version", "")).strip())
+        save_runtime(root, runtime)
     print(f"Language set to {config['language']}")
     print("Run `harness update` if you want managed templates and guides to refresh in the new language.")
     return 0
@@ -3374,8 +3593,8 @@ def rename_version(root: Path, current_name: str, new_name: str) -> int:
     new_id = new_name.strip()
     if not old_id or not new_id:
         raise SystemExit("Both current and new version names are required.")
-    old_dir = root / "workflow" / "versions" / "active" / old_id
-    new_dir = root / "workflow" / "versions" / "active" / new_id
+    old_dir = root / ".workflow" / "versions" / "active" / old_id
+    new_dir = root / ".workflow" / "versions" / "active" / new_id
     if not old_dir.exists():
         raise SystemExit(f"Version does not exist: {old_id}")
     if new_dir.exists():
@@ -3566,6 +3785,44 @@ def use_version(root: Path, version_name: str) -> int:
 
 
 def workflow_status(root: Path) -> int:
+    if requirement_workflow_enabled(root):
+        runtime = load_requirement_runtime(root)
+        current_requirement = str(runtime.get("current_requirement", "")).strip()
+        locked_requirement = str(runtime.get("locked_requirement", "")).strip()
+        effective_requirement = locked_requirement or current_requirement
+        print(f"current_requirement: {current_requirement or '(none)'}")
+        print(f"stage: {str(runtime.get('stage', '')).strip() or '(none)'}")
+        print(f"conversation_mode: {runtime.get('conversation_mode', 'open')}")
+        print(f"locked_requirement: {locked_requirement or '(none)'}")
+        print(f"locked_stage: {str(runtime.get('locked_stage', '')).strip() or '(none)'}")
+        print(f"current_regression: {str(runtime.get('current_regression', '')).strip() or '(none)'}")
+        active_requirements = runtime.get("active_requirements", [])
+        if isinstance(active_requirements, list):
+            rendered_active = ", ".join(str(item) for item in active_requirements) or "(none)"
+            print(f"active_requirements: {rendered_active}")
+        if effective_requirement:
+            requirements_dir = root / ".workflow" / "state" / "requirements"
+            match = next(
+                (
+                    path
+                    for path in sorted(requirements_dir.glob("*.yaml"))
+                    if str(load_simple_yaml(path).get("req_id", "")).strip() == effective_requirement
+                ),
+                None,
+            )
+            if match is not None:
+                state = load_simple_yaml(match)
+                title = str(state.get("title", "")).strip()
+                status = str(state.get("status", "")).strip()
+                req_stage = str(state.get("stage", "")).strip()
+                if title:
+                    print(f"requirement_title: {title}")
+                if status:
+                    print(f"requirement_status: {status}")
+                if req_stage:
+                    print(f"requirement_stage: {req_stage}")
+        return 0
+
     config, runtime = ensure_workflow_state(root)
     current_version = str(runtime.get("current_version", "") or config.get("current_version", ""))
     print(f"current_version: {current_version or '(none)'}")
@@ -3694,7 +3951,7 @@ def _sync_progress(root: Path, version_id: str, meta: dict, config: dict | None 
     if config:
         language = str(config.get("language", "english"))
     spec = language_spec(language)
-    changes_dir = root / "workflow" / "versions" / "active" / version_id / spec["changes_dir"]
+    changes_dir = root / ".workflow" / "versions" / "active" / version_id / spec["changes_dir"]
 
     # Compute change counts
     changes_total = 0
@@ -3751,7 +4008,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     # Gate checks before stage transition
     language = str(config.get("language", "english"))
     spec = language_spec(language)
-    changes_dir = root / "workflow" / "versions" / "active" / current_version / spec["changes_dir"]
+    changes_dir = root / ".workflow" / "versions" / "active" / current_version / spec["changes_dir"]
     if prev_stage == "executing":
         progress = load_progress(root, current_version)
         dev = progress["stages"].get("development", {})

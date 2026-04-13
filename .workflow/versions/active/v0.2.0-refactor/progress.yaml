@@ -1,0 +1,25 @@
+{
+  "stage": "done",
+  "stages": {
+    "requirement": {
+      "status": "done"
+    },
+    "development": {
+      "status": "done",
+      "changes_total": 0,
+      "changes_done": 0
+    },
+    "testing": {
+      "status": "done",
+      "cases_total": 0,
+      "cases_passed": 0,
+      "cases_failed": 0,
+      "bugs_total": 0,
+      "bugs_fixed": 0,
+      "bugs_open": 0
+    },
+    "acceptance": {
+      "status": "done"
+    }
+  }
+}

@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "Harness Engineering workflow CLI and installable Codex skill."
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+  "questionary>=2.0.0",
+]
 authors = [
   { name = "togally" }
 ]
@@ -38,4 +41,13 @@ harness_workflow = [
   "assets/skill/references/*.md",
   "assets/skill/scripts/*.py",
   "assets/skill/tests/*.py",
+  "assets/scaffold_v2/WORKFLOW.md",
+  "assets/scaffold_v2/workflow/context/*.md",
+  "assets/scaffold_v2/workflow/context/roles/*.md",
+  "assets/scaffold_v2/workflow/context/project/*.md",
+  "assets/scaffold_v2/workflow/context/team/*.md",
+  "assets/scaffold_v2/workflow/state/experience/*.md",
+  "assets/scaffold_v2/workflow/constraints/*.md",
+  "assets/scaffold_v2/workflow/evaluation/*.md",
+  "assets/scaffold_v2/workflow/flow/*.md",
 ]

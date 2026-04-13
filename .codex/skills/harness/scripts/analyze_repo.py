@@ -45,11 +45,11 @@ def recommend_actions(root: Path, facts: dict[str, object]) -> list[str]:
     else:
         actions.append("Review existing AGENTS.md and merge docs/ routing rules manually if needed.")
     if not facts["has_constitution"]:
-        actions.append("Add workflow/memory/constitution.md as durable memory root.")
+        actions.append("Add.workflow/memory/constitution.md as durable memory root.")
     if not facts["has_experience_index"]:
-        actions.append("Add workflow/context/experience/index.md for keyword-based experience loading.")
+        actions.append("Add.workflow/context/experience/index.md for keyword-based experience loading.")
     if not facts["has_agent_workflow"]:
-        actions.append("Add workflow/context/rules/agent-workflow.md for detailed workflow rules.")
+        actions.append("Add.workflow/context/rules/agent-workflow.md for detailed workflow rules.")
     return actions
 
 

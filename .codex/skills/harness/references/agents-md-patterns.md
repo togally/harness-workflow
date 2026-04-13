@@ -16,10 +16,10 @@ Recommended sections:
 
 At minimum, `AGENTS.md` should tell the agent to:
 
-1. Read `workflow/memory/constitution.md` before analysis or design work
-2. Read `workflow/context/experience/index.md` before analysis, design, implementation, or self-check
+1. Read `.workflow/memory/constitution.md` before analysis or design work
+2. Read `.workflow/context/experience/index.md` before analysis, design, implementation, or self-check
 3. Load only matching experience files instead of the full experience tree
-4. Use `workflow/context/rules/agent-workflow.md` for the detailed workflow
+4. Use `.workflow/context/rules/agent-workflow.md` for the detailed workflow
 
 ## Anti-Patterns
 

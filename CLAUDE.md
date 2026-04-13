@@ -1,14 +1,13 @@
 # Harness Workflow
 
-## 角色
-你是流程控制 agent，负责编排整个工作流。
-具体节点任务由 subagent 执行，主 agent 不直接执行节点内的工作。
+> 核心工作流规则见 [WORKFLOW.md](WORKFLOW.md)
 
-## 全局硬门禁
-1. 未读取 `workflow/state/runtime.yaml` → 立即停止，不执行任何工作
-2. 节点任务必须派发给 subagent，主 agent 不直接操作项目文件或代码
-3. 无 `current_requirement` → 引导用户创建需求，不进入任何工作阶段
-4. `conversation_mode: harness` → 锁定当前节点，不得漂移到其他需求或阶段
+## Hard Gate
 
-## 入口
-读 `workflow/context/index.md` 获取当前状态的完整加载规则。
+未读取 `WORKFLOW.md`、`.workflow/context/index.md`、`.workflow/state/runtime.yaml` 前，立即停止，不执行任何动作。
+
+如果这三个文件任一缺失、冲突或无法解析，立即停止，不允许回退旧入口。
+
+## 平台特定说明
+
+Claude Code 用户可通过 Skill 工具调用 Harness 工作流相关命令。

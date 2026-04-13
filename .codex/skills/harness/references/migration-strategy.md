@@ -6,9 +6,9 @@ If the repository already uses `doc/`, do not force an immediate rename.
 
 Preferred strategy:
 
-1. Create `workflow/` as the new canonical entrypoint
-2. Add indexes and workflow entry files under `workflow/`
-3. Reference legacy `doc/` locations from `workflow/README.md`
+1. Create `.workflow/` as the new canonical entrypoint
+2. Add indexes and workflow entry files under `.workflow/`
+3. Reference legacy `doc/` locations from `.workflow/README.md`
 4. Move content gradually when a real maintenance opportunity appears
 
 ## When `AGENTS.md` Already Exists
@@ -24,6 +24,6 @@ If `AGENTS.md` already exists:
 
 Map what exists before creating duplicates.
 
-- Existing ADRs can remain where they are if `workflow/README.md` links them
+- Existing ADRs can remain where they are if `.workflow/README.md` links them
 - Existing plans can remain if there is a clear active/archive distinction
-- Existing architecture docs can be referenced from `workflow/context/project/` indexes
+- Existing architecture docs can be referenced from `.workflow/context/project/` indexes

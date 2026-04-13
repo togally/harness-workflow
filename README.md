@@ -8,7 +8,7 @@
 
 - 工作容器：`version -> requirement -> change -> plan -> execution`
 - 状态路由：`workflow-runtime.yaml + version meta.yaml`
-- 生命周期门禁：`workflow/context/hooks/`
+- 生命周期门禁：`.workflow/context/hooks/`
 - 人工确认点：需求、变更、计划、执行前都必须显式停住
 
 README 只负责两件事：
@@ -63,7 +63,7 @@ harness install
 - 生成 `.qoder/commands/harness-*.md`
 - 生成 `.qoder/rules/harness-workflow.md`
 - 生成 `.codex/skills/harness-*`
-- 初始化 `workflow/` 工作流骨架
+- 初始化 `.workflow/` 工作流骨架
 - 写入 `AGENTS.md`、`CLAUDE.md`
 
 如果只想生成文档骨架：
@@ -110,7 +110,7 @@ harness 内置两条进化线，让项目越用越聪明：
 **应用项目线（经验沉淀）**
 
 ```text
-session-memory.md → workflow/context/experience/ → 正式 rules/
+session-memory.md → .workflow/context/experience/ → 正式 rules/
 ```
 
 - Agent 被纠正、发现约束、路径失败、MCP 成功解决问题时自动记录
@@ -128,19 +128,19 @@ session-memory.md → workflow/context/experience/ → 正式 rules/
 - `harness feedback` 导出统计摘要到当前目录，格式兼容 MCP / curl
 - 工具仓库聚合多项目反馈后生成优化提案 → 人工确认 → 发版
 
-### MCP 能力索引
+### 三端入口 / Three-Platform Entry
 
-安装时自动生成 `workflow/context/mcp-registry.yaml`（项目级）和 `workflow/templates/mcp-catalog.yaml`（工具级推荐表）。
+harness 支持三个 AI 平台，通过 `harness install` 时交互式选择：
 
-Agent 向用户索要外部信息前，决策链为：
+| 平台 | 配置文件 | 说明 |
+|------|---------|------|
+| Codex | `AGENTS.md` | Agent 协作文档 |
+| Claude Code (cc) | `CLAUDE.md` + `.claude/commands/` | Claude Code 入口 |
+| Qoder | `.qoder/skills/harness/SKILL.md` | Qoder skill 定义 |
 
-```text
-查经验 → 查 MCP 注册表 → 扫依赖匹配 catalog → 搜社区 MCP → 其他方式 → 才问人
-```
+**交互选择**：执行 `harness install` 时，会提示勾选需要支持的平台。未勾选的配置会移到 `.workflow/context/backup/` 备份。重新勾选时从备份恢复。
 
-MCP 使用记录随 feedback 回流到工具仓库，adoption 积累后自动升级推荐等级。
-
-### 三端入口
+**非交互模式**：在脚本或 CI 环境中运行时，自动使用当前配置或默认全选。
 
 - Codex：主入口是 `.codex/skills/harness`，命令级入口是 `.codex/skills/harness-*`
 - Claude Code：主入口是 `.claude/skills/harness`，命令级入口是 `.claude/commands/harness-*.md`
@@ -154,30 +154,64 @@ MCP 使用记录随 feedback 回流到工具仓库，adoption 积累后自动升
 
 ### 核心概念
 
-- `version`：主工作容器
 - `requirement`：需求讨论与确认
 - `change`：需求拆分出的功能变更，也可以独立存在
 - `plan`：具体执行计划
 - `regression`：先确认是不是真问题，再决定是否转成 requirement / change
-- `workflow-runtime.yaml`：仓库级运行态
-- `meta.yaml`：当前 version 的局部状态
-- `hooks/`：按调用时机组织的硬门禁
+- `.workflow/state/runtime.yaml`：仓库级运行态
+- `.workflow/flow/`：需求、变更、计划等工作文档区
+- `.workflow/context/`：稳定规则、角色、经验、项目上下文
+
+### 六层架构 / Six-Layer Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 6: 状态管理层 (State Management)                      │
+│  runtime.yaml + meta.yaml + platforms.yaml                  │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 5: 验收层 (Evaluation Layer)                          │
+│  testing/ → acceptance/ → done                              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: 执行层 (Execution Layer)                           │
+│  executing + session-memory.md                              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: 规划层 (Planning Layer)                            │
+│  requirement_review → planning → change.md + plan.md        │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: 上下文层 (Context Layer)                           │
+│  .workflow/context/ (rules + hooks + experience + project)   │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 1: 入口层 (Entry Layer)                               │
+│  WORKFLOW.md + AGENTS.md + CLAUDE.md + SKILL.md             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**层次说明：**
+
+| 层级 | 名称 | 职责 |
+|------|------|------|
+| Layer 1 | 入口层 | 三端统一入口，路由到上下文层 |
+| Layer 2 | 上下文层 | 项目规则、经验、约束的加载中心 |
+| Layer 3 | 规划层 | 需求分析、变更拆分、计划制定 |
+| Layer 4 | 执行层 | 代码实现、执行日志 |
+| Layer 5 | 验收层 | 测试验证、人工验收 |
+| Layer 6 | 状态管理层 | 运行时状态、版本元数据 |
 
 ### 推荐阅读入口
 
 如果你是人：
 
 1. `README.md`
-2. `workflow/README.md`
-3. `workflow/context/rules/development-flow.md`
+2. `WORKFLOW.md`
+3. `.workflow/context/index.md`
 
 如果你是 Agent：
 
 1. `AGENTS.md`
-2. `workflow/context/rules/workflow-runtime.yaml`
-3. 当前 version 的 `meta.yaml`
-4. `workflow/context/hooks/README.md`
-5. 命中的 hook 文档
+2. `WORKFLOW.md`
+3. `.workflow/context/index.md`
+4. `.workflow/state/runtime.yaml`
+5. 当前 stage 命中的角色 / 经验 / 约束文件
 
 ### 规则放在哪里
 
@@ -185,39 +219,34 @@ README 不再展开详细硬规则，统一从这些文件进入：
 
 - `AGENTS.md`
 - `CLAUDE.md`
-- `workflow/README.md`
-- `workflow/context/rules/development-flow.md`
-- `workflow/context/rules/agent-workflow.md`
-- `workflow/context/rules/workflow-runtime.yaml`
-- `workflow/context/hooks/README.md`
-- `workflow/context/hooks/<timing>.md`
-- `workflow/versions/active/<version>/meta.yaml`
+- `WORKFLOW.md`
+- `.workflow/context/index.md`
+- `.workflow/state/runtime.yaml`
+- `.workflow/context/roles/<stage>.md`
+- `.workflow/context/experience/...`
+- `.workflow/constraints/*.md`
+- `.workflow/flow/stages.md`
 
 ### 目录结构
 
 ```text
-workflow/
+.workflow/
 ├── context/
-│   ├── hooks/              # 按调用时机组织的硬门禁
+│   ├── roles/              # stage 对应角色
 │   ├── experience/         # 经验索引与条目
-│   ├── mcp-registry.yaml   # 项目级 MCP 注册表
 │   ├── project/
 │   ├── team/
-│   └── rules/
-├── memory/
-├── versions/
-│   ├── active/
-│   │   └── <version>/
-│   │       ├── requirements/ 或 需求/
-│   │       ├── changes/ 或 变更/
-│   │       ├── regressions/ 或 回归/
-│   │       ├── archive/ 或 归档/
-│   │       └── meta.yaml
-│   └── archive/
-├── templates/
-│   └── mcp-catalog.yaml    # 工具级 MCP 推荐表
-├── decisions/
-└── runbooks/
+│   └── index.md
+├── constraints/
+├── evaluation/
+├── flow/
+│   ├── requirements/
+│   └── archive/            # 首次 archive 时按需创建
+└── state/
+    ├── runtime.yaml
+    ├── requirements/
+    ├── sessions/
+    └── platforms.yaml
 .harness/
 └── feedback.jsonl           # 使用事件静默记录
 ```
@@ -256,23 +285,34 @@ harness update --force-managed
 
 ### 中文流程图
 
-#### 正常交付流
+#### 完整交付流
 
 ```mermaid
 flowchart TD
     A["harness install"] --> B["harness version / active"]
     B --> C["读取 runtime + meta + hooks"]
     C --> D["harness requirement"]
-    D --> E["需求讨论与确认"]
+    D --> E["需求讨论与确认 (requirement_review)"]
     E --> F["harness change"]
     F --> G["变更讨论与确认"]
     G --> H["harness plan / harness next"]
-    H --> I["计划讨论与确认"]
+    H --> I["计划讨论与确认 (planning)"]
     I --> J["harness next"]
     J --> K["执行前确认"]
     K --> L["harness next --execute"]
-    L --> M["实施 + 验证"]
-    M --> N["经验沉淀"]
+    L --> M["实施 (executing)"]
+    M --> N["harness next"]
+    N --> O["测试验证 (testing)"]
+    O --> P["harness next"]
+    P --> Q["人工验收 (acceptance)"]
+    Q --> R{"验收通过?"}
+    R -->|是| S["done + 经验沉淀"]
+    R -->|否| T["harness regression"]
+    T --> U["问题诊断"]
+    U --> V{"确认问题?"}
+    V -->|是| W["转 requirement / change"]
+    V -->|否| X["取消或解释"]
+    W --> F
 ```
 
 #### 回归流
@@ -297,7 +337,7 @@ Its role is not to replace agents. It gives agents a shared structure for:
 
 - work containers: `version -> requirement -> change -> plan -> execution`
 - state routing: `workflow-runtime.yaml + version meta.yaml`
-- lifecycle gates: `workflow/context/hooks/`
+- lifecycle gates: `.workflow/context/hooks/`
 - explicit human approval points
 
 This README is intentionally limited to:
@@ -349,7 +389,7 @@ This installs:
 - thin command wrappers for Codex
 - `AGENTS.md`
 - `CLAUDE.md`
-- the `workflow/` workflow structure
+- the `.workflow/` workflow structure
 
 If you only want the docs skeleton:
 
@@ -395,7 +435,7 @@ harness has two built-in evolution lines that make projects smarter over time:
 **Application project line (experience accumulation)**
 
 ```text
-session-memory.md → workflow/context/experience/ → formal rules/
+session-memory.md → .workflow/context/experience/ → formal rules/
 ```
 
 - Lessons captured when the agent is corrected, constraints discovered, paths fail, or MCPs solve problems
@@ -412,18 +452,6 @@ session-memory.md → workflow/context/experience/ → formal rules/
 - `ff`, `next`, `regression` commands silently record structural events
 - `harness feedback` exports a summary to the current directory, compatible with MCP / curl
 - Tool repo aggregates multi-project feedback → proposals → human approval → release
-
-### MCP Capability Index
-
-`harness install` generates `workflow/context/mcp-registry.yaml` (project-level) and `workflow/templates/mcp-catalog.yaml` (tool-level recommendations).
-
-Before asking the user for external information, the agent follows this decision chain:
-
-```text
-check experience → check MCP registry → scan deps against catalog → search community MCPs → other methods → then ask human
-```
-
-MCP usage flows back via feedback, and adoption counts drive recommendation upgrades.
 
 ### Tool Entry Points
 
@@ -448,59 +476,107 @@ Resolution order:
 - `meta.yaml`: version-local state
 - `hooks/`: hard gates organized by invocation timing
 
+### Six-Layer Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 6: State Management                                  │
+│  runtime.yaml + meta.yaml + platforms.yaml                  │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 5: Evaluation Layer                                  │
+│  testing/ → acceptance/ → done                              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: Execution Layer                                   │
+│  executing + session-memory.md                              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: Planning Layer                                    │
+│  requirement_review → planning → change.md + plan.md        │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: Context Layer                                     │
+│  .workflow/context/ (rules + hooks + experience + project)   │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 1: Entry Layer                                       │
+│  WORKFLOW.md + AGENTS.md + CLAUDE.md + SKILL.md             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Layer Description:**
+
+| Layer | Name | Responsibility |
+|-------|------|----------------|
+| Layer 1 | Entry Layer | Unified entry for three platforms, routes to context |
+| Layer 2 | Context Layer | Project rules, experience, constraints loading center |
+| Layer 3 | Planning Layer | Requirement analysis, change split, plan creation |
+| Layer 4 | Execution Layer | Code implementation, execution log |
+| Layer 5 | Evaluation Layer | Testing verification, human acceptance |
+| Layer 6 | State Management | Runtime state, version metadata |
+
+### Three-Platform Entry
+
+harness supports three AI platforms with interactive selection during `harness install`:
+
+| Platform | Config File | Description |
+|----------|-------------|-------------|
+| Codex | `AGENTS.md` | Agent collaboration doc |
+| Claude Code (cc) | `CLAUDE.md` + `.claude/commands/` | Claude Code entry |
+| Qoder | `.qoder/skills/harness/SKILL.md` | Qoder skill definition |
+
+**Interactive Selection**: Running `harness install` prompts you to select platforms. Unselected configs are backed up to `.workflow/context/backup/`. Re-selecting restores from backup.
+
+**Non-interactive Mode**: In scripts or CI environments, uses current config or defaults to all platforms.
+
+- Codex: `.codex/skills/harness` and `.codex/skills/harness-*`
+- Claude Code: `.claude/skills/harness` and `.claude/commands/harness-*.md`
+- Qoder: `.qoder/skills/harness` and `.qoder/commands/harness-*.md`
+
 ### Where To Read Next
 
 For humans:
 
 1. `README.md`
-2. `workflow/README.md`
-3. `workflow/context/rules/development-flow.md`
+2. `WORKFLOW.md`
+3. `.workflow/context/index.md`
 
 For agents:
 
 1. `AGENTS.md`
-2. `workflow/context/rules/workflow-runtime.yaml`
-3. the current version `meta.yaml`
-4. `workflow/context/hooks/README.md`
-5. matched hook files
+2. `WORKFLOW.md`
+3. `.workflow/context/index.md`
+4. `.workflow/state/runtime.yaml`
+5. the matched role / experience / constraint files
 
 ### Where Detailed Rules Live
 
 - `AGENTS.md`
 - `CLAUDE.md`
-- `workflow/README.md`
-- `workflow/context/rules/development-flow.md`
-- `workflow/context/rules/agent-workflow.md`
-- `workflow/context/rules/workflow-runtime.yaml`
-- `workflow/context/hooks/README.md`
-- `workflow/context/hooks/<timing>.md`
-- `workflow/versions/active/<version>/meta.yaml`
+- `WORKFLOW.md`
+- `.workflow/context/index.md`
+- `.workflow/state/runtime.yaml`
+- `.workflow/context/roles/<stage>.md`
+- `.workflow/context/experience/...`
+- `.workflow/constraints/*.md`
+- `.workflow/flow/stages.md`
 
 ### Repository Structure
 
 ```text
-workflow/
+.workflow/
 ├── context/
-│   ├── hooks/              # hard gates by invocation timing
+│   ├── roles/              # stage-specific roles
 │   ├── experience/         # experience index and entries
-│   ├── mcp-registry.yaml   # project-level MCP registry
 │   ├── project/
 │   ├── team/
-│   └── rules/
-├── memory/
-├── versions/
-│   ├── active/
-│   │   └── <version>/
-│   │       ├── requirements/
-│   │       ├── changes/
-│   │       ├── regressions/
-│   │       ├── archive/
-│   │       └── meta.yaml
-│   └── archive/
-├── templates/
-│   └── mcp-catalog.yaml    # tool-level MCP recommendations
-├── decisions/
-└── runbooks/
+│   └── index.md
+├── constraints/
+├── evaluation/
+├── flow/
+│   ├── requirements/
+│   └── archive/            # created on demand when archiving
+└── state/
+    ├── runtime.yaml
+    ├── requirements/
+    ├── sessions/
+    └── platforms.yaml
 .harness/
 └── feedback.jsonl           # silent usage event log
 ```
@@ -539,23 +615,34 @@ harness update --force-managed
 
 ### English Flow
 
-#### Delivery Flow
+#### Complete Delivery Flow
 
 ```mermaid
 flowchart TD
     A["harness install"] --> B["harness version / active"]
     B --> C["Read runtime + meta + hooks"]
     C --> D["harness requirement"]
-    D --> E["Requirement review"]
+    D --> E["Requirement review (requirement_review)"]
     E --> F["harness change"]
     F --> G["Change review"]
     G --> H["harness plan / harness next"]
-    H --> I["Plan review"]
+    H --> I["Plan review (planning)"]
     I --> J["harness next"]
     J --> K["Execution confirmation"]
     K --> L["harness next --execute"]
-    L --> M["Implementation + verification"]
-    M --> N["Experience capture"]
+    L --> M["Implementation (executing)"]
+    M --> N["harness next"]
+    N --> O["Testing (testing)"]
+    O --> P["harness next"]
+    P --> Q["Human acceptance (acceptance)"]
+    Q --> R{"Accepted?"}
+    R -->|Yes| S["done + Experience capture"]
+    R -->|No| T["harness regression"]
+    T --> U["Problem diagnosis"]
+    U --> V{"Confirmed?"}
+    V -->|Yes| W["Convert to requirement / change"]
+    V -->|No| X["Cancel or explain"]
+    W --> F
 ```
 
 #### Regression Flow

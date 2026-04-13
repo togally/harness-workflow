@@ -7,20 +7,20 @@ argument-hint: "[instruction]"
 
 执行前请先：
 
-1. 读取 `workflow/context/rules/workflow-runtime.yaml`
+1. 读取 `.workflow/context/rules/workflow-runtime.yaml`
 2. 根据 `current_version` 读取对应 version 的 `meta.yaml`
 3. 继续读取：
-   - `workflow/context/rules/development-flow.md`
-   - `workflow/context/rules/agent-workflow.md`
-   - `workflow/context/rules/risk-rules.md`
-   - `workflow/context/experience/index.md`
+   - `.workflow/context/rules/development-flow.md`
+   - `.workflow/context/rules/agent-workflow.md`
+   - `.workflow/context/rules/risk-rules.md`
+   - `.workflow/context/experience/index.md`
 4. 优先遵循根目录 `AGENTS.md`
 5. 如果存在 `.qoder/skills/harness/SKILL.md`，按其中的 Harness skill 执行
 
 执行要求：
 
 - 不要绕过 workflow 手工推进 requirement / change / plan / execution
-- 如果 workflow 状态缺失或冲突，停止并提示运行 `harness active "<version>"`
+- 如果 workflow 状态缺失或冲突，停止并提示运行 `harness requirement "<title>"`
 - 如果编译失败、启动失败或需要用户提供外部信息，先进入 regression
 - 若需要用户补信息，先填写对应 change `regression/required-inputs.md`
 
