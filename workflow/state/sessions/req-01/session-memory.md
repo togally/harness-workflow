@@ -42,10 +42,13 @@
 ### ▶ Testing 阶段 - Regression 修复完成
 - 开始时间: 2026-04-12
 - 第一轮测试: 2026-04-13（4项全部失败，发现 7 个问题）
-- Regression 修复: 2026-04-13（7 个问题全部修复并提交）
+- Regression 修复（第一轮）: 2026-04-13（7 个问题全部修复并提交）
 - 第二轮测试: 2026-04-13（TC-02/03/04 通过，TC-01 仍失败）
 - 追加修复: 2026-04-13（清除旧 harness assets/agents 文件，提交工作区变更）
-- 待执行: 第三轮测试验证 TC-01
+- 第三轮测试: 2026-04-13（TC-01 通过，4项全部通过）
+- 新 Regression: 2026-04-13（发现 test_harness_cli.py 15 个用例全部失败）
+- Chg-01 修复: 2026-04-13（恢复 assets/templates/，scripts/ → tools/，15/15 测试通过）
+- 待执行: 第四轮测试验证 TC-01（CLI 可用性）
 
 ### 已修复问题清单
 1. ✅ workflow/context/index.md 填写完整加载规则
@@ -55,6 +58,7 @@
 5. ✅ 旧版 harness assets/agents 文件彻底删除（git rm）
 6. ✅ session-start hooks 路径修正（新路径 workflow/state/runtime.yaml）
 7. ✅ experience 双体系冲突解决（state/experience/index.md 统一指向 context/experience/）
+8. ✅ CLI 测试全部通过（恢复 assets/templates/，scripts/ → tools/ 重命名）
 
 ---
 
