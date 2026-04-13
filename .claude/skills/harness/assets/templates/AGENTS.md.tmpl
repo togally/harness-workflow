@@ -1,0 +1,59 @@
+# AGENTS.md
+
+本仓库采用面向 Agent 协作的文档工作流。
+
+## 优先阅读
+
+1. 在需求分析、change 拆分、plan 制定或执行前，先读取 `workflow/context/rules/workflow-runtime.yaml`
+2. 根据 `current_version` 继续读取对应 version 的 `meta.yaml`
+3. 再读取 `workflow/memory/constitution.md`
+4. 在分析、设计、实施、自检前读取 `workflow/context/experience/index.md`
+5. 在执行任何任务前读取 `workflow/context/rules/risk-rules.md`
+6. 仅按关键词加载命中的经验文件，不全量读取 `workflow/context/experience/`
+7. 详细执行流程请读取 `workflow/context/rules/agent-workflow.md`、`workflow/context/rules/development-flow.md` 与 `workflow/context/hooks/README.md`
+8. 如需了解项目事实或开发规范，继续读取 `workflow/context/project/project-overview.md` 与 `workflow/context/team/development-standards.md`
+9. 在进入新节点、切换子模块或怀疑上下文已不再影响下一步时，先执行 `context-maintenance` 判断：无关上下文优先 `/clear`，仍有用但可压缩的上下文优先 `/compact`
+10. 执行 `/clear` 或 `/compact` 后，重新读取 `workflow-runtime.yaml`、当前 version `meta.yaml` 与命中的 hooks
+9. 如果 `current_version` 缺失、runtime 与 config 不一致、version `meta.yaml` 缺失，或流程卡住无法确认下一步，立即停止并提示修复，不允许绕过工作流手工推进
+10. 每个阶段开始执行具体任务前先索引经验；每个阶段完成后都要检查是否有经验值得沉淀或融合
+11. 如果用户对已完成结果不满意，先进入 `harness regression "<问题描述>"`，确认问题后再转成新的 requirement 或 change
+12. 每个 change 完成前必须包含 `mvn compile`；每个 requirement 完成前必须包含项目启动测试成功
+13. 如果本机已有启动日志、编译输出或测试堆栈，先由 AI 自行读取和分析
+14. 如果编译失败、启动失败，或继续修复前仍然需要用户提供数据，先进入 regression，并先填写对应 change `regression/required-inputs.md`，再提示用户补充
+15. 如果当前处于 `requirement_review`，即使用户补充了实现型 prompt，也只能先讨论、澄清并更新需求文档，不允许直接开始编码
+16. 如果 `workflow-runtime.yaml` 中 `conversation_mode` 为 `harness`，后续对话必须严格围绕 `locked_version`、`locked_stage` 和当前锁定节点推进；除非用户显式执行 `harness exit`，否则不允许脱离 harness 工作流去做无关实现或自由发挥
+17. `testing` 和 `acceptance` 是独立阶段，在 `executing` 之后、`done` 之前，不允许跳过；每个阶段在当前 version 目录下有独立的子目录
+18. `harness status` 会显示完整阶段进度树，包含 testing 和 acceptance 的进度
+19. 经验文件已按类别分类（`stage/`、`tool/`、`business/`、`architecture/`、`debug/`、`risk/`），按当前任务场景按需加载对应类别，不要全量读取
+
+## 关键入口
+
+- `workflow/README.md`：文档总入口
+- `workflow/context/`：团队规范、项目事实、经验索引与执行规则
+- `workflow/context/rules/workflow-runtime.yaml`：当前工作流运行态
+- `workflow/context/hooks/README.md`：按调用时机组织的 Hooks 入口
+- `workflow/versions/active/<version>/`：当前版本下的需求、变更与计划工作区
+- `workflow/runbooks/`：操作手册
+
+## Harness 命令入口
+
+以下场景优先考虑使用 `$harness`：
+
+- 初始化仓库工作流：`harness init`
+- 切换语言：`harness language english|cn`
+- 切换或创建版本：`harness version "v1.0.0"`
+- 显式修复当前活动版本：`harness active "v1.0.0"`
+- 进入当前 harness 会话节点：`harness enter`
+- 退出 harness 会话模式：`harness exit`
+- 新建需求主题：`harness requirement "需求标题"`
+- 拆分具体功能点：`harness change "变更标题"`
+- 为 change 制定计划：`harness plan "变更标题"`
+- 启动回归诊断：`harness regression "问题描述"`
+- 正式改名：`harness rename requirement|change|version "<old>" "<new>"`
+- 归档已完成需求：`harness archive "需求标题"`
+
+## 验证要求
+
+- 若仓库提供文档流程 lint，先执行 lint
+- 在声称完成前执行项目现有的测试、构建或校验命令
+- 如果工作流状态缺失或冲突，先停止并要求用户运行 `harness active "<version>"` 或修复缺失文件

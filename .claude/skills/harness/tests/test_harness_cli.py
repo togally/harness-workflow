@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-CLI = SKILL_ROOT / "scripts" / "harness.py"
+CLI = SKILL_ROOT / "tools" / "harness.py"
 COMMAND_SAMPLES = ["harness", "harness-requirement", "harness-change", "harness-next"]
 
 
@@ -335,7 +335,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(meta["regression_ids"], [])
         regression_meta = (
             self.repo
-            / "docs"
+            / "workflow"
             / "versions"
             / "active"
             / "v1.0.0"
