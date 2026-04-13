@@ -12,8 +12,8 @@ When a session starts, resumes, or explicitly enters Harness mode, route state, 
 
 ## Loading Order
 
-1. Read `docs/context/hooks/session-start.md` first
-2. Then read the general hooks under `docs/context/hooks/session-start/` in numeric order
+1. Read `workflow/context/hooks/session-start.md` first
+2. Then read the general hooks under `workflow/context/hooks/session-start/` in numeric order
 3. If a subdirectory matches the current stage or node, read those files in numeric order too
 4. Stop immediately if a hard gate blocks the action
 
@@ -22,3 +22,4 @@ When a session starts, resumes, or explicitly enters Harness mode, route state, 
 - `10-load-runtime.md`
 - `20-load-experience-and-risk.md`
 - `30-stop-on-broken-state.md`
+- `15-detect-subagent-mode.md`

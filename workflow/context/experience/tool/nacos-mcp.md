@@ -1,22 +1,15 @@
-# Nacos MCP 工具使用经验
+# Nacos MCP Tool Experience
 
-> 任务涉及 Nacos MCP 时按需加载，跨阶段通用。
-> 置信度：low — 新沉淀经验，验证后逐步提升。
+> Placeholder experience file. Fill in based on actual project lessons.
 
-## 核心注意事项
+## Key Constraints
 
-- 使用前确认 Nacos 服务连接状态和命名空间
-- 配置变更前记录原始配置（便于回滚）
-- 注意区分不同环境的命名空间（dev/test/prod）
+<!-- Record must-follow constraints here -->
 
-## 最佳实践
+## Best Practices
 
-- 配置变更后验证服务是否正确热加载
-- 服务注册/发现问题先检查健康状态
-- 批量配置操作前先在测试命名空间验证
+<!-- Record recommended approaches here -->
 
-## 常见错误
+## Common Mistakes
 
-- 命名空间混用导致配置覆盖错误环境
-- 未等待配置热加载就进行验证
-- 服务下线操作影响依赖该服务的其他组件
+<!-- Record common errors here -->

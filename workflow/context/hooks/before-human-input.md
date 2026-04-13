@@ -10,12 +10,13 @@ Ask the human for input only after local evidence has been collected and externa
 
 ## Loading Order
 
-1. Read `docs/context/hooks/before-human-input.md` first
-2. Then read the general hooks under `docs/context/hooks/before-human-input/` in numeric order
+1. Read `workflow/context/hooks/before-human-input.md` first
+2. Then read the general hooks under `workflow/context/hooks/before-human-input/` in numeric order
 3. If a subdirectory matches the current stage or node, read those files in numeric order too
 4. Stop immediately if a hard gate blocks the action
 
 ## Contents
 
+- `05-check-mcp-registry.md`
 - `10-local-debug-first.md`
 - `20-required-inputs-template-first.md`

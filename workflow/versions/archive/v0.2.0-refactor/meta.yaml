@@ -1,0 +1,23 @@
+{
+  "id": "v0.2.0-refactor",
+  "title": "v0.2.0-refactor",
+  "status": "completed",
+  "stage": "done",
+  "current_task": "All work completed and archived",
+  "next_action": "Version completed. Start a new version or create new work.",
+  "current_artifact_kind": "",
+  "current_artifact_id": "",
+  "suggested_skill": "",
+  "assistant_prompt": "",
+  "approval_required": false,
+  "completed_tasks": [],
+  "pending_tasks": [],
+  "requirement_ids": [],
+  "change_ids": [],
+  "regression_ids": [],
+  "current_regression": "",
+  "regression_status": "",
+  "stage_entered_at": "2026-04-11T07:54:59.045076+00:00",
+  "completed_at": "2026-04-11",
+  "archived_at": "2026-04-12"
+}

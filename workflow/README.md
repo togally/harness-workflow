@@ -1,10 +1,10 @@
 # harness-workflow Docs
 
-Updated: 2026-04-09
+Updated: 2026-04-13
 
 ## Purpose
 
-`docs/` is the durable entrypoint for agent collaboration in this repository.
+`workflow/` is the durable entrypoint for agent collaboration in this repository.
 
 ## Recommended Order
 

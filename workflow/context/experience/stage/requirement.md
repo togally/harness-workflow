@@ -1,22 +1,15 @@
-# 需求阶段经验
+# Requirement Stage Experience
 
-> 进入需求阶段（requirement_review）时自动加载。
-> 置信度：low — 新沉淀经验，验证后逐步提升。
+> Placeholder experience file. Fill in based on actual project lessons.
 
-## 核心约束
+## Key Constraints
 
-- 需求阶段只允许讨论需求、完善文档，不能开始实现
-- 即使用户提供了详细的实现方案，也必须先完成需求评审和文档细化
-- 需求边界不清晰时，必须在此阶段确认，不能带着模糊需求进入开发
+<!-- Record must-follow constraints here -->
 
-## 最佳实践
+## Best Practices
 
-- 读取 `workflow/context/rules/risk-rules.md` 检查高风险关键词
-- 与用户对齐验收标准（Acceptance Criteria）后再推进
-- 需求文档需包含：目标、范围、验收边界、非目标
+<!-- Record recommended approaches here -->
 
-## 常见错误
+## Common Mistakes
 
-- 跳过需求评审直接进入设计/实现
-- 验收标准不明确导致后期返工
-- 需求范围蔓延（scope creep）未在此阶段控制
+<!-- Record common errors here -->

@@ -11,8 +11,8 @@ Load node-specific constraints that define what is allowed and forbidden in the 
 
 ## Loading Order
 
-1. Read `docs/context/hooks/node-entry.md` first
-2. Then read the general hooks under `docs/context/hooks/node-entry/` in numeric order
+1. Read `workflow/context/hooks/node-entry.md` first
+2. Then read the general hooks under `workflow/context/hooks/node-entry/` in numeric order
 3. If a subdirectory matches the current stage or node, read those files in numeric order too
 4. Stop immediately if a hard gate blocks the action
 
@@ -26,6 +26,9 @@ Load node-specific constraints that define what is allowed and forbidden in the 
 - `plan-review/10-plan-before-code.md`
 - `plan-review/20-wait-for-human-approval.md`
 - `ready-for-execution/10-wait-for-explicit-confirmation.md`
+- `done/10-verify-lessons-before-closeout.md`
 - `executing/10-execution-only.md`
 - `regression/10-diagnosis-before-fix.md`
+- `testing/10-spawn-testing-subagent.md`
+- `acceptance/10-spawn-acceptance-subagent.md`
 - `experience-capture/10-capture-lessons.md`

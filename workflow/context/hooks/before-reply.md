@@ -11,8 +11,8 @@ Before every substantive reply, verify that the next response still stays inside
 
 ## Loading Order
 
-1. Read `docs/context/hooks/before-reply.md` first
-2. Then read the general hooks under `docs/context/hooks/before-reply/` in numeric order
+1. Read `workflow/context/hooks/before-reply.md` first
+2. Then read the general hooks under `workflow/context/hooks/before-reply/` in numeric order
 3. If a subdirectory matches the current stage or node, read those files in numeric order too
 4. Stop immediately if a hard gate blocks the action
 
@@ -23,6 +23,9 @@ Before every substantive reply, verify that the next response still stays inside
 - `changes-review/10-request-change-review-first.md`
 - `plan-review/10-request-plan-review-first.md`
 - `ready-for-execution/10-request-execution-confirmation.md`
+- `done/10-request-lesson-capture-before-closure.md`
 - `idle/10-offer-only-workflow-actions.md`
+- `testing/10-no-advance-before-cases-pass.md`
+- `acceptance/10-require-document-basis.md`
 - `20-block-workflow-drift.md`
 - `30-check-stage-boundary.md`

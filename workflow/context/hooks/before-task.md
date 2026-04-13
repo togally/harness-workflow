@@ -11,8 +11,8 @@ Before reading code, writing docs, coding, or running commands, confirm that the
 
 ## Loading Order
 
-1. Read `docs/context/hooks/before-task.md` first
-2. Then read the general hooks under `docs/context/hooks/before-task/` in numeric order
+1. Read `workflow/context/hooks/before-task.md` first
+2. Then read the general hooks under `workflow/context/hooks/before-task/` in numeric order
 3. If a subdirectory matches the current stage or node, read those files in numeric order too
 4. Stop immediately if a hard gate blocks the action
 

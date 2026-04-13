@@ -1,40 +1,15 @@
-# 已知风险与缓解方案
+# Known Risks and Mitigations
 
-> 每次阶段推进前必读。回归阶段自动加载。
-> 置信度：按条目标注 — 高置信度条目必须遵守。
+> Placeholder experience file. Fill in based on actual project lessons.
 
-## 风险条目格式
+## Key Constraints
 
-```
-### [风险标题]
-- **风险级别**：high / medium / low
-- **触发条件**：什么情况下会触发
-- **缓解方案**：如何规避或降低风险
-- **置信度**：high / medium / low
-```
+<!-- Record must-follow constraints here -->
 
-## 已知风险
+## Best Practices
 
-### 阶段跳过风险
-- **风险级别**：high
-- **触发条件**：用户提供详细实现方案，AI 直接进入实现而跳过需求评审
-- **缓解方案**：`requirement_review` 阶段严格只做需求讨论，任何实现提示都转换为需求文档的细化
-- **置信度**：high
+<!-- Record recommended approaches here -->
 
-### 版本状态不一致风险
-- **风险级别**：high
-- **触发条件**：`current_version` 缺失、`workflow-runtime.yaml` 与版本 `meta.yaml` 不一致
-- **缓解方案**：立即停止操作，要求人工修复配置后再继续
-- **置信度**：high
+## Common Mistakes
 
-### 编译验证遗漏风险
-- **风险级别**：medium
-- **触发条件**：change 完成但未执行 `mvn compile` 验证
-- **缓解方案**：每个 change 完成时强制执行并记录编译结果
-- **置信度**：medium
-
-### 经验沉淀遗漏风险
-- **风险级别**：low
-- **触发条件**：阶段完成后未检查是否有可沉淀的经验
-- **缓解方案**：每个阶段完成后执行显式经验升级检查
-- **置信度**：medium
+<!-- Record common errors here -->

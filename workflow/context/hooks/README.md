@@ -6,9 +6,9 @@ This directory organizes hooks by invocation timing. The agent should identify t
 
 ## Matching Order
 
-1. Read `docs/context/rules/workflow-runtime.yaml`
+1. Read `workflow/context/rules/workflow-runtime.yaml`
 2. Use `current_version` to read the active version `meta.yaml`
-3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `during-task`, `before-human-input`, `after-task`, or `before-complete`
+3. Identify the current invocation timing, such as `session-start`, `before-reply`, `before-task`, `context-maintenance`, `during-task`, `before-human-input`, `after-task`, or `before-complete`
 4. Read the matching `<timing>.md` overview document
 5. Read the general hook files under `<timing>/` in numeric order
 6. If there is a stage-specific subdirectory such as `requirement-review/`, `executing/`, or `regression/`, load those files in numeric order as well
@@ -20,14 +20,12 @@ This directory organizes hooks by invocation timing. The agent should identify t
 - `session-start/`: concrete hook files and node subdirectories for that timing
 - `before-reply.md`: Before Reply Hooks. Before every substantive reply, verify that the next response still stays inside the current Harness node.
 - `before-reply/`: concrete hook files and node subdirectories for that timing
-  - `10-context-maintenance-check.md`: 主动检查 session 上下文状态，防止上下文累积过高（轮次、文件数、阶段切换触发）
-  - `20-conversation-lock-check.md`: 检查对话锁状态
-  - `30-workflow-drift-check.md`: 检查工作流是否偏离当前节点
-  - `40-stage-boundary-check.md`: 检查阶段边界
 - `node-entry.md`: Workflow Node Hooks. Load node-specific constraints that define what is allowed and forbidden in the current workflow node.
 - `node-entry/`: concrete hook files and node subdirectories for that timing
 - `before-task.md`: Before Task Hooks. Before reading code, writing docs, coding, or running commands, confirm that the action matches the current node.
 - `before-task/`: concrete hook files and node subdirectories for that timing
+- `context-maintenance.md`: Context Maintenance Hooks. When entering a new node, starting a new subtask, or nearing token limits, decide whether context should be kept, compacted, or cleared and switch to the appropriate loading mode.
+- `context-maintenance/`: concrete hook files and node subdirectories for that timing
 - `during-task.md`: During Task Hooks. During execution, keep checking whether the current behavior has drifted outside the locked node or stage boundary.
 - `during-task/`: concrete hook files and node subdirectories for that timing
 - `before-human-input.md`: Before Human Input Hooks. Ask the human for input only after local evidence has been collected and external information is still missing.

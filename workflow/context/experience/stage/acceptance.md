@@ -1,21 +1,15 @@
-# 验收阶段经验
+# Acceptance Stage Experience
 
-> 进入验收阶段（acceptance）时自动加载。
-> 置信度：low — 新沉淀经验，验证后逐步提升。
+> Placeholder experience file. Fill in based on actual project lessons.
 
-## 核心约束
+## Key Constraints
 
-- 验收必须对照 requirement 中确认的验收标准（Acceptance Criteria）逐条确认
-- 验收前必须执行成功的项目启动验证
+<!-- Record must-follow constraints here -->
 
-## 最佳实践
+## Best Practices
 
-- 逐条检查验收标准，记录每条的验证结果
-- 验收完成后检查是否有成熟经验可升级
-- 更新 `change-acceptance.md` 完成验收记录
+<!-- Record recommended approaches here -->
 
-## 常见错误
+## Common Mistakes
 
-- 跳过逐条验收，主观判断"应该没问题"
-- 验收标准与需求文档不一致
-- 验收完成后未记录经验沉淀
+<!-- Record common errors here -->

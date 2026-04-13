@@ -1,22 +1,15 @@
-# MySQL MCP 工具使用经验
+# MySQL MCP Tool Experience
 
-> 任务涉及 MySQL MCP 时按需加载，跨阶段通用。
-> 置信度：low — 新沉淀经验，验证后逐步提升。
+> Placeholder experience file. Fill in based on actual project lessons.
 
-## 核心注意事项
+## Key Constraints
 
-- 使用前确认 MCP 连接状态和数据库权限
-- 执行写操作前先确认目标环境（避免误操作生产库）
-- 大批量操作前先在事务中测试
+<!-- Record must-follow constraints here -->
 
-## 最佳实践
+## Best Practices
 
-- 查询前先检查表结构和索引
-- 使用参数化查询避免 SQL 注入风险
-- 记录重要的 DDL 变更
+<!-- Record recommended approaches here -->
 
-## 常见错误
+## Common Mistakes
 
-- 未确认连接的数据库环境（dev/test/prod）
-- 未备份即执行破坏性操作
-- 忽略外键约束导致操作失败
+<!-- Record common errors here -->

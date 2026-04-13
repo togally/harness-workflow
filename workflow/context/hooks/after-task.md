@@ -11,8 +11,8 @@ Review and capture lessons immediately after a task so new constraints and faile
 
 ## Loading Order
 
-1. Read `docs/context/hooks/after-task.md` first
-2. Then read the general hooks under `docs/context/hooks/after-task/` in numeric order
+1. Read `workflow/context/hooks/after-task.md` first
+2. Then read the general hooks under `workflow/context/hooks/after-task/` in numeric order
 3. If a subdirectory matches the current stage or node, read those files in numeric order too
 4. Stop immediately if a hard gate blocks the action
 

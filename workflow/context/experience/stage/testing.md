@@ -1,21 +1,15 @@
-# 测试阶段经验
+# Testing Stage Experience
 
-> 进入测试阶段时自动加载。
-> 置信度：low — 新沉淀经验，验证后逐步提升。
+> Placeholder experience file. Fill in based on actual project lessons.
 
-## 核心约束
+## Key Constraints
 
-- 测试失败时优先检查本地测试日志和编译输出
-- 测试覆盖范围需与验收标准对齐
+<!-- Record must-follow constraints here -->
 
-## 最佳实践
+## Best Practices
 
-- 使用工具测试前先确认工具连接状态（MCP、Playwright 等）
-- 测试中发现新问题时，判断是否需要开新的 regression
-- 记录测试结果和覆盖情况
+<!-- Record recommended approaches here -->
 
-## 常见错误
+## Common Mistakes
 
-- 测试环境配置与生产环境不一致
-- 未覆盖边界条件和异常路径
-- 测试通过后未更新验收文档
+<!-- Record common errors here -->
