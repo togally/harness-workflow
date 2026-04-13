@@ -1,4 +1,5 @@
 current_requirement: req-01
+stage: testing
 conversation_mode: open
 locked_requirement: ""
 locked_stage: ""

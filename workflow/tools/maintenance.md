@@ -14,7 +14,7 @@
     ↓
 写入 session-memory "待沉淀经验"
     ↓
-after-task hook 触发 → 沉淀到 state/experience/tools/{topic}.md
+after-task hook 触发 → 沉淀到 context/experience/tool/{topic}.md
     ↓
 经验成熟后（多次验证） → 更新 catalog/{tool}.md 的"迭代记录"区块
 ```

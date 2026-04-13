@@ -1,0 +1,6 @@
+req_id: req-01
+title: 版本重做
+stage: testing
+status: in_progress
+created: 2026-04-12
+description: 重构 harness workflow 系统，从 v0.2.0-refactor 版本迁移到基于需求管理的新架构

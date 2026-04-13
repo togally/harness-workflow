@@ -2,23 +2,25 @@
 
 ## 经验分类与加载规则
 
+实际经验内容存储于 `workflow/context/experience/`（stage/, tool/, risk/ 等子目录）。
+本文件（`workflow/state/experience/index.md`）是加载规则索引，指向 context/experience/ 的实际文件。
+
 | Stage | 加载分类 |
 |-------|---------|
-| `requirement_review` / `planning` | `flow/` |
-| `executing` | `flow/` + `tools/` |
-| `testing` / `acceptance` | `evaluation/` + `flow/` |
-| `regression` | `evaluation/` + `constraints/` |
+| `requirement_review` / `planning` | `context/experience/stage/requirement.md` |
+| `executing` | `context/experience/stage/development.md` + `context/experience/tool/harness.md` |
+| `testing` / `acceptance` | `context/experience/stage/testing.md` + `context/experience/stage/acceptance.md` |
+| `regression` | `context/experience/stage/regression.md` + `context/experience/risk/known-risks.md` |
 
 ## 目录说明
 
+经验内容的实际存储位置为 `workflow/context/experience/`，包含以下分类：
+
 | 目录 | 内容 |
 |------|------|
-| `context/` | 上下文管理、索引设计、加载策略相关经验 |
-| `tools/` | 工具使用技巧、prompt 模式、工具选择经验 |
-| `flow/` | 执行编排、需求拆分、计划制定相关经验 |
-| `state/` | 状态管理、恢复机制、session-memory 使用经验 |
-| `evaluation/` | 测试设计、验收判定、regression 诊断经验 |
-| `constraints/` | 风险识别、失败恢复、约束执行相关经验 |
+| `context/experience/stage/` | 各阶段（需求、开发、测试、验收、回归）相关经验 |
+| `context/experience/tool/` | 工具使用技巧、prompt 模式、工具选择经验 |
+| `context/experience/risk/` | 风险识别、已知风险、失败恢复相关经验 |
 
 ## 经验沉淀规范
 
@@ -55,3 +57,5 @@
 - 同一主题的新经验 → 追加到已有文件，不新建
 - 发现旧经验有误 → 修正并注明修正原因
 - 经验过时 → 标记为 deprecated，保留历史
+
+> 注：经验内容存储于 `workflow/context/experience/`，本文件仅为加载规则索引。

@@ -29,7 +29,7 @@
          （有 handoff.md 时优先读 handoff.md）
 
 4. 相关经验
-   来源：state/experience/index.md → 匹配当前 stage 的分类
+   来源：state/experience/index.md（加载规则）→ 读取 context/experience/ 下匹配当前 stage 的分类文件
 ```
 
 ## 工具结果回流规范

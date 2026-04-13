@@ -20,4 +20,4 @@
 ## 状态边界
 - `state/runtime.yaml` 只存全局运行状态，不存业务数据
 - `state/requirements/{id}.yaml` 只存该需求的执行状态
-- 经验沉淀到 `state/experience/`，不存在 session-memory 里长期留存
+- 经验沉淀到 `context/experience/`（stage/, tool/, risk/），不存在 session-memory 里长期留存
