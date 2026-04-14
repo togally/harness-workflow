@@ -10,9 +10,7 @@
 - 经验沉淀：阶段结束时检查是否有可泛化的经验
 
 ## 可用工具
-- Read：读取需求文档、变更文档、代码
-- Bash：运行测试命令、查看日志
-- Agent：派发测试类 subagent
+工具白名单见 `.workflow/tools/stage-tools.md#testing`。
 
 ## 允许的行为
 - 设计和执行测试用例

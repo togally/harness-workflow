@@ -74,13 +74,14 @@ requirement_review          ← 第三层管辖
 
 ```
 .workflow/flow/archive/
-└── {version}/             # 可选，归档时指定，可复用
+└── {folder}/              # 可选，归档时通过 --folder 指定；不指定则直接放 archive/ 下
     └── req-{id}-{title}/  # 结构与活跃需求一致
 ```
 
 归档规则：
 - 只有 `done` 状态的需求可以归档
-- 从 `.workflow/flow/requirements/` 移动到 `.workflow/flow/archive/{version}/`
+- 从 `.workflow/flow/requirements/` 移动到 `.workflow/flow/archive/[{folder}/]`
+- 目标 folder 不存在则新建，已存在则合并写入（不报冲突）
 - `state/requirements/{req-id}.yaml` 标记为 `archived`
 - `state/sessions/{req-id}/` 保留不删（历史可查）
 
@@ -91,9 +92,8 @@ requirement_review          ← 第三层管辖
 | 命令 | 作用 | 适用 Stage |
 |------|------|-----------|
 | `harness requirement` | 创建需求，进入 requirement_review | 任意 |
-| `harness change` | 创建变更文档 | planning |
-| `harness plan` | 创建变更计划 | planning |
+| `harness change` | 创建变更文档（change.md） | planning |
 | `harness next` | 推进到下一 stage | 任意（满足退出条件） |
 | `harness ff` | 跳过讨论门，直达执行确认 | requirement_review / planning |
-| `harness archive` | 归档已完成需求 | done |
+| `harness archive <req-id> [--folder <name>]` | 归档已完成需求，可选指定目标文件夹 | done |
 | `harness regression` | 进入 regression | 任意 |

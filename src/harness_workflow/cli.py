@@ -9,10 +9,8 @@ import questionary
 from harness_workflow.core import (
     archive_requirement,
     create_change,
-    create_plan,
     create_regression,
     create_requirement,
-    create_version,
     enter_workflow,
     exit_workflow,
     export_feedback,
@@ -20,12 +18,9 @@ from harness_workflow.core import (
     install_repo,
     rename_change,
     rename_requirement,
-    rename_version,
     regression_action,
-    set_active_version,
     set_language,
     update_repo,
-    use_version,
     workflow_fast_forward,
     workflow_next,
     workflow_status,
@@ -100,14 +95,6 @@ def build_parser() -> argparse.ArgumentParser:
     language_parser.add_argument("language", help="Language profile: english or cn.")
     language_parser.add_argument("--root", default=".", help="Repository root.")
 
-    use_parser = subparsers.add_parser("use", help="Switch the current active version.")
-    use_parser.add_argument("version", help="Version name.")
-    use_parser.add_argument("--root", default=".", help="Repository root.")
-
-    active_parser = subparsers.add_parser("active", help="Explicitly set the current active version.")
-    active_parser.add_argument("version", help="Version name.")
-    active_parser.add_argument("--root", default=".", help="Repository root.")
-
     enter_parser = subparsers.add_parser("enter", help="Enter harness conversation mode at the current workflow node.")
     enter_parser.add_argument("--root", default=".", help="Repository root.")
 
@@ -137,27 +124,16 @@ def build_parser() -> argparse.ArgumentParser:
     change_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
     change_parser.add_argument("--requirement", default="", help="Optional requirement title or id to link.")
 
-    plan_parser = subparsers.add_parser("plan", help="Show the plan file for a change.")
-    plan_parser.add_argument("change", nargs="?", help="Change title or id.")
-    plan_parser.add_argument("--root", default=".", help="Repository root.")
-    plan_parser.add_argument("--change", dest="change_flag", help="Legacy change id flag.")
-
-    version_parser = subparsers.add_parser("version", help="Create or switch the active version workspace.")
-    version_parser.add_argument("name", nargs="?", help="Version name.")
-    version_parser.add_argument("--root", default=".", help="Repository root.")
-    version_parser.add_argument("--id", dest="id_flag", help="Legacy version id flag.")
-
-    archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement and its linked changes inside a version.")
+    archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement.")
     archive_parser.add_argument("requirement", help="Requirement title or id.")
     archive_parser.add_argument("--root", default=".", help="Repository root.")
-    archive_parser.add_argument("--version", default="", help="Optional explicit version name.")
+    archive_parser.add_argument("--folder", default="", help="Optional subfolder name within archive/.")
 
-    rename_parser = subparsers.add_parser("rename", help="Rename a version, requirement, or change.")
-    rename_parser.add_argument("kind", choices=["version", "requirement", "change"], help="Artifact kind.")
+    rename_parser = subparsers.add_parser("rename", help="Rename a requirement or change.")
+    rename_parser.add_argument("kind", choices=["requirement", "change"], help="Artifact kind.")
     rename_parser.add_argument("current", help="Current title or id.")
     rename_parser.add_argument("new", help="New title or id.")
     rename_parser.add_argument("--root", default=".", help="Repository root.")
-    rename_parser.add_argument("--version", default="", help="Optional explicit version name for requirement/change renames.")
 
     regression_parser = subparsers.add_parser("regression", help="Start or advance a regression confirmation flow.")
     regression_parser.add_argument("title", nargs="?", help="Start a regression with this title.")
@@ -190,10 +166,6 @@ def main() -> int:
         return update_repo(root, check=args.check, force_managed=args.force_managed)
     if args.command == "language":
         return set_language(root, args.language)
-    if args.command == "use":
-        return use_version(root, args.version)
-    if args.command == "active":
-        return set_active_version(root, args.version)
     if args.command == "enter":
         return enter_workflow(root)
     if args.command == "exit":
@@ -208,24 +180,12 @@ def main() -> int:
         return create_requirement(root, args.title, requirement_id=args.id, title=args.title_flag)
     if args.command == "change":
         return create_change(root, args.title, change_id=args.id, title=args.title_flag, requirement_id=args.requirement)
-    if args.command == "plan":
-        change_name = args.change or args.change_flag
-        if not change_name:
-            raise SystemExit("A change title or id is required.")
-        return create_plan(root, change_name)
-    if args.command == "version":
-        version_name = args.name or args.id_flag
-        if not version_name:
-            raise SystemExit("A version name is required.")
-        return create_version(root, version_name)
     if args.command == "archive":
-        return archive_requirement(root, args.requirement, version_name=args.version)
+        return archive_requirement(root, args.requirement, folder=args.folder)
     if args.command == "rename":
-        if args.kind == "version":
-            return rename_version(root, args.current, args.new)
         if args.kind == "requirement":
-            return rename_requirement(root, args.current, args.new, version_name=args.version)
-        return rename_change(root, args.current, args.new, version_name=args.version)
+            return rename_requirement(root, args.current, args.new)
+        return rename_change(root, args.current, args.new)
     if args.command == "regression":
         if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title, args.testing]):
             return create_regression(root, args.title)

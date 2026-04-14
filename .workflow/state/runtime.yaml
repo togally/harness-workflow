@@ -1,7 +1,8 @@
-current_requirement: ""
-stage: ""
+current_requirement: "req-02"
+stage: "done"
 conversation_mode: "open"
 locked_requirement: ""
 locked_stage: ""
 current_regression: ""
-active_requirements: []
+active_requirements:
+  - req-02

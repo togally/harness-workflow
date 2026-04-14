@@ -10,9 +10,7 @@
 - 经验沉淀：阶段结束时检查是否有可泛化的经验
 
 ## 可用工具
-- Read：读取需求文档和现有代码结构
-- Write / Edit：编写变更文档和计划文档
-- Agent：派发分析类 subagent
+工具白名单见 `.workflow/tools/stage-tools.md#requirement_review--planning`。
 
 ## 允许的行为
 - 拆分变更、定义边界

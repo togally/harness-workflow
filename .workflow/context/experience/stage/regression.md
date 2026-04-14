@@ -1,15 +1,111 @@
 # Regression Stage Experience
 
-> Placeholder experience file. Fill in based on actual project lessons.
+## 经验一：requirement_review 阶段的 regression 通常是需求范围遗漏
 
-## Key Constraints
+### 场景
 
-<!-- Record must-follow constraints here -->
+在需求评审阶段（requirement_review），用户提出"好像有问题"类的反馈，触发 harness regression。
 
-## Best Practices
+### 经验内容
 
-<!-- Record recommended approaches here -->
+需求评审阶段尚无实现，不存在"代码 bug"或"测试失败"。此阶段触发的 regression 绝大多数情况是：
 
-## Common Mistakes
+1. **需求范围遗漏**：用户发现某个问题点未被纳入需求文档
+2. **分析误判**：分析者对现有结构的描述有误，用户来纠正
 
-<!-- Record common errors here -->
+诊断流程应以"是否真实存在实现/结构问题"为核心，而非走完整的 regression 流程。通常结论是 `--reject`（误判），然后更新 requirement.md。
+
+### 反例
+
+将 requirement_review 阶段的用户纠正当成真实 regression 处理，创建完整的 diagnosis 流程，反而拖慢了需求确认节奏。
+
+### 来源
+
+req-02 / requirement_review 阶段两轮 regression
+
+---
+
+## 经验二：用户说"多了/少了"时，先确认语义
+
+### 场景
+
+用户说某个目录"多了"（extra）或内容不对，可能有两种完全相反的含义：
+
+- A. 这个目录不该存在（真正多余）
+- B. 这个目录存在是对的，但它的**内容缺失**导致它看起来没价值
+
+### 经验内容
+
+收到"多了 X 目录/层"类反馈时，诊断第一步不是"判断该目录是否合理"，而是：
+
+1. 查看该目录的实际内容（是否为空/占位符）
+2. 查看旧版本/备份中是否有对应的内容
+3. 对比新旧结构，判断是"目录多余"还是"内容迁移遗漏"
+
+两种情况处理方向完全相反：
+- 目录多余 → 迁移/删除/合并
+- 内容迁移遗漏 → 恢复内容
+
+### 反例
+
+本次 req-02 中，看到 `context/experience/tool/harness.md` 是空占位符，就得出"tool/ 层价值存疑"的结论。实际上是旧系统的 `tools/` 整层（含 catalog、stage-tools、selection-guide）在迁移中丢失，`context/experience/tool/` 本身位置是正确的。
+
+### 来源
+
+req-02 regression 第二轮，用户纠正："你对 context/experience/tool/ 价值存疑是因为在 workflow 下丢失了 tools 工具层"
+
+---
+
+## 经验三：结构性评估要区分"职责语义"与"内容存在"
+
+### 场景
+
+对 .workflow/ 目录结构进行合理性评估时。
+
+### 经验内容
+
+目录评估需同时检查两个维度：
+
+| 维度 | 问题 | 诊断方式 |
+|------|------|---------|
+| 职责语义 | 这个目录放在这里合不合理？ | 对比设计理念（知识层/状态层/工具层） |
+| 内容存在 | 这个目录有没有实际内容？ | 检查文件是否为空/占位符，对比旧版本 |
+
+一个目录可以：
+- 语义正确 + 内容完整（正常）
+- 语义正确 + 内容缺失（迁移遗漏，需补充内容）
+- 语义错误 + 内容存在（需迁移/重组）
+- 语义错误 + 内容缺失（需删除）
+
+不能因为内容缺失就判定语义错误。
+
+### 来源
+
+req-02 结构性评估过程
+
+---
+
+## 经验四：backup 目录是诊断的重要证据源
+
+### 场景
+
+判断当前结构是否有迁移遗漏时。
+
+### 经验内容
+
+`.workflow/context/backup/` 中保存了旧系统完整结构。在进行结构合理性评估时：
+
+1. **先读 backup 中对应目录的结构**，了解旧系统该模块包含什么
+2. 与当前 `.workflow/` 结构对比
+3. 差异项 = 迁移遗漏候选
+
+backup 是诊断"迁移遗漏"类问题的第一手证据，不要跳过。
+
+### 反例
+
+在评估 `context/experience/tool/` 时，没有先查 backup 中的对应目录（`workflow/tools/` 和 `workflow/context/experience/tool/`），导致错误判断该层"价值存疑"。
+
+### 来源
+
+req-02 regression 根因分析
+

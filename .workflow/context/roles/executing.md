@@ -10,10 +10,7 @@
 - 经验沉淀：阶段结束时检查是否有可泛化的经验
 
 ## 可用工具
-- Read / Grep / Glob：读取文件和搜索代码
-- Write / Edit：修改项目文件
-- Bash：执行命令（编译、测试、查看日志）
-- Agent：派发执行类 subagent
+工具白名单见 `.workflow/tools/stage-tools.md#executing`。
 
 ## 允许的行为
 - 按 plan.md 步骤修改文件

@@ -10,8 +10,7 @@
 - 经验沉淀：阶段结束时检查是否有可泛化的经验
 
 ## 可用工具
-- Read：读取需求文档、测试记录、代码
-- Agent：派发验收类 subagent
+工具白名单见 `.workflow/tools/stage-tools.md#acceptance`。
 
 ## 允许的行为
 - 逐条核查验收标准

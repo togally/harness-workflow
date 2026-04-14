@@ -10,9 +10,7 @@
 - 产出诊断文档：输出 `regression/diagnosis.md`
 
 ## 可用工具
-- Read / Grep / Glob：读取代码、日志、文档
-- Bash：查看日志、运行诊断命令
-- Agent：派发诊断类 subagent
+工具白名单见 `.workflow/tools/stage-tools.md#regression`。
 
 ## 允许的行为
 - 读取所有相关文件和日志

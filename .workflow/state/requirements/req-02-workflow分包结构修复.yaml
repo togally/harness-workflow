@@ -1,0 +1,7 @@
+req_id: "req-02"
+title: "workflow 分包结构修复"
+stage: "done"
+status: "active"
+created: "2026-04-13"
+completed: ""
+description: "修复 .workflow/ 分包结构中的加载链断点、死目录、职责混用等问题"

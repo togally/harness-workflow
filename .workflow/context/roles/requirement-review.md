@@ -11,9 +11,7 @@
 - 经验沉淀：阶段结束时检查是否有可泛化的经验
 
 ## 可用工具
-- Read：读取现有文档和状态
-- Write / Edit：编写和更新需求文档
-- Agent：派发讨论类 subagent
+工具白名单见 `.workflow/tools/stage-tools.md#requirement_review--planning`。
 
 ## 允许的行为
 - 讨论、澄清、提问

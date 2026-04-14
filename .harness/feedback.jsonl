@@ -1,0 +1,2 @@
+{"ts": "2026-04-14T00:53:44.483335+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-14T00:53:44.483504+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "done"}}
