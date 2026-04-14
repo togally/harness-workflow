@@ -40,8 +40,13 @@
 - [ ] 范围（包含 + 不包含）
 - [ ] 验收标准（可量化的通过条件）
 
+## ff 模式说明
+- ff 模式下，`requirement.md` 包含背景、目标、范围、验收标准后，subagent 可直接报告完成，由主 agent 自动推进到 `planning`
+- 不需要等待用户手动确认需求
+
 ## 流转规则
 - 退出条件满足 + 用户确认 → `harness next` → `planning`
+- ff 模式下退出条件满足 → 主 agent 自动推进到 `planning`
 - 发现无法解决的问题 → `harness regression "<issue>"`
 
 ## 完成前必须检查

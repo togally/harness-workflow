@@ -17,6 +17,24 @@
 - `done` 状态的需求不得被重新打开（只能新建需求）
 - testing / acceptance 阶段不得修改被测内容
 
+## ff 模式下 AI 自主决策边界
+
+### AI 可以自行决定
+- 文档内容的补充和细化
+- 拆分规则的细化（在需求范围内）
+- 实现方案的选择（在 plan 范围内）
+- 测试策略和用例设计
+- 代码级的小范围调整
+- 遇到 skill 缺失时，按 `constraints/recovery.md#skill 缺失处理路径` 搜索替代方案
+
+### AI 必须暂停 ff 模式并向用户求援
+- 涉及外部系统凭据、密钥或权限
+- 可能破坏生产环境或导致数据丢失
+- 用户意图不明确或与已有需求冲突
+- 超出 plan 范围的大架构改动
+- regression 诊断后仍无法自动恢复
+- 连续遇到平台级错误（如 API Error 400）且 `constraints/recovery.md` 中的恢复步骤失效
+
 ## 状态边界 
 - `state/runtime.yaml` 只存全局运行状态，不存业务数据
 - `state/requirements/{id}.yaml` 只存该需求的执行状态

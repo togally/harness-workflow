@@ -37,8 +37,13 @@
 - [ ] 内部测试通过（编译无错误，基本功能验证通过）
 - [ ] session-memory 执行日志已更新（所有步骤标记 ✅）
 
+## ff 模式说明
+- ff 模式下，所有 `plan.md` 步骤完成、内部测试通过且 `session-memory` 全部 ✅ 后，subagent 可直接报告完成，由主 agent 自动推进到 `testing`
+- 不需要等待用户手动确认
+
 ## 流转规则
 - 退出条件满足 → `harness next` → 进入第五层 `testing`
+- ff 模式下退出条件满足 → 主 agent 自动推进到 `testing`
 - 执行失败 → 记录失败路径到 session-memory → 判断：重试 / 切路径 / `harness regression`
 
 ## 完成前必须检查

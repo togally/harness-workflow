@@ -39,8 +39,13 @@
 - [ ] 执行顺序已明确
 - [ ] 用户已确认所有计划
 
+## ff 模式说明
+- ff 模式下，若 `change.md` + `plan.md` 已全部产出且执行顺序明确，subagent 可直接报告完成，由主 agent 自动推进到 `executing`
+- 不需要等待用户逐条确认计划
+
 ## 流转规则
 - 退出条件满足 + 用户确认 → `harness next` → `executing`
+- ff 模式下退出条件满足 → 主 agent 自动推进到 `executing`
 - 发现需求有问题 → `harness regression "<issue>"` → 路由回 `requirement_review`
 
 ## 完成前必须检查

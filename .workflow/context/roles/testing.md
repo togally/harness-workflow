@@ -37,8 +37,12 @@
 - [ ] 所有测试用例通过
 - [ ] 测试记录已产出（通过/失败列表）
 
+## ff 模式说明
+- ff 模式下，所有测试用例执行完毕且通过、测试记录已产出后，subagent 可直接报告完成，由主 agent 自动推进到 `acceptance`
+
 ## 流转规则
 - 全部通过 → `harness next` → `acceptance`
+- ff 模式下全部通过 → 主 agent 自动推进到 `acceptance`
 - 有测试失败 → `harness regression "<issue>"` → 路由到 `requirement_review` 或 `testing`
 
 ## 自验证 Checklist（AC 逐项检查）

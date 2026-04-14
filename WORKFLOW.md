@@ -45,6 +45,29 @@
 2. 创建 `handoff.md`（包含任务状态、关键决策、必须传递文件、接收方指引）
 3. 确保新 agent 加载 handoff 后能无缝继续任务
 
+## ff 模式协调职责
+
+当 `runtime.yaml` 中 `ff_mode: true` 时，主 agent 进入 fast-forward 协调模式：
+
+1. **自动推进职责**：
+   - 当前 stage 的 subagent 任务完成且退出条件满足后，主 agent 自动更新 `runtime.yaml` 到下一 stage
+   - 将原 stage 追加到 `ff_stage_history`
+   - 不需要等待用户输入 `harness next`
+
+2. **session-memory 保存职责**：
+   - 在自动推进前，确认当前变更的 `session-memory.md` 已更新
+   - 确保 stage 结果摘要、关键决策、遇到的问题、下一步任务均已记录
+
+3. **边界监控职责**：
+   - 持续判断当前决策是否在 `constraints/boundaries.md#ff 模式下 AI 自主决策边界` 范围内
+   - 遇到边界外问题时，立即将 `ff_mode` 设为 `paused`，向用户报告上下文和问题
+   - 用户回复并解决问题后，可恢复 `ff_mode: true` 继续自动推进
+
+4. **异常处理职责**：
+   - regression 诊断后仍无法自动恢复 → 暂停 ff，转由用户决策
+   - 连续遇到平台级错误（如 API Error 400） → 参照 `constraints/recovery.md` 的恢复路径处理
+   - 用户说 "停止 ff" 或等效指令时 → 清除 `ff_mode`，转为正常模式
+
 ## 职责外问题处理
 
 主 agent 负责接收各角色上报的职责外问题，以及识别用户在对话中口头提出的任何问题。

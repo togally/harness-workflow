@@ -37,6 +37,13 @@
 - [ ] 已明确：真实问题 或 误判
 - [ ] 路由方向已确定
 
+## ff 模式说明
+- ff 模式下，诊断师完成 `diagnosis.md` 并明确路由方向后，由主 agent 根据诊断结果自动决定下一步：
+  - 需求/设计问题 → 自动回到 `requirement_review`
+  - 实现/测试问题 → 自动回到 `testing`
+  - 误判 → 自动回到触发前的 stage
+- 若需要人工提供信息，则暂停 ff 模式，填写 `required-inputs.md` 后向用户求援
+
 ## 流转规则
 - 确认是真实问题：
   - 需求/设计问题 → `harness regression --confirm` → `requirement_review`

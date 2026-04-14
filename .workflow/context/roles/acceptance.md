@@ -37,9 +37,16 @@
 - [ ] 验收报告已产出
 - [ ] 人工最终判定：通过 或 驳回
 
+## ff 模式说明
+- ff 模式下，验收标准逐条核查完毕且验收报告已产出后，AI 可根据核查结果自主判定通过或驳回
+- 判定通过后由主 agent 自动推进到 `done`
+- 判定驳回则自动进入 `regression`
+
 ## 流转规则
 - 人工判定通过 → `harness next` → `done`
+- ff 模式下 AI 自主判定通过 → 主 agent 自动推进到 `done`
 - 人工判定驳回 → `harness regression "<issue>"` → 路由到 `requirement_review` 或 `testing`
+- ff 模式下 AI 自主判定驳回 → 自动进入 `regression`
 
 ## requirement.md 对齐检查 Checklist
 

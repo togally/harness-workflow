@@ -268,3 +268,86 @@ Step 4  完成后清理
 2. **失败教训**：需要避免的问题和错误
 3. **最佳实践**：推荐的维护时机和方法
 4. **工具使用**：`/compact`、`/clear`、handoff 的使用技巧
+
+---
+
+## 平台级错误 / 会话损坏恢复路径
+
+### 场景
+- 连续收到 `API Error: 400` 或其他平台级错误
+- 正常的 Harness 命令（如 `harness next`）完全失效
+- 怀疑 Claude Code 会话状态已损坏
+
+### 恢复步骤
+```
+Step 1  停止尝试失败命令
+        - 避免连续触发相同错误，防止状态进一步恶化
+
+Step 2  快速评估损坏范围
+        - 尝试执行最简单的工具调用（如 `Read` 一个已知文件）
+        - 如果简单调用也失败，确认会话已损坏
+
+Step 3  保存关键状态（如可能）
+        - 如果 `Write` 或 `Edit` 仍可用，快速保存当前 session-memory 到文件
+        - 如果所有工具调用都失败，只能依赖已保存的文件状态
+
+Step 4  选择恢复动作
+        ├── 简单调用可用 → 尝试 `/compact`
+        ├── 简单调用不可用 → 尝试 `/clear`
+        └── `/clear` 后仍异常 → 必须新开 agent
+
+Step 5  恢复后继续工作
+        - `/compact` 或 `/clear` 成功后：
+          重新读取 `.workflow/state/runtime.yaml`、当前 `session-memory.md`、相关变更文档
+        - 新开 agent 时：
+          创建 `handoff.md`，包含当前需求、stage、变更、已完成步骤、中断原因
+
+Step 6  记录到 session-memory
+        - 记录错误现象、恢复动作、恢复效果
+```
+
+### 预防建议
+- 在调用任何非内置 skill 前，先确认其在当前环境中可用
+- 遇到第一次 API Error 400 时即提高警惕，不要连续重试 harness 命令
+
+---
+
+## skill 缺失处理路径
+
+### 场景
+- agent 调用 `Skill(xxx)` 后收到 `Error: Unknown skill: xxx`
+- 用户口头要求使用某个可能未安装的 skill
+
+### 处理步骤
+```
+Step 1  停止调用失败的 skill
+        - 不要重试相同的 `Skill(xxx)` 调用
+
+Step 2  检查可用 skills
+        - 查看当前环境中已安装的技能列表（如 `.claude/skills/`、`.qoder/skills/` 目录）
+        - 或使用 `Bash` 命令搜索本地 skill 定义
+
+Step 3  搜索替代方案
+        ├── 找到同名/同功能 skill 已安装 → 使用正确的调用方式
+        ├── 找到功能相近的已安装 skill → 改用该 skill
+        ├── 找到 skill 定义文件但未安装 → 尝试安装或引用本地定义
+        └── 未找到任何替代方案 → 进入 Step 4
+
+Step 4  评估是否可用其他工具替代
+        - 例如：没有 `websearch` skill 时，尝试使用 `WebSearch` 或 `WebFetch` 工具（如果环境支持）
+        - 例如：没有 `commit` skill 时，手动执行 git 命令
+
+Step 5  决策
+        ├── 找到可行替代方案 → 继续任务，记录替代方案到 session-memory
+        └── 无法替代 → 向用户报告：
+              "需要的 skill 'xxx' 在当前环境中不可用，已尝试的替代方案：{yyy}。\n"
+              "请安装该 skill 或提供替代工具。"
+
+Step 6  记录到 session-memory
+        - 记录缺失的 skill、尝试过的替代方案、最终决策
+```
+
+### 约束
+- **禁止**：在 skill 缺失时直接失败卡住而不尝试恢复
+- **禁止**：自行编造不存在的 skill 名称或调用方式
+- **必须**：在调用非标准 skill 前，优先验证其可用性
