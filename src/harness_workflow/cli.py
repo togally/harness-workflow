@@ -16,6 +16,8 @@ from harness_workflow.core import (
     export_feedback,
     init_repo,
     install_repo,
+    list_active_requirements,
+    list_done_requirements,
     rename_change,
     rename_requirement,
     regression_action,
@@ -43,7 +45,7 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
     if not sys.stdin.isatty():
         if current_platforms:
             return current_platforms
-        return ["codex", "qoder", "cc"]
+        return ["codex", "qoder", "cc", "kimi"]
 
     platforms = questionary.checkbox(
         "选择要支持的平台（空格选择，回车确认）:",
@@ -63,10 +65,51 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
                 "value": "cc",
                 "checked": current_platforms is None or "cc" in (current_platforms or [])
             },
+            {
+                "name": "kimi (.kimi/skills/harness/SKILL.md)",
+                "value": "kimi",
+                "checked": current_platforms is None or "kimi" in (current_platforms or []),
+            },
         ]
     ).ask()
 
     return platforms or []
+
+
+def prompt_requirement_selection(requirements: list[dict], preselect: str | None = None) -> str | None:
+    """
+    交互式需求单选
+
+    Args:
+        requirements: list of {"req_id": str, "title": str, "stage": str}
+        preselect: 预选中的 req_id
+
+    Returns:
+        选中的 req_id，取消或无需求时返回 None
+    """
+    import sys
+
+    if not requirements:
+        return None
+
+    choices = [
+        {
+            "name": f"{r['req_id']} {r['title']}（{r['stage']}）" if r.get("title") else r["req_id"],
+            "value": r["req_id"],
+        }
+        for r in requirements
+    ]
+    default_value = preselect if preselect and any(r["req_id"] == preselect for r in requirements) else requirements[0]["req_id"]
+
+    if not sys.stdin.isatty():
+        return default_value
+
+    result = questionary.select(
+        "选择需求:",
+        choices=choices,
+        default=default_value,
+    ).ask()
+    return result
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -96,6 +139,7 @@ def build_parser() -> argparse.ArgumentParser:
     language_parser.add_argument("--root", default=".", help="Repository root.")
 
     enter_parser = subparsers.add_parser("enter", help="Enter harness conversation mode at the current workflow node.")
+    enter_parser.add_argument("req_id", nargs="?", default=None, help="Requirement id to enter (optional, shows list if omitted).")
     enter_parser.add_argument("--root", default=".", help="Repository root.")
 
     exit_parser = subparsers.add_parser("exit", help="Exit harness conversation mode.")
@@ -125,7 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
     change_parser.add_argument("--requirement", default="", help="Optional requirement title or id to link.")
 
     archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement.")
-    archive_parser.add_argument("requirement", help="Requirement title or id.")
+    archive_parser.add_argument("requirement", nargs="?", default=None, help="Requirement title or id (optional, shows list if omitted).")
     archive_parser.add_argument("--root", default=".", help="Repository root.")
     archive_parser.add_argument("--folder", default="", help="Optional subfolder name within archive/.")
 
@@ -167,7 +211,17 @@ def main() -> int:
     if args.command == "language":
         return set_language(root, args.language)
     if args.command == "enter":
-        return enter_workflow(root)
+        if args.req_id:
+            return enter_workflow(root, req_id=args.req_id)
+        active_reqs = list_active_requirements(root)
+        if not active_reqs:
+            print("No active requirements found.")
+            return enter_workflow(root)
+        selected = prompt_requirement_selection(active_reqs)
+        if not selected:
+            print("No requirement selected.")
+            return 1
+        return enter_workflow(root, req_id=selected)
     if args.command == "exit":
         return exit_workflow(root)
     if args.command == "status":
@@ -181,7 +235,15 @@ def main() -> int:
     if args.command == "change":
         return create_change(root, args.title, change_id=args.id, title=args.title_flag, requirement_id=args.requirement)
     if args.command == "archive":
-        return archive_requirement(root, args.requirement, folder=args.folder)
+        done_reqs = list_done_requirements(root)
+        if not done_reqs:
+            print("No done requirements available to archive.")
+            return 1
+        selected = prompt_requirement_selection(done_reqs, preselect=args.requirement)
+        if not selected:
+            print("No requirement selected.")
+            return 1
+        return archive_requirement(root, selected, folder=args.folder)
     if args.command == "rename":
         if args.kind == "requirement":
             return rename_requirement(root, args.current, args.new)

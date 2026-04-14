@@ -16,7 +16,7 @@
 - **角色分离** — 每个阶段使用专属 agent 角色（分析师、架构师、工程师、测试员、验收官）
 - **持久化状态** — 需求和变更通过 YAML + Markdown 文件在上下文窗口重置后依然存在
 - **经验沉淀** — 每个项目的教训被捕获并在未来会话中复用
-- **多平台支持** — 支持 Claude Code、Codex、Qoder
+- **多平台支持** — 支持 Claude Code、Codex、Qoder、kimicli
 
 ---
 
@@ -66,7 +66,7 @@ pipx install git+https://github.com/togally/harness-workflow.git
 
 ```bash
 cd your-project
-harness install          # 安装 Claude Code / Codex / Qoder 的 skill 文件
+harness install          # 安装 Claude Code / Codex / Qoder / kimicli 的 skill 文件
 ```
 
 ---
@@ -81,7 +81,7 @@ harness install          # 安装 Claude Code / Codex / Qoder 的 skill 文件
 | `harness next` | 推进到下一个工作流阶段 |
 | `harness next --execute` | 确认执行（进入 executing 阶段必须） |
 | `harness regression "<问题>"` | 开始回归分析流程 |
-| `harness archive <req-id> [--folder <名称>]` | 归档已完成的需求 |
+| `harness archive <req-id> [--folder <名称>]` | 归档已完成的需求（仅限 `done` 状态） |
 | `harness rename requirement <旧> <新>` | 重命名需求 |
 | `harness rename change <旧> <新>` | 重命名变更 |
 | `harness ff` | 快进到 ready_for_execution |
@@ -105,6 +105,16 @@ harness next          # → done
 
 ---
 
+## 本地开发
+
+修改源码后，需要重新注入到 pipx 环境才能使改动生效：
+
+```bash
+pipx inject harness-workflow . --force
+```
+
+---
+
 ## 实践原则
 
 1. **上下文爆满时不压缩** — 新开 agent，通过 `session-memory.md` 交接
@@ -124,6 +134,17 @@ harness next          # → done
 | Claude Code | `CLAUDE.md`、`.claude/commands/harness-*.md`、`.claude/skills/harness/` |
 | Codex | `AGENTS.md`、`.codex/skills/harness/`、`.codex/skills/harness-*/` |
 | Qoder | `.qoder/skills/harness/`、`.qoder/commands/harness-*.md`、`.qoder/rules/harness-workflow.md` |
+| kimicli | `.kimi/skills/{命令}/SKILL.md`（YAML frontmatter + Markdown 格式） |
+
+---
+
+## 制品仓库
+
+根目录 `artifacts/` 作为已完成需求的知识库：
+
+- **`artifacts/requirements/`** — 由 `harness archive` 自动生成。每个归档需求会生成一份 `{req-id}-{标题}.md` 摘要文档，包含业务背景、需求目标、交付范围、验收标准、变更列表和关键设计决策，便于新成员快速接手。
+  > **注意：** `harness archive` 仅处理 `done` 状态的需求。未完成完整工作流的需求无法被归档。
+- 其他子目录（`sql/`、`api/` 等）由团队手动维护。
 
 ---
 

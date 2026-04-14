@@ -78,6 +78,8 @@ WORKFLOW_SEQUENCE = [
     "plan_review",
     "ready_for_execution",
     "executing",
+    "testing",
+    "acceptance",
     "done",
 ]
 LANGUAGE_SPECS = {
@@ -326,7 +328,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "3. 再读取 `.workflow/state/runtime.yaml`",
                 "4. 如有需要，再按 `.workflow/context/index.md` 的路由读取对应角色、经验和约束文件",
                 "5. 优先遵循根目录 `AGENTS.md`",
-                "6. 如果存在 `.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
+                "6. 如果存在 `.kimi/skills/harness/SKILL.md`、`.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
                 "",
                 "执行要求：",
                 "",
@@ -358,7 +360,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "3. Then read `.workflow/state/runtime.yaml`",
                 "4. Load any additional role / experience / constraint files by following `.workflow/context/index.md`",
                 "5. Prefer the root `AGENTS.md`",
-                "6. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
+                "6. If `.kimi/skills/harness/SKILL.md`, `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
                 "",
                 "Execution rules:",
                 "",
@@ -444,6 +446,43 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
         )
         body.extend(command_specific_guidance(command_name, language))
     return "\n".join(body) + "\n"
+
+
+def render_kimi_command_skill(command_name: str, cli_command: str, language: str) -> str:
+    is_cn = normalize_language(language) == "cn"
+    if is_cn:
+        description = f"在 Harness 工作流中运行 {cli_command} 命令"
+        hard_gate_lines = [
+            "## Hard Gate",
+            "",
+            "在执行前，必须按顺序读取以下三个文件：",
+            "1. 读取根目录 `WORKFLOW.md`",
+            "2. 读取 `.workflow/context/index.md`",
+            "3. 读取 `.workflow/state/runtime.yaml`",
+            "4. 按照 `.workflow/context/index.md` 加载额外的角色/经验/约束文件",
+            "5. 优先查看根目录 `AGENTS.md`",
+            "6. 如果存在 `.kimi/skills/harness/SKILL.md`，按主 Harness skill 执行",
+        ]
+    else:
+        description = f"Run {cli_command} in the Harness workflow"
+        hard_gate_lines = [
+            "## Hard Gate",
+            "",
+            "Do not act until these three files have been read in order:",
+            "1. Read the root `WORKFLOW.md`",
+            "2. Read `.workflow/context/index.md`",
+            "3. Read `.workflow/state/runtime.yaml`",
+            "4. Load any additional role / experience / constraint files by following `.workflow/context/index.md`",
+            "5. Prefer the root `AGENTS.md`",
+            "6. If `.kimi/skills/harness/SKILL.md` exists, follow the main Harness skill",
+        ]
+
+    frontmatter = f"---\nname: {command_name}\ndescription: \"{description}\"\n---\n\n"
+    body: list[str] = []
+    body.extend(hard_gate_lines)
+    body.append("")
+    body.extend(command_specific_guidance(command_name, language))
+    return frontmatter + "\n".join(body)
 
 
 def command_specific_guidance(command_name: str, language: str) -> list[str]:
@@ -1957,6 +1996,9 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         managed[f".codex/skills/{command['name']}/SKILL.md"] = render_codex_command_skill(
             command["name"], command["cli"], language
         )
+        managed[f".kimi/skills/{command['name']}/SKILL.md"] = render_kimi_command_skill(
+            command["name"], command["cli"], language
+        )
     return managed
 
 
@@ -2359,6 +2401,11 @@ def resolve_requirement_reference(requirements_dir: Path, reference: str, langua
     derived = requirements_dir / resolve_artifact_id(reference, language)
     if derived.exists():
         return derived
+    # Prefix match: "req-05" matches "req-05-功能扩展"
+    if requirements_dir.exists():
+        for child in sorted(requirements_dir.iterdir()):
+            if child.is_dir() and child.name.startswith(reference + "-"):
+                return child
     return None
 
 
@@ -2369,6 +2416,11 @@ def resolve_change_reference(changes_dir: Path, reference: str, language: str) -
     derived = changes_dir / resolve_artifact_id(reference, language)
     if derived.exists():
         return derived
+    # Prefix match: "chg-01" matches "chg-01-xxx"
+    if changes_dir.exists():
+        for child in sorted(changes_dir.iterdir()):
+            if child.is_dir() and child.name.startswith(reference + "-"):
+                return child
     return None
 
 
@@ -2626,14 +2678,14 @@ def install_repo(root: Path, force_skill: bool = False) -> int:
 
     # If no existing config, default to all platforms
     if not active_list:
-        selected = ["codex", "qoder", "cc"]
-        print("\nNew installation: enabling all platforms (codex, qoder, cc)")
+        selected = ["codex", "qoder", "cc", "kimi"]
+        print("\nNew installation: enabling all platforms (codex, qoder, cc, kimi)")
     else:
         # Interactive selection for re-install
         print(f"\nCurrent active platforms: {', '.join(active_list)}")
         selected = prompt_platform_selection(active_list)
         if not selected:
-            selected = ["codex", "qoder", "cc"]
+            selected = ["codex", "qoder", "cc", "kimi"]
             print("No selection made, using all platforms")
 
     # Sync platform state (backup/restore)
@@ -2985,12 +3037,170 @@ def rename_change(root: Path, current_name: str, new_name: str, version_name: st
     return 0
 
 
+def _extract_section(text: str, heading: str) -> str:
+    """提取 Markdown 文本中包含 heading 关键词的 ## 章节内容（不含标题行本身）。"""
+    lines = text.splitlines()
+    in_section = False
+    result: list[str] = []
+    for line in lines:
+        if line.startswith("## ") and heading in line:
+            in_section = True
+            continue
+        if in_section:
+            if line.startswith("## "):
+                break
+            result.append(line)
+    return "\n".join(result).strip()
+
+
+def generate_requirement_artifact(root: Path, archive_target: Path, req_id: str, title: str) -> Path:
+    """生成需求制品文档，输出到 artifacts/requirements/{req_id}-{title}.md。"""
+    from datetime import date as _date
+    git_branch = _get_git_branch(root)
+
+    # 读取 requirement.md
+    req_md_path = archive_target / "requirement.md"
+    req_text = req_md_path.read_text(encoding="utf-8") if req_md_path.exists() else ""
+    goal = _extract_section(req_text, "Goal") or _extract_section(req_text, "目标")
+    scope = _extract_section(req_text, "Scope") or _extract_section(req_text, "范围")
+    acceptance = _extract_section(req_text, "Acceptance") or _extract_section(req_text, "验收")
+
+    # 读取各 change.md 构建变更列表
+    change_lines: list[str] = []
+    changes_dir = archive_target / "changes"
+    if changes_dir.exists():
+        for chg_dir in sorted(changes_dir.iterdir()):
+            chg_md = chg_dir / "change.md"
+            if not chg_md.exists():
+                continue
+            chg_text = chg_md.read_text(encoding="utf-8")
+            chg_title = _extract_section(chg_text, "Title").splitlines()[0].strip() if _extract_section(chg_text, "Title") else chg_dir.name
+            chg_goal_raw = _extract_section(chg_text, "Goal") or _extract_section(chg_text, "目标")
+            chg_goal = (chg_goal_raw.splitlines()[0].strip() if chg_goal_raw else "")
+            chg_id = chg_dir.name.split("-")[0] + "-" + chg_dir.name.split("-")[1] if "-" in chg_dir.name else chg_dir.name
+            if chg_goal:
+                change_lines.append(f"- **{chg_id}** {chg_title}：{chg_goal}")
+            else:
+                change_lines.append(f"- **{chg_id}** {chg_title}")
+
+    # 读取 sessions 关键决策
+    decisions_parts: list[str] = []
+    sessions_dir = archive_target / "sessions"
+    if sessions_dir.exists():
+        for chg_dir in sorted(sessions_dir.iterdir()):
+            if not chg_dir.is_dir():
+                continue
+            mem_path = chg_dir / "session-memory.md"
+            if mem_path.exists():
+                mem_text = mem_path.read_text(encoding="utf-8")
+                decisions = _extract_section(mem_text, "关键决策") or _extract_section(mem_text, "Key Decisions")
+                if decisions:
+                    decisions_parts.append(f"**{chg_dir.name}**\n{decisions}")
+
+    # 读取 done-report.md 遗留问题
+    pending_issues = ""
+    done_report_path = archive_target / "sessions" / "done-report.md"
+    if done_report_path.exists():
+        report_text = done_report_path.read_text(encoding="utf-8")
+        pending_issues = _extract_section(report_text, "遗留") or _extract_section(report_text, "Pending")
+
+    # 构建文档
+    today = _date.today().isoformat()
+    branch_label = git_branch or "unknown"
+    sections: list[str] = [
+        f"# {title}",
+        "",
+        f"> req-id: {req_id} | 完成时间: {today} | 分支: {branch_label}",
+    ]
+    if goal:
+        sections += ["", "## 需求目标", "", goal]
+    if scope:
+        sections += ["", "## 交付范围", "", scope]
+    if acceptance:
+        sections += ["", "## 验收标准", "", acceptance]
+    if change_lines:
+        sections += ["", "## 变更列表", ""] + change_lines
+    if decisions_parts:
+        sections += ["", "## 关键设计决策", ""] + decisions_parts
+    if pending_issues:
+        sections += ["", "## 遗留问题与注意事项", "", pending_issues]
+
+    out_dir = root / "artifacts" / "requirements"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{req_id}-{title}.md"
+    out_path.write_text("\n".join(sections) + "\n", encoding="utf-8")
+    return out_path
+
+
+def list_done_requirements(root: Path) -> list[dict]:
+    """返回 stage == 'done' 且尚未归档的需求列表。"""
+    req_state_dir = root / ".workflow" / "state" / "requirements"
+    results = []
+    if not req_state_dir.exists():
+        return results
+    for req_file in sorted(req_state_dir.glob("*.yaml")):
+        state = load_simple_yaml(req_file)
+        stage = str(state.get("stage", "")).strip()
+        status = str(state.get("status", "")).strip()
+        if stage == "done" and status != "archived":
+            results.append({
+                "req_id": str(state.get("req_id", "")).strip(),
+                "title": str(state.get("title", "")).strip(),
+                "stage": stage,
+            })
+    return results
+
+
+def list_active_requirements(root: Path) -> list[dict]:
+    """返回 runtime active_requirements 中的需求列表，含 title 和 stage。"""
+    runtime = load_requirement_runtime(root)
+    active_ids = [str(r).strip() for r in runtime.get("active_requirements", [])]
+    req_state_dir = root / ".workflow" / "state" / "requirements"
+    id_to_state: dict[str, dict] = {}
+    if req_state_dir.exists():
+        for req_file in sorted(req_state_dir.glob("*.yaml")):
+            state = load_simple_yaml(req_file)
+            req_id = str(state.get("req_id", "")).strip()
+            if req_id:
+                id_to_state[req_id] = state
+    results = []
+    for req_id in active_ids:
+        state = id_to_state.get(req_id, {})
+        results.append({
+            "req_id": req_id,
+            "title": str(state.get("title", "")).strip(),
+            "stage": str(state.get("stage", "")).strip(),
+        })
+    return results
+
+
+def _get_git_branch(root: Path) -> str:
+    """读取当前 git 分支名，失败时返回空字符串。"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        branch = result.stdout.strip()
+        return branch.replace("/", "-") if branch else ""
+    except Exception:
+        return ""
+
+
 def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> int:
     runtime = load_requirement_runtime(root)
     requirements_dir = root / ".workflow" / "flow" / "requirements"
     req_dir = resolve_requirement_reference(requirements_dir, requirement_name, "cn")
     if not req_dir:
         raise SystemExit(f"Requirement does not exist: {requirement_name}")
+
+    # 若未传 folder，读取 git branch 作为默认
+    if not folder:
+        folder = _get_git_branch(root)
 
     archive_base = root / ".workflow" / "flow" / "archive"
     target_parent = archive_base / folder if folder else archive_base
@@ -2999,7 +3209,7 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     target = target_parent / req_dir.name
     shutil.move(str(req_dir), str(target))
 
-    # Update state/requirements/*.yaml
+    # Update state/requirements/*.yaml and migrate to archive
     req_state_dir = root / ".workflow" / "state" / "requirements"
     archived_req_id = ""
     if req_state_dir.exists():
@@ -3009,6 +3219,8 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
                 archived_req_id = str(state.get("req_id", "")).strip()
                 state["status"] = "archived"
                 save_simple_yaml(req_file, state)
+                # Migrate state.yaml to archive directory
+                shutil.move(str(req_file), str(target / "state.yaml"))
                 break
 
     # Update runtime active_requirements
@@ -3017,6 +3229,23 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     if str(runtime.get("current_requirement", "")) == archived_req_id:
         runtime["current_requirement"] = active_reqs[0] if active_reqs else ""
     save_requirement_runtime(root, runtime)
+
+    # Migrate state/sessions/req-xx/ to archive directory
+    if archived_req_id:
+        sessions_src = root / ".workflow" / "state" / "sessions" / archived_req_id
+        if sessions_src.exists():
+            sessions_dst = target / "sessions"
+            shutil.move(str(sessions_src), str(sessions_dst))
+            print(f"Migrated sessions: {sessions_dst}")
+
+    # Generate artifact document
+    if archived_req_id:
+        req_title = re.sub(r"^req-\d+-", "", req_dir.name)
+        try:
+            artifact_path = generate_requirement_artifact(root, target, archived_req_id, req_title)
+            print(f"Generated artifact: {artifact_path}")
+        except Exception as exc:
+            print(f"Warning: artifact generation failed: {exc}")
 
     print(f"Archived requirement: {req_dir.name}")
     print(f"Archive path: {target}")
@@ -3091,6 +3320,9 @@ def workflow_next(root: Path, execute: bool = False) -> int:
                 state = load_simple_yaml(req_file)
                 if str(state.get("req_id", "")).strip() == req_id:
                     state["stage"] = next_stage
+                    if next_stage == "done":
+                        state["status"] = "done"
+                        state["completed"] = date.today().isoformat()
                     save_simple_yaml(req_file, state)
                     break
 
@@ -3120,6 +3352,18 @@ def workflow_fast_forward(root: Path) -> int:
     from_stage = str(runtime.get("stage", "")).strip()
     runtime["stage"] = "ready_for_execution"
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
+
+    req_id = str(runtime.get("current_requirement", "")).strip()
+    if req_id:
+        req_state_dir = root / ".workflow" / "state" / "requirements"
+        if req_state_dir.exists():
+            for req_file in sorted(req_state_dir.glob("*.yaml")):
+                state = load_simple_yaml(req_file)
+                if str(state.get("req_id", "")).strip() == req_id:
+                    state["stage"] = "ready_for_execution"
+                    save_simple_yaml(req_file, state)
+                    break
+
     save_requirement_runtime(root, runtime)
     record_feedback_event(root, "stage_skip", {"from_stage": from_stage})
     record_feedback_event(root, "ff", {"from_stage": from_stage})
@@ -3127,8 +3371,10 @@ def workflow_fast_forward(root: Path) -> int:
     return 0
 
 
-def enter_workflow(root: Path) -> int:
+def enter_workflow(root: Path, req_id: str = "") -> int:
     runtime = load_requirement_runtime(root)
+    if req_id:
+        runtime["current_requirement"] = req_id
     runtime = set_conversation_mode(runtime, conversation_mode="harness")
     save_requirement_runtime(root, runtime)
     print("Entered harness mode.")

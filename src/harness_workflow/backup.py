@@ -25,14 +25,18 @@ PLATFORM_CONFIGS = {
     "cc": {
         "source": ".claude/commands",
         "backup_dir": "cc",
-    }
+    },
+    "kimi": {
+        "source": ".kimi/skills/harness/SKILL.md",
+        "backup_dir": "kimi",
+    },
 }
 
 BACKUP_BASE = ".workflow/context/backup"
 PLATFORMS_FILE = ".workflow/state/platforms.yaml"
 
 # 所有支持的平台
-ALL_PLATFORMS = ["codex", "qoder", "cc"]
+ALL_PLATFORMS = ["codex", "qoder", "cc", "kimi"]
 
 
 def ensure_backup_dir(root: str = ".") -> Path:
@@ -224,6 +228,9 @@ def get_platform_file_patterns(platform: str) -> list[str]:
         ],
         "cc": [
             ".claude/commands/",
+        ],
+        "kimi": [
+            ".kimi/skills/",
         ],
     }
     return patterns.get(platform, [])

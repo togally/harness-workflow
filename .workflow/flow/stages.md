@@ -49,8 +49,12 @@ requirement_review          ← 第三层管辖
 - **下一步**：`harness next` → `testing`（进入第五层）
 
 ### done
+- **角色**：主 agent（非 subagent）
 - **进入条件**：acceptance 通过（第五层判定）
-- **动作**：触发经验沉淀最终检查；需求可归档
+- **动作**：
+  - 读取 `context/roles/done.md` 作为检查清单
+  - 执行六层回顾检查（Context、Tools、Flow、State、Evaluation、Constraints）
+  - 输出回顾报告到 `session-memory.md` 的 `## done 阶段回顾报告` 区块
 - **归档命令**：`harness archive "<req-id>" [--version "<v>"]`
 
 ---

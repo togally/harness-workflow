@@ -41,6 +41,7 @@
 | `testing` | `.workflow/context/roles/testing.md` |
 | `acceptance` | `.workflow/context/roles/acceptance.md` |
 | `regression` | `.workflow/context/roles/regression.md` |
+| `done` | `.workflow/context/roles/done.md`（主 agent 执行） |
 
 角色文件包含该阶段的完整行为约束，是 subagent 的完整 briefing，**必须完整加载**。
 
@@ -70,6 +71,14 @@
 
 在开始实质性任务（生成代码、修改文件、制定计划）前加载：
 - `.workflow/context/team/development-standards.md`：团队开发规范、代码风格约束
+
+**上下文负载检查**（每次 before-task 时执行）：
+估算当前上下文负载，参考 chg-01 阈值：
+- 消息条数是否超过 100 条（预警），150 条（强制维护），200 条（紧急）
+- 文件读取次数是否超过 50 次（预警），80 次（强制维护），100 次（紧急）
+- 会话时长是否超过 2 小时（预警），4 小时（强制维护），6 小时（紧急）
+
+若达到预警及以上阈值，主 agent 在派发任务前先处理上下文维护（参考 WORKFLOW.md 上下文维护职责）。
 
 ---
 
@@ -117,6 +126,8 @@ context/experience/{分类}/  ← 按 stage 过滤（规则见 state/experience/
     ↓
 [before-task]
 team/development-standards.md ← 团队规范
+    ↓
+上下文负载检查              ← 估算消息数/读取数/时长（参考 chg-01 阈值）
     ↓
 constraints/risk.md       ← 风险扫描（必须）
     ↓
