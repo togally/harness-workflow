@@ -1,0 +1,102 @@
+# done 阶段检查清单
+
+本文件是 done 阶段的检查清单内容文件，供主 agent 在 stage=done 时读取并执行六层回顾检查。
+
+## 六层检查清单
+
+### 第一层：Context（上下文层）
+- [ ] **角色行为检查**：各阶段角色（requirement-review、planning、executing、testing、acceptance、regression）的行为是否符合预期？
+- [ ] **经验文件更新**：`.workflow/context/experience/` 下相关文件是否已更新本轮教训？
+- [ ] **上下文完整性**：项目背景、团队规范等上下文是否完整、准确？
+
+### 第二层：Tools（工具层）
+- [ ] **工具使用顺畅度**：本轮有无工具用得不顺？有无遇到工具限制或兼容性问题？
+- [ ] **CLI 工具适配**：有无发现更适合的 CLI 工具可以替代当前手工步骤？
+- [ ] **MCP 工具适配**：有无 MCP 工具可以更好地服务某一层（如 context 层的经验管理、state 层的状态跟踪）？
+
+### 第三层：Flow（流程层）
+- [ ] **阶段流程完整性**：是否走了完整的阶段流程（requirement_review → changes_review → plan_review → executing → testing → acceptance）？
+- [ ] **阶段跳过检查**：有无阶段被跳过（如直接从 planning 跳到 executing）？
+- [ ] **流程顺畅度**：各阶段之间的流转是否顺畅？有无卡顿或阻塞点？
+
+### 第四层：State（状态层）
+- [ ] **runtime.yaml 一致性**：`runtime.yaml` 中的状态是否与实际执行情况一致？
+- [ ] **需求状态一致性**：各需求的状态（active、completed、archived）是否准确？
+- [ ] **状态记录完整性**：关键决策、变更记录是否完整保存到状态文件中？
+
+### 第五层：Evaluation（评估层）
+- [ ] **testing 独立性**：testing 阶段是否真正独立执行？有无被 executing 阶段影响？
+- [ ] **acceptance 独立性**：acceptance 阶段是否真正独立执行？有无被 testing 阶段影响？
+- [ ] **评估标准达成**：各阶段的评估标准是否达成？有无降低标准或妥协？
+
+### 第六层：Constraints（约束层）
+- [ ] **边界约束触发**：本轮有无触发 `.workflow/constraints/boundaries.md` 中定义的边界约束？
+- [ ] **风险扫描更新**：有无需要更新 `.workflow/constraints/risk.md` 的新风险？
+- [ ] **约束遵守情况**：硬门禁、行为边界等约束条件是否被严格遵守？
+
+## 工具层适配性问题模板
+
+### CLI 工具适配性问题
+- **问题描述**：本轮有无发现更适合的 CLI 工具可以替代当前手工步骤？
+- **检查点**：
+  - 代码生成、文件操作、Git 操作等手工步骤
+  - 测试运行、构建打包等重复性任务
+  - 状态跟踪、日志记录等辅助性工作
+- **记录格式**：`[手工步骤] → [建议的 CLI 工具] + [预期收益]`
+
+### MCP 工具适配性问题
+- **问题描述**：有无 MCP 工具可以更好地服务某一层？
+- **检查点**：
+  - **Context 层**：经验管理、知识库检索
+  - **Tools 层**：工具配置管理、依赖检查
+  - **State 层**：状态可视化、历史回溯
+  - **Flow 层**：流程监控、进度跟踪
+- **记录格式**：`[当前痛点] → [建议的 MCP 工具] + [服务层级]`
+
+## 经验沉淀验证步骤
+
+1. **检查经验目录**：确认 `.workflow/context/experience/` 目录结构完整
+2. **按阶段验证**：
+   - **requirement_review/planning 阶段**：检查 `experience/stage/requirement.md` 是否更新
+   - **executing 阶段**：检查 `experience/stage/development.md` 和 `experience/tool/harness.md` 是否更新
+   - **testing/acceptance 阶段**：检查 `experience/stage/testing.md` 和 `experience/stage/acceptance.md` 是否更新
+   - **regression 阶段**：检查 `experience/stage/regression.md` 和 `experience/risk/known-risks.md` 是否更新
+3. **如未更新**：提示记录本轮教训，格式参考 `.workflow/context/experience/template.md`
+
+## 流程完整性检查项
+
+### 阶段执行检查
+- [ ] **requirement_review**：需求是否经过充分评审？变更列表是否完整？
+- [ ] **changes_review**：变更是否经过评审？计划是否合理？
+- [ ] **plan_review**：计划是否经过评审？资源分配是否合理？
+- [ ] **executing**：执行是否按计划进行？有无偏离？
+- [ ] **testing**：测试是否独立执行？覆盖是否充分？
+- [ ] **acceptance**：验收是否独立执行？标准是否达成？
+
+### 流程异常检查
+- [ ] **阶段跳过**：有无直接从 planning 跳到 executing 等跳过行为？
+- [ ] **阶段短路**：有无 testing 被 executing 影响等短路行为？
+- [ ] **阶段重复**：有无不必要的阶段重复执行？
+- [ ] **阶段遗漏**：有无必须的阶段被遗漏？
+
+## 输出规范建议
+
+### 回顾报告位置
+- **建议位置**：`session-memory.md` 的 `## done 阶段回顾报告` 区块
+- **备选位置**：当前需求的 `changes/` 目录下新建 `retrospective.md`
+
+### 报告内容结构
+1. **执行摘要**：本轮工作概述、关键成果
+2. **六层检查结果**：逐层报告检查发现（通过/问题/建议）
+3. **工具层适配发现**：CLI/MCP 工具适配性问题记录
+4. **经验沉淀情况**：经验文件更新情况、新增教训
+5. **流程完整性评估**：阶段执行情况、异常发现
+6. **改进建议**：针对发现问题的具体改进建议
+7. **下一步行动**：需要立即执行或后续跟踪的行动项
+
+### 报告格式要求
+- 使用 Markdown 格式
+- 重要发现使用 **加粗** 或 `代码块`
+- 问题项使用 `- [ ]` 或 `- [x]` 标记状态
+- 建议项使用 `> 建议：` 引用格式
+- 行动项使用 `**行动**：` 强调格式

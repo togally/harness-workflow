@@ -1957,6 +1957,8 @@ def _required_dirs(root: Path) -> list[Path]:
         root / ".workflow" / "context" / "experience" / "stage",
         root / ".workflow" / "context" / "experience" / "tool",
         root / ".workflow" / "context" / "experience" / "risk",
+        root / ".workflow" / "tools",
+        root / ".workflow" / "tools" / "catalog",
         root / HARNESS_DIR,
     ]
 
