@@ -6,6 +6,14 @@
 
 ## 加载顺序
 
+### Session Start（每次会话开启时，在 Step 1 之前）
+
+读取以下背景文件，建立项目和团队上下文：
+- `.workflow/tools/index.md`：了解工具系统结构和可用工具层
+- `.workflow/context/project/project-overview.md`：项目定位、六层架构、演进背景
+
+---
+
 ### Step 1：读取运行时状态（必须第一步）
 
 读取 `.workflow/state/runtime.yaml`，提取以下字段：
@@ -33,8 +41,14 @@
 | `testing` | `.workflow/context/roles/testing.md` |
 | `acceptance` | `.workflow/context/roles/acceptance.md` |
 | `regression` | `.workflow/context/roles/regression.md` |
+| `done` | `.workflow/context/roles/done.md`（主 agent 执行） |
 
 角色文件包含该阶段的完整行为约束，是 subagent 的完整 briefing，**必须完整加载**。
+
+在 `testing`、`acceptance`、`regression` 阶段，还需在 `.workflow/evaluation/` 下加载对应的评估文件（如存在）：
+- `evaluation/testing.md`（testing 阶段）
+- `evaluation/acceptance.md`（acceptance 阶段）
+- `evaluation/regression.md`（regression 阶段）
 
 ---
 
@@ -53,7 +67,22 @@
 
 ---
 
-### Step 4：加载风险文件
+### Step 4：加载团队与项目上下文（before-task）
+
+在开始实质性任务（生成代码、修改文件、制定计划）前加载：
+- `.workflow/context/team/development-standards.md`：团队开发规范、代码风格约束
+
+**上下文负载检查**（每次 before-task 时执行）：
+估算当前上下文负载，参考 chg-01 阈值：
+- 消息条数是否超过 100 条（预警），150 条（强制维护），200 条（紧急）
+- 文件读取次数是否超过 50 次（预警），80 次（强制维护），100 次（紧急）
+- 会话时长是否超过 2 小时（预警），4 小时（强制维护），6 小时（紧急）
+
+若达到预警及以上阈值，主 agent 在派发任务前先处理上下文维护（参考 WORKFLOW.md 上下文维护职责）。
+
+---
+
+### Step 5：加载风险文件
 
 读取 `.workflow/constraints/risk.md`，扫描高风险关键词。
 
@@ -64,7 +93,7 @@
 
 ---
 
-### Step 5：检查流转规则（按需）
+### Step 6：检查流转规则（按需）
 
 如需判断 stage 推进条件或归档规则，读取 `.workflow/flow/stages.md`。
 
@@ -85,13 +114,22 @@
 ## 加载顺序速查
 
 ```
+[session-start]
+tools/index.md + context/project/project-overview.md ← 工具和项目背景
+    ↓
 runtime.yaml
     ↓ 提取 current_requirement + stage
 roles/{stage}.md          ← 角色约束（必须）
+evaluation/{stage}.md     ← testing/acceptance/regression 阶段额外加载
     ↓
-context/experience/{分类}/  ← 按 stage 过滤（不全量加载，规则见 state/experience/index.md）
+context/experience/{分类}/  ← 按 stage 过滤（规则见 state/experience/index.md）
+    ↓
+[before-task]
+team/development-standards.md ← 团队规范
+    ↓
+上下文负载检查              ← 估算消息数/读取数/时长（参考 chg-01 阈值）
     ↓
 constraints/risk.md       ← 风险扫描（必须）
     ↓
-.workflow/flow/stages.md   ← 按需（流转判断时）
+flow/stages.md            ← 按需（流转判断时）
 ```

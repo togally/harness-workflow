@@ -46,6 +46,8 @@ DEFAULT_STATE_RUNTIME = {
     "locked_requirement": "",
     "locked_stage": "",
     "current_regression": "",
+    "ff_mode": False,
+    "ff_stage_history": [],
     "active_requirements": [],
 }
 LEGACY_CLEANUP_ROOT = Path(".workflow") / "context" / "backup" / "legacy-cleanup"
@@ -270,6 +272,8 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
             "locked_requirement",
             "locked_stage",
             "current_regression",
+            "ff_mode",
+            "ff_stage_history",
             "active_requirements",
         ],
     )
@@ -2708,6 +2712,63 @@ def install_repo(root: Path, force_skill: bool = False) -> int:
     return init_repo(root, write_agents=write_agents, write_claude=write_claude)
 
 
+def _migrate_state_files(root: Path) -> list[str]:
+    """Migrate old state file formats to the latest schema."""
+    actions: list[str] = []
+
+    # Migrate runtime.yaml
+    runtime_path = root / STATE_RUNTIME_PATH
+    if runtime_path.exists():
+        raw_runtime = load_simple_yaml(runtime_path)
+        migrated = False
+        if "ff_mode" not in raw_runtime:
+            raw_runtime["ff_mode"] = False
+            migrated = True
+        if "ff_stage_history" not in raw_runtime:
+            raw_runtime["ff_stage_history"] = []
+            migrated = True
+        if migrated:
+            backup = runtime_path.with_suffix(runtime_path.suffix + ".bak")
+            shutil.copy2(str(runtime_path), str(backup))
+            save_requirement_runtime(root, raw_runtime)
+            actions.append("migrated runtime.yaml to new format")
+
+    # Migrate requirements/*.yaml
+    req_state_dir = root / ".workflow" / "state" / "requirements"
+    if req_state_dir.exists():
+        for req_file in sorted(req_state_dir.glob("*.yaml")):
+            state = load_simple_yaml(req_file)
+            if not state:
+                continue
+            migrated = False
+            # Rename old fields
+            if "req_id" in state:
+                state["id"] = state.pop("req_id")
+                migrated = True
+            if "created" in state:
+                state["created_at"] = state.pop("created")
+                migrated = True
+            if "completed" in state:
+                state["completed_at"] = state.pop("completed")
+                migrated = True
+            # Add new fields
+            if "started_at" not in state and "created_at" in state:
+                state["started_at"] = str(state["created_at"])
+                migrated = True
+            if "stage_timestamps" not in state:
+                state["stage_timestamps"] = {}
+                migrated = True
+            if migrated:
+                backup = req_file.with_suffix(req_file.suffix + ".bak")
+                shutil.copy2(str(req_file), str(backup))
+                ordered = ["id", "title", "status", "created_at", "started_at", "completed_at", "archived_at", "stage_timestamps"]
+                ordered += [k for k in state if k not in ordered]
+                save_simple_yaml(req_file, state, ordered_keys=ordered)
+                actions.append(f"migrated {req_file.name} to new format")
+
+    return actions
+
+
 def update_repo(root: Path, check: bool = False, force_managed: bool = False) -> int:
     actions: list[str] = []
     if not check:
@@ -2738,6 +2799,10 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
     )
     actions.extend(sync_actions)
     actions.extend(cleanup_legacy_workflow_artifacts(root, check))
+
+    if not check:
+        migrate_actions = _migrate_state_files(root)
+        actions.extend(migrate_actions)
 
     print("Update summary:")
     for action in actions:
@@ -3134,6 +3199,11 @@ def generate_requirement_artifact(root: Path, archive_target: Path, req_id: str,
     return out_path
 
 
+def _get_req_id(state: dict[str, object]) -> str:
+    """Get requirement id from state, preferring 'id' over legacy 'req_id'."""
+    return str(state.get("id", state.get("req_id", ""))).strip()
+
+
 def list_done_requirements(root: Path) -> list[dict]:
     """返回 stage == 'done' 且尚未归档的需求列表。"""
     req_state_dir = root / ".workflow" / "state" / "requirements"
@@ -3146,7 +3216,7 @@ def list_done_requirements(root: Path) -> list[dict]:
         status = str(state.get("status", "")).strip()
         if stage == "done" and status != "archived":
             results.append({
-                "req_id": str(state.get("req_id", "")).strip(),
+                "req_id": _get_req_id(state),
                 "title": str(state.get("title", "")).strip(),
                 "stage": stage,
             })
@@ -3162,7 +3232,7 @@ def list_active_requirements(root: Path) -> list[dict]:
     if req_state_dir.exists():
         for req_file in sorted(req_state_dir.glob("*.yaml")):
             state = load_simple_yaml(req_file)
-            req_id = str(state.get("req_id", "")).strip()
+            req_id = _get_req_id(state)
             if req_id:
                 id_to_state[req_id] = state
     results = []
@@ -3217,8 +3287,9 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     if req_state_dir.exists():
         for req_file in sorted(req_state_dir.glob("*.yaml")):
             state = load_simple_yaml(req_file)
-            if req_file.stem == req_dir.name or str(state.get("req_id", "")) in req_dir.name:
-                archived_req_id = str(state.get("req_id", "")).strip()
+            req_id_val = _get_req_id(state)
+            if req_file.stem == req_dir.name or req_id_val in req_dir.name:
+                archived_req_id = req_id_val
                 state["status"] = "archived"
                 save_simple_yaml(req_file, state)
                 # Migrate state.yaml to archive directory
@@ -3239,6 +3310,12 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
             sessions_dst = target / "sessions"
             shutil.move(str(sessions_src), str(sessions_dst))
             print(f"Migrated sessions: {sessions_dst}")
+
+    # Clean up residual active requirement directory
+    residual_req_dir = requirements_dir / req_dir.name
+    if residual_req_dir.exists():
+        shutil.rmtree(str(residual_req_dir))
+        print(f"Cleaned residual: {residual_req_dir.relative_to(root)}")
 
     # Generate artifact document
     if archived_req_id:
@@ -3275,7 +3352,7 @@ def workflow_status(root: Path) -> int:
             (
                 path
                 for path in sorted(requirements_dir.glob("*.yaml"))
-                if str(load_simple_yaml(path).get("req_id", "")).strip() == effective_requirement
+                if _get_req_id(load_simple_yaml(path)) == effective_requirement
             ),
             None,
         )
@@ -3320,11 +3397,14 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         if req_state_dir.exists():
             for req_file in sorted(req_state_dir.glob("*.yaml")):
                 state = load_simple_yaml(req_file)
-                if str(state.get("req_id", "")).strip() == req_id:
+                if _get_req_id(state) == req_id:
                     state["stage"] = next_stage
                     if next_stage == "done":
                         state["status"] = "done"
-                        state["completed"] = date.today().isoformat()
+                        state["completed_at"] = date.today().isoformat()
+                        if "stage_timestamps" not in state:
+                            state["stage_timestamps"] = {}
+                        state["stage_timestamps"][next_stage] = datetime.now(timezone.utc).isoformat()
                     save_simple_yaml(req_file, state)
                     break
 
@@ -3361,7 +3441,7 @@ def workflow_fast_forward(root: Path) -> int:
         if req_state_dir.exists():
             for req_file in sorted(req_state_dir.glob("*.yaml")):
                 state = load_simple_yaml(req_file)
-                if str(state.get("req_id", "")).strip() == req_id:
+                if _get_req_id(state) == req_id:
                     state["stage"] = "ready_for_execution"
                     save_simple_yaml(req_file, state)
                     break

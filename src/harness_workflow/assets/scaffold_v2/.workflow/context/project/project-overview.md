@@ -2,12 +2,44 @@
 
 ## Repository Summary
 
-- Describe the main purpose of this repository.
+**harness-workflow** 是一个结构化 AI 工作流系统，用于在 AI 开发过程中实现需求管理、变更追踪、多阶段质量门控和经验沉淀。
 
-## Important Areas
+核心理念：**管理 AI 开发，而不是放飞**。通过文档驱动、角色分离、结构约束，让 AI agent 在明确边界内可控、可追溯地完成软件工程任务。
 
-- List the key applications, services, or packages here.
+## 演进背景
+
+1. 简单提示词 → 意识到需要管理 AI 开发，产出文档驱动开发
+2. 接触 OpenSpec → 流程规范，但缺乏版本管理和文档管理能力
+3. 在 OpenSpec 之上抽象需求层 → 需求拆分为 change，OpenSpec 对 change 负责
+4. 接触 Harness → 形成现有架构
+
+## 六层架构原理
+
+| 层 | 名称 | 目录 | 职责 |
+|----|------|------|------|
+| 一 | 上下文管理 | `context/` | 角色定义、经验沉淀、项目背景、团队规范 |
+| 二 | 工具系统 | `tools/` | 工具目录、工具选择策略、各阶段工具白名单 |
+| 三 | 执行编排 | `flow/` | Stage 定义、需求文档、变更计划 |
+| 四 | 记忆与状态 | `state/` | 运行时状态、需求进度、会话记忆、经验加载规则 |
+| 五 | 评估与观测 | `evaluation/` | 测试规则、验收规则、回归诊断 |
+| 六 | 约束、校验与恢复 | `constraints/` | 行为边界、风险扫描、失败恢复路径 |
+
+## 实践原则
+
+1. **上下文爆满时不压缩**：新开 agent，通过 handoff.md 交接
+2. **每环节 agent 分开**：避免失真，生产者和评估者必须是不同实例
+3. **审查不只审代码**：也要操作页面、检查交互、验证结果
+4. **独立才有反馈闭环**：生产者和评估者分离是有效循环的前提
+5. **从缺失的结构性能力总结经验**：agent 出问题时向内归因
+6. **薄入口**：通过目录索引保证入口精简，详细信息按需暴露到子文档
+7. **可持续自治**：目标是构建能自我运行的自治系统
+
+## 支持平台
+
+参见 `.workflow/state/platforms.yaml`（当前启用：Codex、Claude Code）
 
 ## Notes
 
-- Add repository-specific facts the agent should know.
+- 所有状态相关内容统一在 `state/` 管理，其他层不存储运行时状态
+- 主 agent 负责编排，不直接执行节点任务，节点任务由 subagent 完成
+- 工作流入口：`WORKFLOW.md` → `.workflow/context/index.md` → 按 stage 路由

@@ -1,0 +1,12 @@
+current_requirement: "req-07-验证项目实际使用情况"
+stage: "executing"
+conversation_mode: "open"
+locked_requirement: ""
+locked_stage: ""
+current_regression: ""
+ff_mode: true
+ff_stage_history:
+  - "requirement_review"
+  - "planning"
+active_requirements:
+  - "req-07-验证项目实际使用情况"

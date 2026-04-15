@@ -36,6 +36,31 @@ REQUIRED_DIRS = [
 ]
 
 
+def _check_scaffold_v2_sync(root: Path) -> list[str]:
+    """Check if src/harness_workflow/assets/scaffold_v2/ is in sync with .workflow/."""
+    errors: list[str] = []
+    scaffold_root = root / "src" / "harness_workflow" / "assets" / "scaffold_v2"
+    if not scaffold_root.exists():
+        return errors
+
+    check_files = [
+        ".workflow/flow/stages.md",
+        "WORKFLOW.md",
+        "CLAUDE.md",
+    ]
+    for relative in check_files:
+        source = root / relative
+        target = scaffold_root / relative
+        if not source.exists():
+            continue
+        if not target.exists():
+            errors.append(f"missing {target.relative_to(root)}")
+            continue
+        if source.read_text(encoding="utf-8") != target.read_text(encoding="utf-8"):
+            errors.append(f"out of sync: {target.relative_to(root)} vs {relative}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Lint repository docs workflow entrypoints.")
     parser.add_argument("--root", default=".", help="Repository root to lint.")
@@ -65,6 +90,8 @@ def main() -> int:
     if args.strict_claude and not (root / "CLAUDE.md").exists():
         missing.append("CLAUDE.md")
 
+    scaffold_errors = _check_scaffold_v2_sync(root)
+
     if missing:
         print("Missing required files:")
         for item in missing:
@@ -73,13 +100,19 @@ def main() -> int:
         print("Warnings:")
         for item in warnings:
             print(f"- {item}")
+    if scaffold_errors:
+        print("Scaffold v2 sync errors:")
+        for item in scaffold_errors:
+            print(f"- {item}")
+        print("  Fix: cp -R .workflow src/harness_workflow/assets/scaffold_v2/")
+        print("       cp WORKFLOW.md CLAUDE.md src/harness_workflow/assets/scaffold_v2/")
 
-    if not missing and not warnings:
+    if not missing and not warnings and not scaffold_errors:
         print("Repository docs workflow lint passed.")
     elif not missing:
         print("Repository docs workflow lint passed with warnings.")
 
-    return 1 if missing else 0
+    return 1 if (missing or scaffold_errors) else 0
 
 
 if __name__ == "__main__":

@@ -56,3 +56,42 @@ Subagent 完成后主对话只做验证，不重复读整个文件。
 
 ### 来源
 req-02/chg-07 core.py 949 行删减
+
+---
+
+## 经验四：修改 `.workflow/` 后必须同步 `src/harness_workflow/assets/scaffold_v2/`
+
+### 场景
+req-07 在 Yh-platform 项目中发现 `harness install` 部署的模板严重过时（缺少 req-05 的 ff 模式、req-06 的时长记录等）。
+
+### 经验内容
+`harness install` 和 `harness update` 的调用链最终都会读取包内 `assets/scaffold_v2/` 中的文件来生成目标项目的 `.workflow/`。因此：
+
+**任何对 harness-workflow 仓库 `.workflow/` 的修改，必须同步到 `src/harness_workflow/assets/scaffold_v2/`。**
+
+同步步骤：
+```bash
+# 在 harness-workflow 仓库根目录执行
+rm -rf src/harness_workflow/assets/scaffold_v2/.workflow
+cp -R .workflow src/harness_workflow/assets/scaffold_v2/
+cp WORKFLOW.md src/harness_workflow/assets/scaffold_v2/
+cp CLAUDE.md src/harness_workflow/assets/scaffold_v2/
+
+# 重新安装包
+pipx inject harness-workflow . --force
+```
+
+**检查方法**：
+```bash
+# 在临时目录验证新安装的项目是否包含最新内容
+TMPDIR=$(mktemp -d)
+cd "$TMPDIR"
+harness install
+grep "harness ff" .workflow/flow/stages.md
+```
+
+**反例**：
+req-05 和 req-06 修改了 `.workflow/flow/stages.md`、`.workflow/context/roles/done.md` 等文件，但没有同步到 `src/harness_workflow/assets/scaffold_v2/`，导致所有外部项目通过 `harness install` 拿到的都是旧模板。
+
+### 来源
+req-07 Yh-platform 验证（harness install 模板过时）

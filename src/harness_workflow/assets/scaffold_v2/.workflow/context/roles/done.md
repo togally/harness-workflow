@@ -85,6 +85,30 @@
 - **建议位置**：`session-memory.md` 的 `## done 阶段回顾报告` 区块
 - **备选位置**：当前需求的 `changes/` 目录下新建 `retrospective.md`
 
+### 报告头部格式
+
+`done-report.md` 头部必须包含以下元数据字段：
+
+```markdown
+# Done Report: {req-id}-{title}
+
+## 基本信息
+- **需求 ID**: {req-id}
+- **需求标题**: {title}
+- **归档日期**: YYYY-MM-DD
+
+## 实现时长
+- **总时长**: {x}d {y}h {z}m（或根据实际跨度选择合适单位）
+- **requirement_review**: {x}h {y}m（如数据缺失显示 N/A）
+- **planning**: {x}h {y}m
+- **executing**: {x}h {y}m
+- **testing**: {x}h {y}m
+- **acceptance**: {x}h {y}m
+- **done**: {x}h {y}m
+
+> 数据来源：`state/requirements/{req-id}.yaml` 中的 `started_at`、`completed_at`、`stage_timestamps`
+```
+
 ### 报告内容结构
 1. **执行摘要**：本轮工作概述、关键成果
 2. **六层检查结果**：逐层报告检查发现（通过/问题/建议）

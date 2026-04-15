@@ -1,0 +1,55 @@
+# Agent Workflow
+
+## 1. Context Loading
+
+Before starting work in a new session:
+
+1. Read `workflow/context/rules/workflow-runtime.yaml`
+2. Use `current_version` to read the active version `meta.yaml`
+3. Read `workflow/memory/constitution.md`
+4. Read `workflow/context/experience/index.md`
+5. Read `workflow/context/rules/risk-rules.md`
+6. Load only matching experience files
+7. Read `workflow/context/hooks/README.md` and confirm the current timing, matched hooks, and hard gates
+8. Read more project context only when needed
+9. If resuming a version/change, read the relevant `session-memory.md`
+10. Before each stage starts a concrete task, re-index `workflow/context/experience/index.md` and load any mature experience that can be reused or fused into the work
+11. When entering a new node, switching submodules, or noticing that old context no longer affects the next task, run a `context-maintenance` check first: prefer `/clear` for irrelevant context and `/compact` for still-useful but compressible context
+12. After `/clear` or `/compact`, re-read `workflow-runtime.yaml`, the current version `meta.yaml`, and the matched hooks
+
+Do not bulk-load the whole `workflow/context/` tree.
+If `current_version` is missing, runtime/config disagree, version `meta.yaml` is missing, or the workflow is blocked, stop immediately and ask the human to repair workflow state. Do not improvise a parallel manual flow.
+If `workflow-runtime.yaml` shows `conversation_mode: harness`, every following reply must stay inside `locked_version`, `locked_stage`, `locked_artifact_kind`, and `locked_artifact_id`; do not leave the current harness node unless the human explicitly runs `harness exit`.
+
+## 2. Execution Flow
+
+1. Build context with the smallest useful file set
+2. Route every requirement, change, plan, execution, and regression step through `workflow-runtime.yaml` first
+3. Create or switch the active version first
+4. Put requirements and changes inside that version
+5. During `requirement_review`, only discuss, clarify, and update requirement documents; do not start coding just because the human provided an implementation-oriented prompt
+6. If the human provides implementation ideas, technical details, or a detailed prompt during `requirement_review`, capture them in the requirement discussion and documents first instead of treating them as coding authorization
+7. Add design and plan before coding a non-trivial change
+8. Record failed paths immediately
+9. Record corrections, constraints, and reusable lessons in working memory first
+10. Before calling a change complete, run and record `mvn compile`; before calling a requirement complete, run and record successful project startup validation
+11. If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
+12. If startup logs, compile output, test failures, or stack traces are locally available, the AI must collect and analyze them first instead of asking the human to inspect them
+13. If repair still needs human-provided configuration, data, accounts, or external dependency details, the AI must fill the current change `regression/required-inputs.md` template first and only then ask the human to complete it; do not skip the template and ask ad hoc questions in chat
+14. Verify before claiming completion
+15. When workflow state is missing or inconsistent, stop execution and require `harness active "<version>"` or restoration of the missing workflow files
+16. After each stage-level task completes, review what was learned, capture it in `session-memory.md`, and promote or fuse mature experience into `workflow/context/experience/` or formal rules when justified
+17. If the human is dissatisfied with a completed outcome, do not jump straight into rework; start `harness regression "<issue>"` first, confirm whether it is a real problem, then convert it into a requirement update or change if needed
+18. Any `harness` command implicitly enters harness conversation mode; only an explicit `harness exit` should release the conversation lock
+19. Small projects (< 50 files) usually do not need early cleanup before roughly 80% token utilization; medium projects (50 - 500 files) should prefer auto-compact around 60% utilization or after each submodule; large projects (> 500 files) must limit full-file reads and combine repo-map, RAG, and multi-agent context isolation
+20. `Plan Mode` keeps the file tree, runtime, meta, and the smallest useful rules; `Act Mode` keeps only the active change / plan, concrete files, verification commands, and relevant logs
+
+## 3. Memory Rules
+
+- Durable repository knowledge belongs in `workflow/context/` and `workflow/memory/`
+- Working knowledge belongs in each change `session-memory.md`
+- Failed paths must be written down
+- Promote lessons only after validation
+- Re-index experience before each requirement, change, plan, or execution task; capture and consider promotion after each stage completes
+- Regression work is diagnosis-first: confirm the problem before opening new implementation work
+- Regression history should stay in its own directory and documents instead of permanently occupying the main version workflow state

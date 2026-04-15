@@ -185,6 +185,19 @@ ff 模式下，各 stage 的完成判定由 AI 自主执行，满足退出条件
 
 ---
 
+## 工具命令补充说明
+
+### `harness update`
+- 除刷新 managed 文档外，还会自动检测并迁移旧版 `state/` 文件格式
+- `runtime.yaml` 会自动补齐缺失的新字段（如 `ff_mode`、`ff_stage_history`）
+- `requirements/*.yaml` 会自动将旧字段（`req_id`→`id`、`created`→`created_at` 等）升级到新格式，并生成 `.bak` 备份
+
+### `harness archive`
+- 归档完成后会自动清理 `flow/requirements/` 中对应的残留目录
+- 归档产物包括需求文档、变更文档、状态文件和会话记录
+
+---
+
 ## 需求实现时长记录
 
 ### 计算口径
