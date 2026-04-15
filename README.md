@@ -58,6 +58,7 @@ harness install --force  # force reinstall of all platform skills
 | Command | Description |
 |---------|-------------|
 | `harness status` | Show current requirement, stage, and runtime state |
+| `harness validate` | Validate that the current requirement has all required artifacts |
 | `harness requirement "<title>"` | Create a new requirement and enter requirement_review |
 | `harness change "<title>"` | Create a new change within the current requirement |
 | `harness next` | Advance to the next workflow stage |

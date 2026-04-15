@@ -3590,6 +3590,45 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     return 0
 
 
+def validate_requirement(root: Path) -> int:
+    runtime = load_requirement_runtime(root)
+    req_id = str(runtime.get("current_requirement", "")).strip()
+    if not req_id:
+        print("No active requirement.")
+        return 1
+
+    requirements_dir = root / ".workflow" / "flow" / "requirements"
+    req_dir = resolve_requirement_reference(requirements_dir, req_id, "cn")
+    if not req_dir:
+        print(f"Requirement not found: {req_id}")
+        return 1
+
+    changes_dir = req_dir / "changes"
+    if not changes_dir.exists():
+        print(f"No changes found for {req_id}")
+        return 0
+
+    all_ok = True
+    for change_path in sorted(changes_dir.iterdir()):
+        if not change_path.is_dir():
+            continue
+        missing: list[str] = []
+        if not (change_path / "testing-report.md").exists():
+            missing.append("testing-report.md")
+        if not (change_path / "acceptance-report.md").exists():
+            missing.append("acceptance-report.md")
+        if missing:
+            all_ok = False
+            print(f"[{change_path.name}] Missing: {', '.join(missing)}")
+
+    if all_ok:
+        print(f"Validation passed for {req_id}")
+    else:
+        print("Validation failed.")
+        return 1
+    return 0
+
+
 def workflow_status(root: Path) -> int:
     runtime = load_requirement_runtime(root)
     current_requirement = str(runtime.get("current_requirement", "")).strip()
@@ -3656,14 +3695,15 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         if req_state_dir.exists():
             for req_file in sorted(req_state_dir.glob("*.yaml")):
                 state = load_simple_yaml(req_file)
-                if _get_req_id(state) == req_id:
+                state_id = _get_req_id(state)
+                if state_id == req_id or req_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in req_file.stem):
                     state["stage"] = next_stage
                     if next_stage == "done":
                         state["status"] = "done"
                         state["completed_at"] = date.today().isoformat()
-                        if "stage_timestamps" not in state:
-                            state["stage_timestamps"] = {}
-                        state["stage_timestamps"][next_stage] = datetime.now(timezone.utc).isoformat()
+                    if "stage_timestamps" not in state:
+                        state["stage_timestamps"] = {}
+                    state["stage_timestamps"][next_stage] = datetime.now(timezone.utc).isoformat()
                     save_simple_yaml(req_file, state)
                     break
 
@@ -3703,7 +3743,8 @@ def workflow_fast_forward(root: Path) -> int:
         if req_state_dir.exists():
             for req_file in sorted(req_state_dir.glob("*.yaml")):
                 state = load_simple_yaml(req_file)
-                if _get_req_id(state) == req_id:
+                state_id = _get_req_id(state)
+                if state_id == req_id or req_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in req_file.stem):
                     state["stage"] = "ready_for_execution"
                     save_simple_yaml(req_file, state)
                     break

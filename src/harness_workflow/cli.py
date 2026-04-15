@@ -26,6 +26,7 @@ from harness_workflow.core import (
     regression_action,
     set_language,
     update_repo,
+    validate_requirement,
     workflow_fast_forward,
     workflow_next,
     workflow_status,
@@ -153,6 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser = subparsers.add_parser("status", help="Show the current workflow runtime state.")
     status_parser.add_argument("--root", default=".", help="Repository root.")
 
+    validate_parser = subparsers.add_parser("validate", help="Validate the current requirement's artifacts.")
+    validate_parser.add_argument("--root", default=".", help="Repository root.")
+
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
     next_parser.add_argument("--root", default=".", help="Repository root.")
     next_parser.add_argument("--execute", action="store_true", help="Confirm execution when already ready_for_execution.")
@@ -241,6 +245,8 @@ def main() -> int:
         return exit_workflow(root)
     if args.command == "status":
         return workflow_status(root)
+    if args.command == "validate":
+        return validate_requirement(root)
     if args.command == "next":
         return workflow_next(root, execute=args.execute)
     if args.command == "ff":
