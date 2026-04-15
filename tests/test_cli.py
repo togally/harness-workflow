@@ -193,6 +193,13 @@ class HarnessCliTest(unittest.TestCase):
         agents_text = (self.repo / "AGENTS.md").read_text(encoding="utf-8")
         self.assertIn("WORKFLOW.md", agents_text)
 
+    def test_install_scaffolds_tools_directory(self) -> None:
+        result = self.run_cli("install", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertTrue((self.repo / ".workflow" / "tools" / "index.md").exists())
+        self.assertTrue((self.repo / ".workflow" / "tools" / "catalog" / "agent.md").exists())
+        self.assertTrue((self.repo / ".workflow" / "tools" / "stage-tools.md").exists())
+
     def test_install_writes_three_platform_hard_gate_entrypoints(self) -> None:
         result = self.run_cli("install", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
@@ -221,6 +228,17 @@ class HarnessCliTest(unittest.TestCase):
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertFalse(legacy_runtime.exists())
+
+    def test_update_does_not_archive_tools_directory(self) -> None:
+        install = self.run_cli("install", "--root", str(self.repo))
+        self.assertEqual(install.returncode, 0, msg=install.stderr or install.stdout)
+        tools_index = self.repo / ".workflow" / "tools" / "index.md"
+        self.assertTrue(tools_index.exists())
+
+        result = self.run_cli("update", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertTrue((self.repo / ".workflow" / "tools").exists())
+        self.assertTrue(tools_index.exists())
 
     def test_status_prefers_requirement_runtime_over_legacy_version_runtime(self) -> None:
         install = self.run_cli("install", "--root", str(self.repo))

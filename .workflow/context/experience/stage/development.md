@@ -47,3 +47,23 @@ req-02 versions/ 依赖分析，harness.py 是薄壳，core.py 在 pipx venv 中
 
 ### 来源
 req-02 versions/ 废除分析
+
+---
+
+## 经验三：Legacy Cleanup 列表的修改必须配合回归测试
+
+### 场景
+req-20 中 `.workflow/tools/` 被错误地列入了 `LEGACY_CLEANUP_TARGETS`，导致所有项目运行 `harness update` 时 tools 目录被整体归档到 backup，造成数据丢失。
+
+### 经验内容
+任何对"清理/删除列表"的修改都是高风险操作，因为一旦生效就会不可逆地影响多个项目。修改前必须：
+
+1. **三查**：谁依赖它、谁创建它、删除后会破坏什么
+2. **测试覆盖**：新增回归测试，验证被清理对象不会在更新周期中被误处理
+3. **区分"删除"与"移动"**：`shutil.move` 到 backup 虽然可恢复，但用户往往不知道 backup 的存在，等效于数据丢失
+
+### 反例
+将仍在活跃使用的 `.workflow/tools/` 路径加入 `LEGACY_CLEANUP_TARGETS`，没有配套测试，直到用户发现"角色文件引用的 stage-tools.md 不存在"才定位到问题。
+
+### 来源
+req-20 tools 目录误清理事件

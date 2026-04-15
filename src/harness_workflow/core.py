@@ -60,7 +60,6 @@ LEGACY_CLEANUP_TARGETS = [
     Path(".workflow") / "decisions",
     Path(".workflow") / "runbooks",
     Path(".workflow") / "templates",
-    Path(".workflow") / "tools",
     Path(".workflow") / "context" / "hooks",
     Path(".workflow") / "context" / "rules",
     Path(".workflow") / "context" / "mcp-registry.yaml",
