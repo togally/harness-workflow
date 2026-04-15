@@ -186,6 +186,11 @@ def _parse_simple_yaml_scalar(value: str) -> object:
     text = value.strip()
     if text == "[]":
         return []
+    if text.startswith("{") and text.endswith("}"):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return text
     if text.startswith('"') and text.endswith('"'):
         try:
             return json.loads(text)
@@ -242,7 +247,9 @@ def save_simple_yaml(path: Path, payload: dict[str, object], ordered_keys: list[
             for item in value:
                 lines.append(f"  - {item}")
             continue
-        if isinstance(value, bool):
+        if isinstance(value, dict):
+            rendered = json.dumps(value, ensure_ascii=False)
+        elif isinstance(value, bool):
             rendered = "true" if value else "false"
         else:
             rendered = json.dumps("" if value is None else str(value), ensure_ascii=False)
@@ -2756,7 +2763,7 @@ def _migrate_state_files(root: Path) -> list[str]:
             if "started_at" not in state and "created_at" in state:
                 state["started_at"] = str(state["created_at"])
                 migrated = True
-            if "stage_timestamps" not in state:
+            if "stage_timestamps" not in state or isinstance(state.get("stage_timestamps"), str):
                 state["stage_timestamps"] = {}
                 migrated = True
             if migrated:
@@ -2849,6 +2856,55 @@ def _next_suggestion_id(root: Path) -> str:
             if m:
                 max_num = max(max_num, int(m.group(1)))
     return f"sug-{max_num + 1:02d}"
+
+
+def extract_suggestions_from_done_report(root: Path, req_id: str) -> list[str]:
+    """Extract improvement suggestions from done-report.md and create suggestion files."""
+    done_report = root / ".workflow" / "state" / "sessions" / req_id / "done-report.md"
+    if not done_report.exists():
+        return []
+
+    text = done_report.read_text(encoding="utf-8")
+    # Find the "## 改进建议" section
+    match = re.search(r"##\s*改进建议\s*\n(.*?)(?=\n##\s|$)", text, re.DOTALL)
+    if not match:
+        # Also try English variant
+        match = re.search(r"##\s*Improvement Suggestions\s*\n(.*?)(?=\n##\s|$)", text, re.DOTALL)
+    if not match:
+        return []
+
+    section = match.group(1)
+    suggestions: list[str] = []
+    for line in section.splitlines():
+        stripped = line.strip()
+        if not stripped or len(stripped) < 5:
+            continue
+        # Match blockquotes like "> **建议 1**：xxx" or "> 建议：xxx"
+        if stripped.startswith(">"):
+            content = stripped[1:].strip()
+            # Remove bold markers like **建议 1**：
+            content = re.sub(r"\*\*[^*]+\*\*\s*[：:]\s*", "", content)
+            if content and len(content) >= 5:
+                suggestions.append(content)
+            continue
+        # Match list items
+        if re.match(r"^[-*\d]\.?\s+", stripped):
+            content = re.sub(r"^[-*\d]\.?\s+", "", stripped)
+            if content and len(content) >= 5:
+                suggestions.append(content)
+            continue
+
+    created: list[str] = []
+    for suggestion in suggestions:
+        try:
+            create_suggestion(root, suggestion)
+            created.append(suggestion[:40])
+        except SystemExit:
+            pass
+
+    if created:
+        print(f"Created {len(created)} suggestion(s) from done report.")
+    return created
 
 
 def create_suggestion(root: Path, content: str, title: str | None = None) -> int:
@@ -3518,6 +3574,9 @@ def workflow_next(root: Path, execute: bool = False) -> int:
                     break
 
     save_requirement_runtime(root, runtime)
+
+    if next_stage == "done" and req_id:
+        extract_suggestions_from_done_report(root, req_id)
 
     duration_seconds: float | None = None
     if prev_entered_at:

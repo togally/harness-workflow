@@ -100,6 +100,7 @@
 4. **经验沉淀验证**：确认 `experience/` 目录下的文件已更新本轮教训
 5. **流程完整性检查**：检查各阶段是否实际执行（非跳过）
 6. **输出回顾报告**：将回顾结果输出到 `session-memory.md` 的 `## done 阶段回顾报告` 区块
+7. **建议转 suggest 池**：读取 `done-report.md` 中的改进建议，自动创建 suggest 文件到 `.workflow/flow/suggestions/`，并在 `session-memory.md` 中记录创建的 suggest ID 列表
 
 ## 入口
 读 `.workflow/context/index.md` 获取当前状态的完整加载规则。

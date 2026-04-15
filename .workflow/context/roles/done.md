@@ -124,3 +124,17 @@
 - 问题项使用 `- [ ]` 或 `- [x]` 标记状态
 - 建议项使用 `> 建议：` 引用格式
 - 行动项使用 `**行动**：` 强调格式
+
+## 建议转 suggest 池
+
+主 agent 在保存 `done-report.md` 后，必须执行以下动作：
+
+1. **提取建议**：读取 `done-report.md` 中的 `## 改进建议` 区块
+2. **过滤去重**：去除空行、重复建议
+3. **创建 suggest**：对每条有效建议调用 `create_suggestion(root, content)`
+4. **记录结果**：在 `session-memory.md` 中记录创建的 suggest ID 列表
+
+> **注意**：如果 done-report 中没有改进建议，或建议已全部存在于 suggest 池中，则跳过此步骤。
+
+### 完成前必须检查
+- [ ] `done-report.md` 中的改进建议已提取并写入 suggest 池（如存在）
