@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import py_compile
 import re
 import shutil
 import subprocess
@@ -3654,10 +3655,30 @@ def validate_requirement(root: Path) -> int:
             print(f"[{change_path.name}] Missing: {', '.join(missing)}")
 
     if all_ok:
-        print(f"Validation passed for {req_id}")
+        print(f"Artifact validation passed for {req_id}")
     else:
-        print("Validation failed.")
+        print("Artifact validation failed.")
         return 1
+
+    # Python syntax check
+    compile_errors: list[tuple[str, str]] = []
+    for py_file in sorted(root.rglob("*.py")):
+        rel = py_file.relative_to(root)
+        parts = rel.parts
+        if "__pycache__" in parts or ".venv" in parts or "venv" in parts or ".tox" in parts:
+            continue
+        try:
+            py_compile.compile(str(py_file), doraise=True)
+        except Exception as exc:
+            compile_errors.append((str(rel), str(exc)))
+
+    if compile_errors:
+        print("\nCompile check failed:")
+        for path, msg in compile_errors:
+            print(f"  {path}: {msg}")
+        return 1
+
+    print("Compile check passed.")
     return 0
 
 
