@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import unicodedata
 from datetime import date, datetime, timezone
 from importlib.resources import files
@@ -3000,51 +3001,56 @@ def delete_suggestion(root: Path, suggest_id: str) -> int:
     return 0
 
 
-def apply_all_suggestions(root: Path) -> int:
+def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
     ensure_harness_root(root)
     suggestions_dir = root / ".workflow" / "flow" / "suggestions"
     if not suggestions_dir.exists():
         print("No suggestions found.")
         return 0
 
-    applied: list[tuple[str, str]] = []
-    failed: list[str] = []
-    skipped: list[str] = []
-
+    pending: list[tuple[Path, str, str]] = []
     for path in sorted(suggestions_dir.glob("sug-*.md")):
         state = load_simple_yaml(path)
         if str(state.get("status", "pending")).strip() != "pending":
-            skipped.append(str(state.get("id", path.stem)).strip())
             continue
-
         body = path.read_text(encoding="utf-8").split("---", 2)[-1].strip()
         title = body.splitlines()[0].strip() if body else str(state.get("id", path.stem)).strip()
         suggest_id = str(state.get("id", path.stem)).strip()
+        pending.append((path, suggest_id, title))
 
-        result = create_requirement(root, title)
-        if result == 0:
-            text = path.read_text(encoding="utf-8")
-            updated = text.replace("status: pending", "status: applied")
-            path.write_text(updated, encoding="utf-8")
-            req_id = str(load_requirement_runtime(root).get("current_requirement", "")).strip()
-            applied.append((suggest_id, req_id))
-        else:
-            failed.append(suggest_id)
-
-    if applied:
-        print(f"Applied {len(applied)} suggestion(s):")
-        for sid, req_id in applied:
-            print(f"  - {sid} → {req_id}")
-    if failed:
-        print(f"Failed to apply {len(failed)} suggestion(s):")
-        for sid in failed:
-            print(f"  - {sid}")
-    if skipped:
-        print(f"Skipped {len(skipped)} already-applied suggestion(s).")
-    if not applied and not failed and not skipped:
+    if not pending:
         print("No pending suggestions found.")
+        return 0
 
-    return 0 if not failed else 1
+    title = pack_title.strip()
+    if not title:
+        title = f"批量建议合集（{len(pending)}条）"
+
+    result = create_requirement(root, title)
+    if result != 0:
+        print(f"Failed to create requirement from {len(pending)} suggestion(s).")
+        return 1
+
+    req_id = str(load_requirement_runtime(root).get("current_requirement", "")).strip()
+
+    deleted: list[str] = []
+    failed_delete: list[str] = []
+    for path, suggest_id, _ in pending:
+        try:
+            path.unlink()
+            deleted.append(suggest_id)
+        except OSError:
+            failed_delete.append(suggest_id)
+
+    print(f"Packed {len(deleted)} suggestion(s) into {req_id}:")
+    for sid in deleted:
+        print(f"  - {sid}")
+    if failed_delete:
+        print(f"Failed to delete {len(failed_delete)} suggestion file(s):")
+        for sid in failed_delete:
+            print(f"  - {sid}")
+
+    return 0 if not failed_delete else 1
 
 
 def create_requirement(root: Path, name: str | None, requirement_id: str | None = None, title: str | None = None) -> int:
@@ -3540,6 +3546,47 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
 
     print(f"Archived requirement: {req_dir.name}")
     print(f"Archive path: {target}")
+
+    # Git auto-commit prompt
+    try:
+        git_check = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        if git_check.returncode == 0 and git_check.stdout.strip() == "true":
+            answer = input("Auto-commit archive changes? [y/N]: ").strip().lower()
+            if answer in ("y", "yes"):
+                subprocess.run(["git", "add", "-A"], cwd=root, check=False)
+                commit_msg = f"archive: {req_dir.name}"
+                commit_result = subprocess.run(
+                    ["git", "commit", "-m", commit_msg],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                )
+                if commit_result.returncode == 0:
+                    print(f"Committed: {commit_msg}")
+                    push_answer = input("Push to remote? [y/N]: ").strip().lower()
+                    if push_answer in ("y", "yes"):
+                        push_result = subprocess.run(
+                            ["git", "push"],
+                            cwd=root,
+                            capture_output=True,
+                            text=True,
+                        )
+                        if push_result.returncode == 0:
+                            print("Pushed to remote.")
+                        else:
+                            print(f"Push failed: {push_result.stderr.strip()}")
+                else:
+                    print(f"Commit failed: {commit_result.stderr.strip()}")
+    except EOFError:
+        pass
+    except Exception as exc:
+        print(f"Warning: git auto-commit check failed: {exc}")
+
     return 0
 
 
@@ -3675,6 +3722,38 @@ def enter_workflow(root: Path, req_id: str = "") -> int:
     runtime = set_conversation_mode(runtime, conversation_mode="harness")
     save_requirement_runtime(root, runtime)
     print("Entered harness mode.")
+
+    current_req = str(runtime.get("current_requirement", "")).strip()
+    if current_req:
+        sessions_base = root / ".workflow" / "state" / "sessions" / current_req
+        if sessions_base.exists():
+            mem_files = sorted(sessions_base.rglob("session-memory.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if mem_files:
+                latest_mem = mem_files[0]
+                content = latest_mem.read_text(encoding="utf-8")
+                summary_lines: list[str] = []
+                in_summary = False
+                for line in content.splitlines():
+                    if line.strip().startswith("## ") and ("摘要" in line or "Summary" in line or "结果" in line):
+                        in_summary = True
+                        summary_lines.append(line.strip())
+                        continue
+                    if in_summary:
+                        if line.strip().startswith("## "):
+                            break
+                        summary_lines.append(line.rstrip())
+                if summary_lines:
+                    print("\n【上次对话摘要】")
+                    for line in summary_lines:
+                        if line:
+                            print(line)
+                else:
+                    print(f"\n【提示】找到会话记录 {latest_mem.relative_to(root)}，但未提取到摘要区块。")
+            else:
+                print(f"\n【提示】当前需求 {current_req} 暂无会话记录。")
+        else:
+            print(f"\n【提示】当前需求 {current_req} 暂无会话记录。")
+
     return 0
 
 

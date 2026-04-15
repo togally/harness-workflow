@@ -192,6 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
     suggest_parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
     suggest_parser.add_argument("--apply-all", action="store_true", help="Apply all pending suggestions and create requirements.")
     suggest_parser.add_argument("--delete", dest="delete_id", help="Delete a suggestion by id.")
+    suggest_parser.add_argument("--pack-title", default="", help="Title for the packed requirement when using --apply-all.")
 
     regression_parser = subparsers.add_parser("regression", help="Start or advance a regression confirmation flow.")
     regression_parser.add_argument("title", nargs="?", help="Start a regression with this title.")
@@ -266,7 +267,7 @@ def main() -> int:
         if args.list:
             return list_suggestions(root)
         if args.apply_all:
-            return apply_all_suggestions(root)
+            return apply_all_suggestions(root, pack_title=args.pack_title)
         if args.apply_id:
             return apply_suggestion(root, args.apply_id)
         if args.delete_id:

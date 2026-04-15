@@ -1,14 +1,16 @@
-current_requirement: ""
-stage: ""
+current_requirement: "req-13-如果有本地git仓库，归档后可以询问是否要提交git"
+stage: "done"
 conversation_mode: "open"
 locked_requirement: ""
 locked_stage: ""
 current_regression: ""
-ff_mode: false
-ff_stage_history:
-  - requirement_review
-  - planning
-  - executing
-  - testing
-  - acceptance
-active_requirements: []
+ff_mode: true
+ff_stage_history: []
+active_requirements:
+  - req-14
+  - req-15
+  - req-16
+  - req-17
+  - req-18
+  - req-19
+  - req-20
