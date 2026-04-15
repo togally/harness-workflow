@@ -4,7 +4,7 @@
 1. **注册**：每个工具在 `catalog/` 有独立文件，记录用法和迭代
 2. **选择**：`stage-tools.md` 定义各阶段工具白名单；`selection-guide.md` 指导工具选择
 3. **维护**：`maintenance.md` 定义新增、更新、淘汰工具的规范
-4. **迭代**：使用经验 → session-memory → experience/tools/ → catalog 更新
+4. **迭代**：使用经验 → session-memory → context/experience/tool/ → catalog 更新
 
 ## 文件索引
 - `stage-tools.md`：各 stage 的可用工具集合

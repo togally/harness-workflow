@@ -61,7 +61,7 @@
    - **executing 阶段**：检查 `experience/stage/development.md` 和 `experience/tool/harness.md` 是否更新
    - **testing/acceptance 阶段**：检查 `experience/stage/testing.md` 和 `experience/stage/acceptance.md` 是否更新
    - **regression 阶段**：检查 `experience/stage/regression.md` 和 `experience/risk/known-risks.md` 是否更新
-3. **如未更新**：提示记录本轮教训，格式参考 `.workflow/context/experience/template.md`
+3. **如未更新**：提示记录本轮教训，格式参考 `.workflow/context/experience/index.md`
 
 ## 流程完整性检查项
 
