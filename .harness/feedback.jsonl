@@ -22,3 +22,10 @@
 {"ts": "2026-04-15T07:03:07.412391+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-15T07:04:07.399880+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
 {"ts": "2026-04-15T07:04:07.400004+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-15T07:09:38.545264+00:00", "event": "regression_created", "data": {"regression_id": "test-experience-generation"}}
+{"ts": "2026-04-15T07:10:19.908031+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:10:19.908168+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-15T07:10:20.246449+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:10:20.246569+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-15T07:10:20.557367+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:10:20.557478+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

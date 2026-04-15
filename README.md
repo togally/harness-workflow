@@ -63,7 +63,7 @@ harness install --force  # force reinstall of all platform skills
 | `harness change "<title>"` | Create a new change within the current requirement |
 | `harness next` | Advance to the next workflow stage |
 | `harness next --execute` | Confirm execution (required to enter executing stage) |
-| `harness regression "<issue>"` | Start a regression analysis flow |
+| `harness regression "<issue>"` | Start a regression analysis flow (closing actions auto-create experience file) |
 | `harness archive <req-id> [--folder <name>]` | Archive a completed requirement (only `done` status); in a Git repo, prompts to auto-commit |
 | `harness rename requirement <old> <new>` | Rename a requirement |
 | `harness rename change <old> <new>` | Rename a change |

@@ -3204,6 +3204,30 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     return 0
 
 
+def _ensure_regression_experience(root: Path, regression_id: str) -> None:
+    exp_dir = root / ".workflow" / "context" / "experience" / "regression"
+    exp_file = exp_dir / f"{regression_id}.md"
+    if exp_file.exists():
+        return
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    content = f"""# Regression Experience: {regression_id}
+
+## Date
+{datetime.now(timezone.utc).isoformat()}
+
+## Phenomenon
+<!-- Describe the regression symptom -->
+
+## Root Cause
+<!-- Why did this happen? -->
+
+## Improvement
+<!-- What process or code changes can prevent this? -->
+"""
+    exp_file.write_text(content, encoding="utf-8")
+    print(f"Created regression experience: {exp_file.relative_to(root)}")
+
+
 def regression_action(
     root: Path,
     *,
@@ -3229,26 +3253,33 @@ def regression_action(
         raise SystemExit("Choose exactly one regression action: --confirm, --reject, --cancel, --testing, --change, or --requirement.")
 
     if cancel or reject:
+        _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} {'cancelled' if cancel else 'rejected'}.")
         return 0
 
     if confirm:
+        _ensure_regression_experience(root, regression_id)
+        runtime["current_regression"] = ""
+        save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} confirmed.")
         return 0
 
     if change_title:
+        _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
         return create_change(root, change_title)
 
     if requirement_title:
+        _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
         return create_requirement(root, requirement_title)
 
     if to_testing:
+        _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
         runtime["stage"] = "testing"
         save_requirement_runtime(root, runtime)
@@ -3517,7 +3548,8 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     # Update runtime active_requirements
     active_reqs = [str(r) for r in runtime.get("active_requirements", []) if str(r) != archived_req_id]
     runtime["active_requirements"] = active_reqs
-    if str(runtime.get("current_requirement", "")) == archived_req_id:
+    current_req = str(runtime.get("current_requirement", "")).strip()
+    if current_req == archived_req_id or (archived_req_id and archived_req_id in current_req) or (current_req and current_req in req_dir.name):
         runtime["current_requirement"] = active_reqs[0] if active_reqs else ""
     save_requirement_runtime(root, runtime)
 
