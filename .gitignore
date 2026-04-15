@@ -9,3 +9,6 @@ build/
 /.codex/
 /.idea/
 /.qoder/
+
+# harness workflow directory (must not be ignored)
+!.workflow/

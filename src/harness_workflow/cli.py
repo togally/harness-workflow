@@ -11,6 +11,8 @@ from harness_workflow.core import (
     create_change,
     create_regression,
     create_requirement,
+    create_suggestion,
+    delete_suggestion,
     enter_workflow,
     exit_workflow,
     export_feedback,
@@ -18,6 +20,7 @@ from harness_workflow.core import (
     install_repo,
     list_active_requirements,
     list_done_requirements,
+    list_suggestions,
     rename_change,
     rename_requirement,
     regression_action,
@@ -26,6 +29,7 @@ from harness_workflow.core import (
     workflow_fast_forward,
     workflow_next,
     workflow_status,
+    apply_suggestion,
 )
 
 
@@ -179,6 +183,14 @@ def build_parser() -> argparse.ArgumentParser:
     rename_parser.add_argument("new", help="New title or id.")
     rename_parser.add_argument("--root", default=".", help="Repository root.")
 
+    suggest_parser = subparsers.add_parser("suggest", help="Create, list, apply, or delete suggestions.")
+    suggest_parser.add_argument("content", nargs="?", help="Suggestion content.")
+    suggest_parser.add_argument("--root", default=".", help="Repository root.")
+    suggest_parser.add_argument("--title", help="Optional title for the suggestion (used in filename).")
+    suggest_parser.add_argument("--list", action="store_true", help="List all pending suggestions.")
+    suggest_parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
+    suggest_parser.add_argument("--delete", dest="delete_id", help="Delete a suggestion by id.")
+
     regression_parser = subparsers.add_parser("regression", help="Start or advance a regression confirmation flow.")
     regression_parser.add_argument("title", nargs="?", help="Start a regression with this title.")
     regression_parser.add_argument("--root", default=".", help="Repository root.")
@@ -248,6 +260,14 @@ def main() -> int:
         if args.kind == "requirement":
             return rename_requirement(root, args.current, args.new)
         return rename_change(root, args.current, args.new)
+    if args.command == "suggest":
+        if args.list:
+            return list_suggestions(root)
+        if args.apply_id:
+            return apply_suggestion(root, args.apply_id)
+        if args.delete_id:
+            return delete_suggestion(root, args.delete_id)
+        return create_suggestion(root, args.content or "", title=args.title)
     if args.command == "regression":
         if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title, args.testing]):
             return create_regression(root, args.title)

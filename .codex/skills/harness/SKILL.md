@@ -1,6 +1,6 @@
 ---
 name: harness
-description: "Use when Codex, Claude Code, or Qoder needs to operate a repository with the current Harness workflow rooted at WORKFLOW.md and`.workflow/state/runtime.yaml."
+description: "Use when Codex, Claude Code, or Qoder needs to operate a repository with the current Harness workflow rooted at WORKFLOW.md and .workflow/state/runtime.yaml."
 ---
 
 # Harness

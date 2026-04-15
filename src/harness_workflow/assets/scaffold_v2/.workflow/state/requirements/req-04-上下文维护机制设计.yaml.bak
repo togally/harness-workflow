@@ -1,0 +1,7 @@
+req_id: "req-04"
+title: "上下文维护机制设计"
+stage: "done"
+status: "archived"
+created: "2026-04-14"
+completed: "2026-04-14"
+description: "设计上下文维护机制，定义监控指标、触发阈值、维护动作决策树和 handoff 交接协议，防止 Claude API 上下文爆炸导致工作流中断。"

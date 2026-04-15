@@ -8,32 +8,57 @@ from pathlib import Path
 
 
 REQUIRED_FILES = [
-    .workflow/README.md",
-    .workflow/memory/constitution.md",
-    .workflow/context/experience/index.md",
-    .workflow/context/rules/agent-workflow.md",
-    .workflow/context/rules/risk-rules.md",
+    "WORKFLOW.md",
+    ".workflow/context/index.md",
+    ".workflow/state/runtime.yaml",
 ]
 
 REQUIRED_FILES_LOCALIZED = {
     "english": [
-        .workflow/context/project/project-overview.md",
-        .workflow/context/team/development-standards.md",
+        ".workflow/context/project/project-overview.md",
+        ".workflow/context/team/development-standards.md",
     ],
     "cn": [
-        .workflow/context/project/project-overview.md",
-        .workflow/context/team/development-standards.md",
+        ".workflow/context/project/project-overview.md",
+        ".workflow/context/team/development-standards.md",
     ],
 }
 
 REQUIRED_DIRS = [
-    .workflow/versions",
-    .workflow/versions/active",
-    .workflow/context/hooks",
-    .workflow/context/rules",
-    .workflow/context/experience",
-    .workflow/templates",
+    ".workflow/state",
+    ".workflow/state/requirements",
+    ".workflow/flow",
+    ".workflow/flow/requirements",
+    ".workflow/context",
+    ".workflow/context/roles",
+    ".workflow/context/experience",
+    ".workflow/constraints",
 ]
+
+
+def _check_scaffold_v2_sync(root: Path) -> list[str]:
+    """Check if src/harness_workflow/assets/scaffold_v2/ is in sync with .workflow/."""
+    errors: list[str] = []
+    scaffold_root = root / "src" / "harness_workflow" / "assets" / "scaffold_v2"
+    if not scaffold_root.exists():
+        return errors
+
+    check_files = [
+        ".workflow/flow/stages.md",
+        "WORKFLOW.md",
+        "CLAUDE.md",
+    ]
+    for relative in check_files:
+        source = root / relative
+        target = scaffold_root / relative
+        if not source.exists():
+            continue
+        if not target.exists():
+            errors.append(f"missing {target.relative_to(root)}")
+            continue
+        if source.read_text(encoding="utf-8") != target.read_text(encoding="utf-8"):
+            errors.append(f"out of sync: {target.relative_to(root)} vs {relative}")
+    return errors
 
 
 def main() -> int:
@@ -59,41 +84,13 @@ def main() -> int:
         if not (root / relative).exists():
             missing.append(relative)
 
-    agent_guide_refs = [
-        .workflow/memory/constitution.md",
-        .workflow/context/experience/index.md",
-        .workflow/context/rules/agent-workflow.md",
-        .workflow/context/rules/risk-rules.md",
-    ]
-
-    agents = root / "AGENTS.md"
-    if args.strict_agents and not agents.exists():
+    if args.strict_agents and not (root / "AGENTS.md").exists():
         missing.append("AGENTS.md")
-    elif agents.exists():
-        text = agents.read_text(encoding="utf-8")
-        for ref in agent_guide_refs:
-            if ref not in text:
-                warnings.append(f"AGENTS.md does not mention {ref}")
 
-    claude = root / "CLAUDE.md"
-    if args.strict_claude and not claude.exists():
+    if args.strict_claude and not (root / "CLAUDE.md").exists():
         missing.append("CLAUDE.md")
-    elif claude.exists():
-        text = claude.read_text(encoding="utf-8")
-        for ref in agent_guide_refs:
-            if ref not in text:
-                warnings.append(f"CLAUDE.md does not mention {ref}")
 
-    readme = root / "workflow" / "README.md"
-    if readme.exists():
-        text = readme.read_text(encoding="utf-8")
-        for expected in [
-            "memory/constitution.md",
-            "context/experience/index.md",
-            "context/rules/agent-workflow.md",
-        ]:
-            if expected not in text:
-                warnings.append(f.workflow/README.md does not mention {expected}")
+    scaffold_errors = _check_scaffold_v2_sync(root)
 
     if missing:
         print("Missing required files:")
@@ -103,13 +100,19 @@ def main() -> int:
         print("Warnings:")
         for item in warnings:
             print(f"- {item}")
+    if scaffold_errors:
+        print("Scaffold v2 sync errors:")
+        for item in scaffold_errors:
+            print(f"- {item}")
+        print("  Fix: cp -R .workflow src/harness_workflow/assets/scaffold_v2/")
+        print("       cp WORKFLOW.md CLAUDE.md src/harness_workflow/assets/scaffold_v2/")
 
-    if not missing and not warnings:
+    if not missing and not warnings and not scaffold_errors:
         print("Repository docs workflow lint passed.")
     elif not missing:
         print("Repository docs workflow lint passed with warnings.")
 
-    return 1 if missing else 0
+    return 1 if (missing or scaffold_errors) else 0
 
 
 if __name__ == "__main__":

@@ -137,6 +137,7 @@ COMMAND_DEFINITIONS = [
     {"name": "harness-regression", "cli": "harness regression", "hint": "<issue>|--confirm|--change <title>"},
     {"name": "harness-archive", "cli": "harness archive", "hint": "<requirement>"},
     {"name": "harness-rename", "cli": "harness rename", "hint": "<kind> <old> <new>"},
+    {"name": "harness-suggest", "cli": "harness suggest", "hint": "<content>|--list|--apply <id>|--delete <id>"},
 ]
 
 
@@ -2839,6 +2840,110 @@ def _next_req_id(root: Path) -> str:
     return f"req-{max_num + 1:02d}"
 
 
+def _next_suggestion_id(root: Path) -> str:
+    max_num = 0
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    if suggestions_dir.exists():
+        for item in suggestions_dir.iterdir():
+            m = re.match(r"sug-(\d+)", item.name)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+    return f"sug-{max_num + 1:02d}"
+
+
+def create_suggestion(root: Path, content: str, title: str | None = None) -> int:
+    ensure_harness_root(root)
+    suggestion_content = content.strip()
+    if not suggestion_content:
+        raise SystemExit("Suggestion content is required.")
+
+    suggest_id = _next_suggestion_id(root)
+    slug = slugify(title or suggestion_content) or "suggestion"
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    suggestions_dir.mkdir(parents=True, exist_ok=True)
+    suggest_path = suggestions_dir / f"{suggest_id}-{slug}.md"
+
+    frontmatter = f"---\nid: {suggest_id}\ncreated_at: {json.dumps(date.today().isoformat(), ensure_ascii=False)}\nstatus: pending\n---\n\n{suggestion_content}\n"
+    suggest_path.write_text(frontmatter, encoding="utf-8")
+
+    print(f"Created suggestion: {suggest_path.relative_to(root)}")
+    return 0
+
+
+def list_suggestions(root: Path) -> int:
+    ensure_harness_root(root)
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    if not suggestions_dir.exists():
+        print("No suggestions found.")
+        return 0
+
+    files = sorted(suggestions_dir.glob("sug-*.md"))
+    if not files:
+        print("No suggestions found.")
+        return 0
+
+    print("Suggestions:")
+    for path in files:
+        state = load_simple_yaml(path)
+        sid = str(state.get("id", path.stem)).strip()
+        created = str(state.get("created_at", "")).strip()
+        status = str(state.get("status", "pending")).strip()
+        body = path.read_text(encoding="utf-8").split("---", 2)[-1].strip().replace("\n", " ")
+        summary = body[:60] + "..." if len(body) > 60 else body
+        print(f"  {sid} [{status}] ({created}) {summary}")
+    return 0
+
+
+def apply_suggestion(root: Path, suggest_id: str) -> int:
+    ensure_harness_root(root)
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    if not suggestions_dir.exists():
+        raise SystemExit("No suggestions found.")
+
+    target = None
+    for path in sorted(suggestions_dir.glob("sug-*.md")):
+        state = load_simple_yaml(path)
+        if str(state.get("id", "")).strip() == suggest_id:
+            target = path
+            break
+
+    if not target:
+        raise SystemExit(f"Suggestion not found: {suggest_id}")
+
+    state = load_simple_yaml(target)
+    body = target.read_text(encoding="utf-8").split("---", 2)[-1].strip()
+    title = body.splitlines()[0].strip() if body else suggest_id
+
+    result = create_requirement(root, title)
+    if result == 0:
+        text = target.read_text(encoding="utf-8")
+        updated = text.replace("status: pending", "status: applied")
+        target.write_text(updated, encoding="utf-8")
+        print(f"Applied suggestion {suggest_id} to requirement.")
+    return result
+
+
+def delete_suggestion(root: Path, suggest_id: str) -> int:
+    ensure_harness_root(root)
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    if not suggestions_dir.exists():
+        raise SystemExit("No suggestions found.")
+
+    target = None
+    for path in sorted(suggestions_dir.glob("sug-*.md")):
+        state = load_simple_yaml(path)
+        if str(state.get("id", "")).strip() == suggest_id:
+            target = path
+            break
+
+    if not target:
+        raise SystemExit(f"Suggestion not found: {suggest_id}")
+
+    target.unlink()
+    print(f"Deleted suggestion: {suggest_id}")
+    return 0
+
+
 def create_requirement(root: Path, name: str | None, requirement_id: str | None = None, title: str | None = None) -> int:
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
@@ -2864,17 +2969,21 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
 
     state_file = root / ".workflow" / "state" / "requirements" / f"{dir_name}.yaml"
     if not state_file.exists():
+        today = date.today().isoformat()
         save_simple_yaml(
             state_file,
             {
-                "req_id": req_num_id,
+                "id": req_num_id,
                 "title": requirement_title,
                 "stage": "requirement_review",
                 "status": "active",
-                "created": date.today().isoformat(),
-                "completed": "",
+                "created_at": today,
+                "started_at": today,
+                "completed_at": "",
+                "stage_timestamps": {},
                 "description": "",
             },
+            ordered_keys=["id", "title", "stage", "status", "created_at", "started_at", "completed_at", "stage_timestamps", "description"],
         )
         created.append(str(state_file.relative_to(root)))
 

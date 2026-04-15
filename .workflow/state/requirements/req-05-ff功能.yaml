@@ -1,5 +1,7 @@
-id: req-05
-title: ff功能
-status: archived
+id: "req-05"
+title: "ff功能"
+status: "archived"
 created_at: "2026-04-15"
+started_at: "2026-04-15"
 archived_at: "2026-04-15"
+stage_timestamps: "{}"

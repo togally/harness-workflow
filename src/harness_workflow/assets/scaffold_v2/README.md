@@ -66,6 +66,10 @@ harness install --force  # force reinstall of all platform skills
 | `harness archive <req-id> [--folder <name>]` | Archive a completed requirement (only `done` status) |
 | `harness rename requirement <old> <new>` | Rename a requirement |
 | `harness rename change <old> <new>` | Rename a change |
+| `harness suggest "<content>"` | Quickly jot down an idea without starting a full requirement flow |
+| `harness suggest --list` | List all pending suggestions |
+| `harness suggest --apply <id>` | Turn a suggestion into a formal requirement and enter requirement_review |
+| `harness suggest --delete <id>` | Delete a suggestion |
 | `harness ff` | Fast-forward to ready_for_execution |
 | `harness update` | Refresh harness-managed files in the repository |
 | `harness feedback` | Export usage event summary |
@@ -83,6 +87,17 @@ harness next --execute
 harness next          # → testing
 harness next          # → acceptance
 harness next          # → done
+```
+
+### Capture Ideas with Suggestions
+
+Not every idea needs a full requirement immediately. Use `harness suggest` to capture raw thoughts, then promote them when ready:
+
+```bash
+harness suggest "Add dark mode toggle to settings page"
+harness suggest "Refactor auth middleware to support JWT refresh tokens"
+harness suggest --list
+harness suggest --apply sug-01   # creates req-XX and enters requirement_review
 ```
 
 ---
