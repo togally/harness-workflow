@@ -1,0 +1,7 @@
+---
+id: sug-08
+created_at: "2026-04-15"
+status: pending
+---
+
+建议梳理并修复预存测试失败：tests/test_cli.py 中有 4 个与模板演进相关的失败用例，长期不修复会降低测试可信度。

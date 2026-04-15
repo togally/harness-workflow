@@ -69,6 +69,7 @@ harness install --force  # force reinstall of all platform skills
 | `harness suggest "<content>"` | Quickly jot down an idea without starting a full requirement flow |
 | `harness suggest --list` | List all pending suggestions |
 | `harness suggest --apply <id>` | Turn a suggestion into a formal requirement and enter requirement_review |
+| `harness suggest --apply-all` | Turn all pending suggestions into formal requirements |
 | `harness suggest --delete <id>` | Delete a suggestion |
 | `harness ff` | Fast-forward to ready_for_execution |
 | `harness update` | Refresh harness-managed files in the repository |
@@ -97,7 +98,8 @@ Not every idea needs a full requirement immediately. Use `harness suggest` to ca
 harness suggest "Add dark mode toggle to settings page"
 harness suggest "Refactor auth middleware to support JWT refresh tokens"
 harness suggest --list
-harness suggest --apply sug-01   # creates req-XX and enters requirement_review
+harness suggest --apply sug-01        # creates req-XX and enters requirement_review
+harness suggest --apply-all           # batch convert all pending suggestions to requirements
 ```
 
 ---

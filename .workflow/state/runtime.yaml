@@ -5,5 +5,10 @@ locked_requirement: ""
 locked_stage: ""
 current_regression: ""
 ff_mode: false
-ff_stage_history: []
+ff_stage_history:
+  - requirement_review
+  - planning
+  - executing
+  - testing
+  - acceptance
 active_requirements: []

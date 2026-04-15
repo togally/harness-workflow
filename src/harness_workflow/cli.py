@@ -30,6 +30,7 @@ from harness_workflow.core import (
     workflow_next,
     workflow_status,
     apply_suggestion,
+    apply_all_suggestions,
 )
 
 
@@ -189,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     suggest_parser.add_argument("--title", help="Optional title for the suggestion (used in filename).")
     suggest_parser.add_argument("--list", action="store_true", help="List all pending suggestions.")
     suggest_parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
+    suggest_parser.add_argument("--apply-all", action="store_true", help="Apply all pending suggestions and create requirements.")
     suggest_parser.add_argument("--delete", dest="delete_id", help="Delete a suggestion by id.")
 
     regression_parser = subparsers.add_parser("regression", help="Start or advance a regression confirmation flow.")
@@ -263,6 +265,8 @@ def main() -> int:
     if args.command == "suggest":
         if args.list:
             return list_suggestions(root)
+        if args.apply_all:
+            return apply_all_suggestions(root)
         if args.apply_id:
             return apply_suggestion(root, args.apply_id)
         if args.delete_id:

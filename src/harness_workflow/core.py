@@ -3000,6 +3000,53 @@ def delete_suggestion(root: Path, suggest_id: str) -> int:
     return 0
 
 
+def apply_all_suggestions(root: Path) -> int:
+    ensure_harness_root(root)
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    if not suggestions_dir.exists():
+        print("No suggestions found.")
+        return 0
+
+    applied: list[tuple[str, str]] = []
+    failed: list[str] = []
+    skipped: list[str] = []
+
+    for path in sorted(suggestions_dir.glob("sug-*.md")):
+        state = load_simple_yaml(path)
+        if str(state.get("status", "pending")).strip() != "pending":
+            skipped.append(str(state.get("id", path.stem)).strip())
+            continue
+
+        body = path.read_text(encoding="utf-8").split("---", 2)[-1].strip()
+        title = body.splitlines()[0].strip() if body else str(state.get("id", path.stem)).strip()
+        suggest_id = str(state.get("id", path.stem)).strip()
+
+        result = create_requirement(root, title)
+        if result == 0:
+            text = path.read_text(encoding="utf-8")
+            updated = text.replace("status: pending", "status: applied")
+            path.write_text(updated, encoding="utf-8")
+            req_id = str(load_requirement_runtime(root).get("current_requirement", "")).strip()
+            applied.append((suggest_id, req_id))
+        else:
+            failed.append(suggest_id)
+
+    if applied:
+        print(f"Applied {len(applied)} suggestion(s):")
+        for sid, req_id in applied:
+            print(f"  - {sid} → {req_id}")
+    if failed:
+        print(f"Failed to apply {len(failed)} suggestion(s):")
+        for sid in failed:
+            print(f"  - {sid}")
+    if skipped:
+        print(f"Skipped {len(skipped)} already-applied suggestion(s).")
+    if not applied and not failed and not skipped:
+        print("No pending suggestions found.")
+
+    return 0 if not failed else 1
+
+
 def create_requirement(root: Path, name: str | None, requirement_id: str | None = None, title: str | None = None) -> int:
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
