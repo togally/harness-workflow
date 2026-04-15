@@ -2814,6 +2814,8 @@ def update_repo(root: Path, check: bool = False, force_managed: bool = False) ->
         migrate_actions = _migrate_state_files(root)
         actions.extend(migrate_actions)
 
+    _refresh_experience_index(root)
+
     print("Update summary:")
     for action in actions:
         print(f"- {action}")
@@ -3229,6 +3231,41 @@ def _ensure_regression_experience(root: Path, regression_id: str) -> None:
     print(f"Created regression experience: {exp_file.relative_to(root)}")
 
 
+def _refresh_experience_index(root: Path) -> None:
+    """Auto-generate `.workflow/context/experience/index.md` from existing experience files."""
+    exp_root = root / ".workflow" / "context" / "experience"
+    index_file = exp_root / "index.md"
+    if not exp_root.exists():
+        return
+
+    entries: dict[str, list[tuple[str, str]]] = {}
+    for md_file in sorted(exp_root.rglob("*.md")):
+        rel = md_file.relative_to(exp_root).as_posix()
+        if rel == "index.md":
+            continue
+        category = rel.split("/")[0] if "/" in rel else "general"
+        title_line = md_file.read_text(encoding="utf-8").splitlines()[0] if md_file.stat().st_size > 0 else ""
+        title = title_line.lstrip("# ").strip() or rel
+        entries.setdefault(category, []).append((rel, title))
+
+    lines = ["# Experience Index", "", f"> Auto-generated index of `{exp_root.relative_to(root)}`.", ""]
+    for category in sorted(entries.keys()):
+        lines.append(f"## {category}")
+        for rel, title in sorted(entries[category]):
+            lines.append(f"- [{rel}]({rel}) — {title}")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("")
+    lines.append("Update this index by running `harness update`.")
+    lines.append("")
+
+    content = "\n".join(lines)
+    if not index_file.exists() or index_file.read_text(encoding="utf-8") != content:
+        index_file.write_text(content, encoding="utf-8")
+        print(f"Refreshed experience index: {index_file.relative_to(root)}")
+
+
 def regression_action(
     root: Path,
     *,
@@ -3258,6 +3295,7 @@ def regression_action(
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} {'cancelled' if cancel else 'rejected'}.")
+        print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return 0
 
     if confirm:
@@ -3265,18 +3303,21 @@ def regression_action(
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} confirmed.")
+        print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return 0
 
     if change_title:
         _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
+        print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return create_change(root, change_title)
 
     if requirement_title:
         _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
         save_requirement_runtime(root, runtime)
+        print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return create_requirement(root, requirement_title)
 
     if to_testing:
@@ -3285,6 +3326,7 @@ def regression_action(
         runtime["stage"] = "testing"
         save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} confirmed as bug. Stage rolled back to testing.")
+        print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return 0
 
     return 0
@@ -3764,6 +3806,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 
     if next_stage == "done" and req_id:
         extract_suggestions_from_done_report(root, req_id)
+        print("Review `context/experience/stage/` and update relevant stage experience before archiving.")
 
     duration_seconds: float | None = None
     if prev_entered_at:
