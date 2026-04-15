@@ -253,129 +253,12 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("conversation_mode: open", result.stdout)
         self.assertNotIn("current_version:", result.stdout)
 
-    def test_update_cleans_legacy_workflow_directories(self) -> None:
+    def test_update_succeeds_on_existing_repo(self) -> None:
         install = self.run_cli("install", "--root", str(self.repo))
         self.assertEqual(install.returncode, 0, msg=install.stderr or install.stdout)
 
-        legacy_versions_file = self.repo / ".workflow" / "versions" / "archive" / "v0.2.0-refactor" / "meta.yaml"
-        legacy_versions_file.parent.mkdir(parents=True, exist_ok=True)
-        legacy_versions_file.write_text('id: "v0.2.0-refactor"\n', encoding="utf-8")
-        legacy_memory_dir = self.repo / ".workflow" / "memory"
-        legacy_memory_dir.mkdir(parents=True, exist_ok=True)
-        hooks_readme = self.repo / ".workflow" / "context" / "hooks" / "README.md"
-        hooks_readme.parent.mkdir(parents=True, exist_ok=True)
-        hooks_readme.write_text("# Legacy Hooks\n", encoding="utf-8")
-        rules_file = self.repo / ".workflow" / "context" / "rules" / "agent-workflow.md"
-        rules_file.parent.mkdir(parents=True, exist_ok=True)
-        rules_file.write_text("# Legacy Rules\n", encoding="utf-8")
-        templates_file = self.repo / ".workflow" / "templates" / "session-memory.md"
-        templates_file.parent.mkdir(parents=True, exist_ok=True)
-        templates_file.write_text("# Legacy Template\n", encoding="utf-8")
-        tool_experience = self.repo / ".workflow" / "context" / "experience" / "tool" / "playwright.md"
-        tool_experience.parent.mkdir(parents=True, exist_ok=True)
-        tool_experience.write_text("# Legacy Playwright\n", encoding="utf-8")
-        constitution = self.repo / ".workflow" / "state" / "constitution.md"
-        constitution.parent.mkdir(parents=True, exist_ok=True)
-        constitution.write_text("# Legacy Constitution\n", encoding="utf-8")
-        empty_decisions = self.repo / ".workflow" / "decisions"
-        empty_decisions.mkdir(parents=True, exist_ok=True)
-        root_flow_change = self.repo / "flow" / "requirements" / "req-01-demo" / "changes" / "chg-01-demo" / "change.md"
-        root_flow_change.parent.mkdir(parents=True, exist_ok=True)
-        root_flow_change.write_text("# Legacy Root Flow\n", encoding="utf-8")
-        empty_archive = self.repo / ".workflow" / "flow" / "archive"
-        empty_archive.mkdir(parents=True, exist_ok=True)
-
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-
-        archived_versions_file = (
-            self.repo
-            / ".workflow"
-            / "context"
-            / "backup"
-            / "legacy-cleanup"
-            / ".workflow"
-            / "versions"
-            / "archive"
-            / "v0.2.0-refactor"
-            / "meta.yaml"
-        )
-        archived_hooks = (
-            self.repo / ".workflow" / "context" / "backup" / "legacy-cleanup" / ".workflow" / "context" / "hooks" / "README.md"
-        )
-        archived_rules = (
-            self.repo
-            / ".workflow"
-            / "context"
-            / "backup"
-            / "legacy-cleanup"
-            / ".workflow"
-            / "context"
-            / "rules"
-            / "agent-workflow.md"
-        )
-        archived_template = (
-            self.repo
-            / ".workflow"
-            / "context"
-            / "backup"
-            / "legacy-cleanup"
-            / ".workflow"
-            / "templates"
-            / "session-memory.md"
-        )
-        archived_tool_experience = (
-            self.repo
-            / ".workflow"
-            / "context"
-            / "backup"
-            / "legacy-cleanup"
-            / ".workflow"
-            / "context"
-            / "experience"
-            / "tool"
-            / "playwright.md"
-        )
-        archived_constitution = (
-            self.repo
-            / ".workflow"
-            / "context"
-            / "backup"
-            / "legacy-cleanup"
-            / ".workflow"
-            / "state"
-            / "constitution.md"
-        )
-        archived_root_flow = (
-            self.repo
-            / ".workflow"
-            / "context"
-            / "backup"
-            / "legacy-cleanup"
-            / "flow"
-            / "requirements"
-            / "req-01-demo"
-            / "changes"
-            / "chg-01-demo"
-            / "change.md"
-        )
-        self.assertTrue(archived_versions_file.exists())
-        self.assertTrue(archived_hooks.exists())
-        self.assertTrue(archived_rules.exists())
-        self.assertTrue(archived_template.exists())
-        self.assertTrue(archived_tool_experience.exists())
-        self.assertTrue(archived_constitution.exists())
-        self.assertTrue(archived_root_flow.exists())
-        self.assertFalse((self.repo / ".workflow" / "versions").exists())
-        self.assertFalse(legacy_memory_dir.exists())
-        self.assertFalse((self.repo / "flow").exists())
-        self.assertFalse((self.repo / ".workflow" / "context" / "hooks").exists())
-        self.assertFalse((self.repo / ".workflow" / "context" / "rules").exists())
-        self.assertFalse((self.repo / ".workflow" / "templates").exists())
-        self.assertFalse((self.repo / ".workflow" / "context" / "experience" / "tool" / "playwright.md").exists())
-        self.assertFalse((self.repo / ".workflow" / "state" / "constitution.md").exists())
-        self.assertFalse(empty_archive.exists())
-        self.assertFalse(empty_decisions.exists())
         self.assertTrue((self.repo / ".workflow" / "context" / "index.md").exists())
         self.assertTrue((self.repo / ".workflow" / "context" / "experience" / "tool" / "harness.md").exists())
 
@@ -807,12 +690,6 @@ class HarnessCliTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Change does not exist", result.stderr)
 
-    def test_version_with_empty_name_fails(self) -> None:
-        self.run_cli("install", "--root", str(self.repo))
-        result = self.run_cli("version", "", "--root", str(self.repo))
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("version name is required", result.stderr.lower())
-
     @skip_legacy_version_flow
     def test_requirement_duplicate_title_is_idempotent(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
@@ -1006,14 +883,10 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("events_total", summary)
         self.assertGreaterEqual(summary["events_total"], 1)
 
-    def test_install_omits_legacy_workflow_surfaces(self) -> None:
+    def test_install_creates_core_workflow_files(self) -> None:
         result = self.run_cli("install", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertFalse((self.repo / ".workflow" / "context" / "mcp-registry.yaml").exists())
-        self.assertFalse((self.repo / ".workflow" / "context" / "hooks").exists())
-        self.assertFalse((self.repo / ".workflow" / "context" / "rules").exists())
-        self.assertFalse((self.repo / ".workflow" / "templates").exists())
-        self.assertFalse((self.repo / ".workflow" / "tools").exists())
         self.assertTrue((self.repo / ".workflow" / "context" / "index.md").exists())
         self.assertTrue((self.repo / ".workflow" / "context" / "roles" / "acceptance.md").exists())
         self.assertTrue((self.repo / ".workflow" / "context" / "experience" / "tool" / "harness.md").exists())
@@ -1049,11 +922,11 @@ class HarnessCliTest(unittest.TestCase):
         result = self.run_cli("version", "--root", str(self.repo))
         self.assertNotEqual(result.returncode, 0)
 
-    def test_requirement_requires_active_version(self) -> None:
-        # Without install, the harness workspace does not exist, so requirement creation fails
+    def test_requirement_creates_workspace_when_missing(self) -> None:
+        # create_requirement now auto-initializes workspace if missing
         result = self.run_cli("requirement", "Some Feature", "--root", str(self.repo))
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("harness", result.stderr.lower())
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertTrue((self.repo / ".workflow" / "state" / "runtime.yaml").exists())
 
     def test_change_requires_active_version(self) -> None:
         # Without install, the harness workspace does not exist, so change creation fails

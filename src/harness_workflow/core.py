@@ -2746,7 +2746,7 @@ def _migrate_state_files(root: Path) -> list[str]:
     # Migrate requirements/*.yaml
     req_state_dir = root / ".workflow" / "state" / "requirements"
     if req_state_dir.exists():
-        for req_file in sorted(req_state_dir.glob("*.yaml")):
+        for req_file in sorted(req_state_dir.rglob("*.yaml")):
             state = load_simple_yaml(req_file)
             if not state:
                 continue
@@ -3460,7 +3460,7 @@ def list_done_requirements(root: Path) -> list[dict]:
     results = []
     if not req_state_dir.exists():
         return results
-    for req_file in sorted(req_state_dir.glob("*.yaml")):
+    for req_file in sorted(req_state_dir.rglob("*.yaml")):
         state = load_simple_yaml(req_file)
         stage = str(state.get("stage", "")).strip()
         status = str(state.get("status", "")).strip()
@@ -3480,7 +3480,7 @@ def list_active_requirements(root: Path) -> list[dict]:
     req_state_dir = root / ".workflow" / "state" / "requirements"
     id_to_state: dict[str, dict] = {}
     if req_state_dir.exists():
-        for req_file in sorted(req_state_dir.glob("*.yaml")):
+        for req_file in sorted(req_state_dir.rglob("*.yaml")):
             state = load_simple_yaml(req_file)
             req_id = _get_req_id(state)
             if req_id:
@@ -3535,7 +3535,7 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     req_state_dir = root / ".workflow" / "state" / "requirements"
     archived_req_id = ""
     if req_state_dir.exists():
-        for req_file in sorted(req_state_dir.glob("*.yaml")):
+        for req_file in sorted(req_state_dir.rglob("*.yaml")):
             state = load_simple_yaml(req_file)
             req_id_val = _get_req_id(state)
             if req_file.stem == req_dir.name or req_id_val in req_dir.name:
@@ -3746,7 +3746,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     if req_id:
         req_state_dir = root / ".workflow" / "state" / "requirements"
         if req_state_dir.exists():
-            for req_file in sorted(req_state_dir.glob("*.yaml")):
+            for req_file in sorted(req_state_dir.rglob("*.yaml")):
                 state = load_simple_yaml(req_file)
                 state_id = _get_req_id(state)
                 if state_id == req_id or req_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in req_file.stem):
@@ -3794,7 +3794,7 @@ def workflow_fast_forward(root: Path) -> int:
     if req_id:
         req_state_dir = root / ".workflow" / "state" / "requirements"
         if req_state_dir.exists():
-            for req_file in sorted(req_state_dir.glob("*.yaml")):
+            for req_file in sorted(req_state_dir.rglob("*.yaml")):
                 state = load_simple_yaml(req_file)
                 state_id = _get_req_id(state)
                 if state_id == req_id or req_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in req_file.stem):
