@@ -50,3 +50,4 @@
 1. session-memory 中是否所有步骤都标记了 ✅？
 2. 内部测试是否通过？
 3. 变更范围是否有扩大（超出 change.md）？
+4. 若执行过程中发现现有审查检查清单无法覆盖的新风险或新产出要求，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新。

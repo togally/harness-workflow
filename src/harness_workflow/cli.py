@@ -194,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     suggest_parser.add_argument("--title", help="Optional title for the suggestion (used in filename).")
     suggest_parser.add_argument("--list", action="store_true", help="List all pending suggestions.")
     suggest_parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
-    suggest_parser.add_argument("--apply-all", action="store_true", help="Apply all pending suggestions and create requirements.")
+    suggest_parser.add_argument("--apply-all", action="store_true", help="将所有 pending suggest 打包为单一需求并创建.")
     suggest_parser.add_argument("--delete", dest="delete_id", help="Delete a suggestion by id.")
     suggest_parser.add_argument("--pack-title", default="", help="Title for the packed requirement when using --apply-all.")
 

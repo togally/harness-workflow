@@ -52,3 +52,5 @@
 1. 每个变更是否都有 plan.md？
 2. 变更之间的依赖关系是否明确？
 3. 是否有变更的范围过大（应继续拆分）？
+4. 若本次 planning 拆分出的变更涉及新制品、新阶段或新角色，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新，并在相关 change.md 中记录。
+5. 若本次变更涉及 suggest 批量转换，必须确认已阅读 `.workflow/constraints/suggest-conversion.md`，并确保所有 suggest 被打包为单一需求。

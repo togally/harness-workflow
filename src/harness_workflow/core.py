@@ -3004,6 +3004,7 @@ def delete_suggestion(root: Path, suggest_id: str) -> int:
 
 
 def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
+    # 本函数强制将所有 pending suggest 打包为单一需求
     ensure_harness_root(root)
     suggestions_dir = root / ".workflow" / "flow" / "suggestions"
     if not suggestions_dir.exists():
@@ -3028,12 +3029,24 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
     if not title:
         title = f"批量建议合集（{len(pending)}条）"
 
+    # 强制只创建 1 个需求，无论 pending 数量多少
     result = create_requirement(root, title)
     if result != 0:
         print(f"Failed to create requirement from {len(pending)} suggestion(s).")
         return 1
 
     req_id = str(load_requirement_runtime(root).get("current_requirement", "")).strip()
+
+    # 向生成的 requirement.md 追加被合并的 suggest 清单
+    if req_id:
+        req_dir = root / ".workflow" / "flow" / "requirements" / f"{req_id}-{title}"
+        req_md = req_dir / "requirement.md"
+        if req_md.exists():
+            lines = ["\n## 合并建议清单\n"]
+            for _, suggest_id, suggest_title in pending:
+                lines.append(f"- {suggest_id}: {suggest_title}")
+            lines.append("")
+            req_md.write_text(req_md.read_text(encoding="utf-8") + "\n".join(lines), encoding="utf-8")
 
     deleted: list[str] = []
     failed_delete: list[str] = []

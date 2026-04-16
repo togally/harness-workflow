@@ -138,3 +138,4 @@
 
 ### 完成前必须检查
 - [ ] `done-report.md` 中的改进建议已提取并写入 suggest 池（如存在）
+- [ ] 若本轮 done 阶段的回顾发现新的产出标准、阶段变更或角色行为调整，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新。

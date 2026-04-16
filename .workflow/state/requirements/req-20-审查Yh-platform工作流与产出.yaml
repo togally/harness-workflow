@@ -1,0 +1,44 @@
+id: req-20
+title: 审查 Yh-platform 项目的 Harness 工作流与产出
+status: archived
+created_at: "2026-04-15"
+started_at: "2026-04-15T21:55:00"
+completed_at: "2026-04-15T22:35:00"
+archived_at: "2026-04-15"
+stage_timestamps:
+  requirement_review: "2026-04-15T21:55:00"
+  planning: "2026-04-15T22:00:00"
+  executing: "2026-04-15T22:05:00"
+  testing: "2026-04-15T22:20:00"
+  acceptance: "2026-04-15T22:30:00"
+  done: "2026-04-15T22:35:00"
+stage: done
+description: "已完成对 Yh-platform req-01~req-05 的 Harness 工作流审查，产出 review-report.md"
+background: |
+  目标项目 /Users/jiazhiwei/IdeaProjects/Yh-platform 已运行 Harness 工作流一段时间，
+  产生了 req-01 至 req-05 共 5 个需求。当前 req-05（dockDetail新增字段验收回归）
+  已处于 done 阶段，conversation_mode 为 harness 且被锁定。
+  用户希望全面审查该项目的工作流运行是否正常、各阶段产出是否达标。
+goal: |
+  1. 检查 Yh-platform 项目的 Harness 工作流配置完整性（WORKFLOW.md、runtime.yaml、
+     context、experience、requirements 等）
+  2. 审查 req-01 至 req-05 各需求的阶段流转记录和产出物（done-report、session-memory、
+     changes 等）
+  3. 识别工作流执行中的异常（阶段跳过、记录缺失、经验沉淀不足等）
+  4. 给出工作流是否正常、产出是否正常的明确结论和改进建议
+  5. 按用户指定的五个维度逐项审查：
+     - 流程是否符合标准
+     - 是否有经验产出，哪些目前没有经验产出及原因
+     - bug 多不多、有没有反思
+     - 工具有没有新增
+     - 需求结束后是否有制品产生
+scope: |
+  - 审查范围：/Users/jiazhiwei/IdeaProjects/Yh-platform/.workflow/ 下全部文件
+  - 需求范围：req-01 至 req-05
+  - 不修改 Yh-platform 的代码或业务逻辑
+  - 不执行 Yh-platform 的编译/测试命令
+acceptance: |
+  1. 输出一份审查报告，覆盖六层检查（Context/Tools/Flow/State/Evaluation/Constraints）
+  2. 对每个需求给出工作流执行评估（正常/异常/缺失）
+  3. 对工作流整体给出是否正常、产出是否正常的明确结论
+  4. 如有改进建议，以 suggest 形式记录或列入报告
