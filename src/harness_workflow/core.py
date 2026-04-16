@@ -11,6 +11,8 @@ from datetime import date, datetime, timezone
 from importlib.resources import files
 from pathlib import Path
 
+import yaml
+
 from harness_workflow import __version__
 from harness_workflow.backup import (
     get_active_platforms,
@@ -237,6 +239,43 @@ def load_simple_yaml(path: Path) -> dict[str, object]:
     return payload
 
 
+def _render_yaml_scalar(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return json.dumps("" if value is None else str(value), ensure_ascii=False)
+
+
+def _render_yaml_value(value: object, indent: int = 0) -> list[str]:
+    prefix = "  " * indent
+    lines: list[str] = []
+    if isinstance(value, dict):
+        if not value:
+            lines.append("{}")
+            return lines
+        for k, v in value.items():
+            if isinstance(v, dict):
+                lines.append(f"{prefix}{k}:")
+                lines.extend(_render_yaml_value(v, indent + 1))
+            elif isinstance(v, list):
+                lines.append(f"{prefix}{k}:")
+                for item in v:
+                    lines.append(f"{prefix}  - {item}")
+            else:
+                lines.append(f"{prefix}{k}: {_render_yaml_scalar(v)}")
+        return lines
+    if isinstance(value, list):
+        if not value:
+            lines.append("[]")
+            return lines
+        for item in value:
+            lines.append(f"{prefix}- {item}")
+        return lines
+    lines.append(_render_yaml_scalar(value))
+    return lines
+
+
 def save_simple_yaml(path: Path, payload: dict[str, object], ordered_keys: list[str] | None = None) -> None:
     keys = ordered_keys or list(payload.keys())
     lines: list[str] = []
@@ -244,21 +283,21 @@ def save_simple_yaml(path: Path, payload: dict[str, object], ordered_keys: list[
         if key not in payload:
             continue
         value = payload[key]
-        if isinstance(value, list):
+        if isinstance(value, dict):
+            if not value:
+                lines.append(f"{key}: {{}}")
+                continue
+            lines.append(f"{key}:")
+            lines.extend(_render_yaml_value(value, indent=1))
+        elif isinstance(value, list):
             if not value:
                 lines.append(f"{key}: []")
                 continue
             lines.append(f"{key}:")
             for item in value:
                 lines.append(f"  - {item}")
-            continue
-        if isinstance(value, dict):
-            rendered = json.dumps(value, ensure_ascii=False)
-        elif isinstance(value, bool):
-            rendered = "true" if value else "false"
         else:
-            rendered = json.dumps("" if value is None else str(value), ensure_ascii=False)
-        lines.append(f"{key}: {rendered}")
+            lines.append(f"{key}: {_render_yaml_scalar(value)}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -3079,7 +3118,7 @@ def search_tools(root: Path, keywords: list[str]) -> dict[str, object] | None:
     if not keywords_file.exists():
         return None
 
-    data = load_simple_yaml(keywords_file)
+    data = yaml.safe_load(keywords_file.read_text(encoding="utf-8")) or {}
     tools = data.get("tools", [])
     if not isinstance(tools, list):
         return None
@@ -3087,7 +3126,7 @@ def search_tools(root: Path, keywords: list[str]) -> dict[str, object] | None:
     ratings_file = root / TOOL_RATINGS_PATH
     ratings: dict[str, dict[str, object]] = {}
     if ratings_file.exists():
-        ratings_data = load_simple_yaml(ratings_file)
+        ratings_data = yaml.safe_load(ratings_file.read_text(encoding="utf-8")) or {}
         ratings = ratings_data.get("ratings", {})
         if not isinstance(ratings, dict):
             ratings = {}
@@ -3139,7 +3178,7 @@ def rate_tool(root: Path, tool_id: str, rating: int) -> int:
         raise SystemExit("Rating must be between 1 and 5.")
 
     ratings_file = root / TOOL_RATINGS_PATH
-    ratings_data = load_simple_yaml(ratings_file) if ratings_file.exists() else {}
+    ratings_data = yaml.safe_load(ratings_file.read_text(encoding="utf-8")) if ratings_file.exists() else {}
     ratings = ratings_data.get("ratings", {})
     if not isinstance(ratings, dict):
         ratings = {}

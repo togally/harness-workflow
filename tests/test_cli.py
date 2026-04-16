@@ -988,6 +988,46 @@ class HarnessCliTest(unittest.TestCase):
             config = self.read_config()
             self.assertEqual(config["language"], expected, msg=f"Alias '{alias}' should map to '{expected}'")
 
+    def test_tool_search_finds_match_by_keywords(self) -> None:
+        self.run_cli("init", "--root", str(self.repo))
+        keywords_path = self.repo / ".workflow" / "tools" / "index" / "keywords.yaml"
+        keywords_path.parent.mkdir(parents=True, exist_ok=True)
+        keywords_path.write_text(
+            "tools:\n"
+            "  - tool_id: test-tool\n"
+            '    keywords: ["test", "run", "execute"]\n'
+            '    catalog: "catalog/test.md"\n'
+            '    description: "A test tool"\n',
+            encoding="utf-8",
+        )
+        result = self.run_cli("tool-search", "run", "test", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("Matched: test-tool", result.stdout)
+        self.assertIn("A test tool", result.stdout)
+
+    def test_tool_search_returns_none_when_no_match(self) -> None:
+        self.run_cli("init", "--root", str(self.repo))
+        result = self.run_cli("tool-search", "nonexistent", "keyword", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        self.assertIn("No matching tool found", result.stdout)
+
+    def test_tool_rate_updates_cumulative_average(self) -> None:
+        self.run_cli("init", "--root", str(self.repo))
+        result = self.run_cli("tool-rate", "test-tool", "5", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        ratings_path = self.repo / ".workflow" / "tools" / "ratings.yaml"
+        self.assertTrue(ratings_path.exists())
+        text = ratings_path.read_text(encoding="utf-8")
+        self.assertIn("test-tool:", text)
+        self.assertIn("5.0", text)
+        self.assertIn("count: 1", text)
+
+        # Rate again to verify cumulative average
+        result = self.run_cli("tool-rate", "test-tool", "3", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        text = ratings_path.read_text(encoding="utf-8")
+        self.assertIn("count: 2", text)
+
 
 if __name__ == "__main__":
     unittest.main()
