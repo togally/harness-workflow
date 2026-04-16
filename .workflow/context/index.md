@@ -43,6 +43,8 @@
 | `regression` | `.workflow/context/roles/regression.md` |
 | `done` | `.workflow/context/roles/done.md`（主 agent 执行） |
 
+**辅助角色**：`toolsManager` 角色文件为 `.workflow/context/roles/tools-manager.md`，在 base-role 触发工具优先硬门禁时由主 agent 按需加载，不属于 stage 路由的一部分。
+
 ### 加载基础角色
 
 在加载具体 stage 角色文件前，**必须先加载** `.workflow/context/roles/base-role.md`。`base-role.md` 中定义的通用硬门禁和行为准则对所有 stage 角色生效。

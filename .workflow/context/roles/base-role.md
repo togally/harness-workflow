@@ -4,11 +4,14 @@
 
 ## 硬门禁一：工具优先
 
-在执行任何实质性操作前，必须先启动 `toolsManager` subagent 查询可用工具：
-1. 读取 `.workflow/tools/index/keywords.yaml`，按关键词匹配
-2. 若有匹配，优先使用匹配的工具
-3. 若本地无匹配，查询 skill hub（`https://skillhub.cn/skills/find-skills`）
-4. 若 skill hub 也未找到，才允许由模型自行判断
+在执行任何实质性操作前，必须先启动 `toolsManager` subagent 查询可用工具。具体行为约束见 `.workflow/context/roles/tools-manager.md`。
+
+流程概要：
+1. 读取 `.workflow/context/roles/tools-manager.md` 获取完整 briefing
+2. 将当前操作意图用关键词形式传递给 toolsManager
+3. 若有匹配，优先使用匹配的工具
+4. 若本地无匹配，由 toolsManager 查询 skill hub
+5. 仍未找到时，才允许由模型自行判断
 
 ## 硬门禁二：操作说明与日志
 
@@ -20,8 +23,6 @@
 - 遇到职责外问题时，记录到 `session-memory.md` 的 `## 待处理捕获问题` 区块
 - 每个 stage 的特有行为在 `base-role.md` 之后加载
 
-## toolsManager 调用规范
+## 角色标准工作流程约定
 
-- 将当前操作意图用关键词形式传递给 toolsManager
-- 接收返回的 `tool_id`、`使用说明` 和 `confidence`
-- 一个任务周期内，同类型的工具查询结果可复用
+所有 stage 角色（含 toolsManager）均应包含**标准工作流程（SOP）**章节。SOP 定义了 subagent 拿到任务后的执行顺序和检查点，是角色的核心执行指南。
