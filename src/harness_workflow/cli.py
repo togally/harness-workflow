@@ -32,6 +32,9 @@ from harness_workflow.core import (
     workflow_status,
     apply_suggestion,
     apply_all_suggestions,
+    search_tools,
+    rate_tool,
+    log_action,
 )
 
 
@@ -198,6 +201,15 @@ def build_parser() -> argparse.ArgumentParser:
     suggest_parser.add_argument("--delete", dest="delete_id", help="Delete a suggestion by id.")
     suggest_parser.add_argument("--pack-title", default="", help="Title for the packed requirement when using --apply-all.")
 
+    tool_parser = subparsers.add_parser("tool-search", help="Search local tool index by keywords.")
+    tool_parser.add_argument("keywords", nargs="+", help="Keywords to search for.")
+    tool_parser.add_argument("--root", default=".", help="Repository root.")
+
+    rate_parser = subparsers.add_parser("tool-rate", help="Rate a tool and update cumulative average.")
+    rate_parser.add_argument("tool_id", help="Tool ID to rate.")
+    rate_parser.add_argument("rating", type=int, help="Rating from 1 to 5.")
+    rate_parser.add_argument("--root", default=".", help="Repository root.")
+
     regression_parser = subparsers.add_parser("regression", help="Start or advance a regression confirmation flow.")
     regression_parser.add_argument("title", nargs="?", help="Start a regression with this title.")
     regression_parser.add_argument("--root", default=".", help="Repository root.")
@@ -279,6 +291,19 @@ def main() -> int:
         if args.delete_id:
             return delete_suggestion(root, args.delete_id)
         return create_suggestion(root, args.content or "", title=args.title)
+    if args.command == "tool-search":
+        root = Path(args.root)
+        match = search_tools(root, args.keywords)
+        if match is None:
+            print("No matching tool found.")
+            return 0
+        print(f"Matched: {match['tool_id']}")
+        print(f"Catalog: {match['catalog']}")
+        print(f"Description: {match['description']}")
+        print(f"Score: {match['score']}")
+        return 0
+    if args.command == "tool-rate":
+        return rate_tool(Path(args.root), args.tool_id, args.rating)
     if args.command == "regression":
         if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title, args.testing]):
             return create_regression(root, args.title)
