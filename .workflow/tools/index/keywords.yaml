@@ -1,0 +1,10 @@
+tools:
+  - tool_id: "agent"
+    keywords: ["subagent", "agent", "派发任务", "独立视角", "测试", "验收", "诊断"]
+    catalog: "catalog/agent.md"
+    description: "启动 subagent 执行独立任务"
+
+  - tool_id: "git-commit"
+    keywords: ["git", "commit", "提交代码", "保存变更"]
+    catalog: "catalog/git.md"
+    description: "将代码变更提交到 Git 仓库"
