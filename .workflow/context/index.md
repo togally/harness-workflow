@@ -43,6 +43,10 @@
 | `regression` | `.workflow/context/roles/regression.md` |
 | `done` | `.workflow/context/roles/done.md`（主 agent 执行） |
 
+### 加载基础角色
+
+在加载具体 stage 角色文件前，**必须先加载** `.workflow/context/roles/base-role.md`。`base-role.md` 中定义的通用硬门禁和行为准则对所有 stage 角色生效。
+
 角色文件包含该阶段的完整行为约束，是 subagent 的完整 briefing，**必须完整加载**。
 
 在 `testing`、`acceptance`、`regression` 阶段，还需在 `.workflow/evaluation/` 下加载对应的评估文件（如存在）：
@@ -119,7 +123,7 @@ tools/index.md + context/project/project-overview.md ← 工具和项目背景
     ↓
 runtime.yaml
     ↓ 提取 current_requirement + stage
-roles/{stage}.md          ← 角色约束（必须）
+roles/base-role.md + roles/{stage}.md  ← 角色约束（必须）
 evaluation/{stage}.md     ← testing/acceptance/regression 阶段额外加载
     ↓
 context/experience/{分类}/  ← 按 stage 过滤（规则见 state/experience/index.md）
