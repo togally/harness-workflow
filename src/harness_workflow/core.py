@@ -30,6 +30,10 @@ HARNESS_DIR = Path(".codex") / "harness"
 MANAGED_STATE_PATH = HARNESS_DIR / "managed-files.json"
 CONFIG_PATH = HARNESS_DIR / "config.json"
 STATE_RUNTIME_PATH = Path(".workflow") / "state" / "runtime.yaml"
+TOOL_KEYWORDS_PATH = Path(".workflow") / "tools" / "index" / "keywords.yaml"
+TOOL_RATINGS_PATH = Path(".workflow") / "tools" / "ratings.yaml"
+TOOL_MISSING_LOG_PATH = Path(".workflow") / "tools" / "index" / "missing-log.yaml"
+ACTION_LOG_PATH = Path(".workflow") / "state" / "action-log.md"
 WORKFLOW_ENTRYPOINT_PATH = Path("WORKFLOW.md")
 
 DEFAULT_LANGUAGE = "english"
@@ -3066,6 +3070,130 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
             print(f"  - {sid}")
 
     return 0 if not failed_delete else 1
+
+
+def search_tools(root: Path, keywords: list[str]) -> dict[str, object] | None:
+    """Search local tool index by keywords and return the best match."""
+    ensure_harness_root(root)
+    keywords_file = root / TOOL_KEYWORDS_PATH
+    if not keywords_file.exists():
+        return None
+
+    data = load_simple_yaml(keywords_file)
+    tools = data.get("tools", [])
+    if not isinstance(tools, list):
+        return None
+
+    ratings_file = root / TOOL_RATINGS_PATH
+    ratings: dict[str, dict[str, object]] = {}
+    if ratings_file.exists():
+        ratings_data = load_simple_yaml(ratings_file)
+        ratings = ratings_data.get("ratings", {})
+        if not isinstance(ratings, dict):
+            ratings = {}
+
+    query_set = {k.lower() for k in keywords}
+    candidates: list[tuple[str, int, float]] = []  # (tool_id, overlap, score)
+
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        tool_id = str(tool.get("tool_id", ""))
+        if not tool_id:
+            continue
+        tool_keywords = tool.get("keywords", [])
+        if not isinstance(tool_keywords, list):
+            continue
+        tool_set = {str(tk).lower() for tk in tool_keywords}
+        overlap = len(query_set & tool_set)
+        if overlap == 0:
+            continue
+        score = float(ratings.get(tool_id, {}).get("score", 0.0)) if isinstance(ratings.get(tool_id), dict) else 0.0
+        candidates.append((tool_id, overlap, score))
+
+    if not candidates:
+        return None
+
+    import random
+    random.shuffle(candidates)
+    candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
+
+    best_id = candidates[0][0]
+    best_tool = next((t for t in tools if isinstance(t, dict) and t.get("tool_id") == best_id), None)
+    if not best_tool:
+        return None
+
+    return {
+        "tool_id": best_id,
+        "catalog": str(best_tool.get("catalog", "")),
+        "description": str(best_tool.get("description", "")),
+        "overlap": candidates[0][1],
+        "score": candidates[0][2],
+    }
+
+
+def rate_tool(root: Path, tool_id: str, rating: int) -> int:
+    """Rate a tool and update cumulative average in ratings.yaml."""
+    ensure_harness_root(root)
+    if not 1 <= rating <= 5:
+        raise SystemExit("Rating must be between 1 and 5.")
+
+    ratings_file = root / TOOL_RATINGS_PATH
+    ratings_data = load_simple_yaml(ratings_file) if ratings_file.exists() else {}
+    ratings = ratings_data.get("ratings", {})
+    if not isinstance(ratings, dict):
+        ratings = {}
+
+    current = ratings.get(tool_id, {})
+    if not isinstance(current, dict):
+        current = {}
+    old_score = float(current.get("score", 0.0))
+    count = int(current.get("count", 0))
+
+    new_count = count + 1
+    new_score = (old_score * count + rating) / new_count if new_count > 0 else float(rating)
+
+    ratings[tool_id] = {"score": round(new_score, 2), "count": new_count}
+    ratings_data["ratings"] = ratings
+    save_simple_yaml(ratings_file, ratings_data, ordered_keys=["ratings"])
+
+    print(f"Rated {tool_id}: {new_score} (from {count} ratings)")
+    return 0
+
+
+def log_action(
+    root: Path,
+    operation: str,
+    description: str,
+    result: str,
+    tool_id: str = "",
+    rating: int | None = None,
+) -> int:
+    """Append an action entry to action-log.md."""
+    ensure_harness_root(root)
+    log_file = root / ACTION_LOG_PATH
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [
+        f"## {timestamp}",
+        "",
+        f"- **操作**: {operation}",
+        f"- **说明**: {description}",
+        f"- **结果**: {result}",
+        f"- **使用工具**: {tool_id if tool_id else '无'}",
+    ]
+    if rating is not None:
+        lines.append(f"- **评分**: {rating}")
+    else:
+        lines.append("- **评分**: N/A")
+    lines.append("")
+
+    with log_file.open("a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+    return 0
 
 
 def create_requirement(root: Path, name: str | None, requirement_id: str | None = None, title: str | None = None) -> int:
