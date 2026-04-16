@@ -13,3 +13,4 @@ build/
 # harness workflow directory (must not be ignored)
 !.workflow/
 .workflow/context/backup/
+.worktrees/
