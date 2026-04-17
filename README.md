@@ -38,6 +38,11 @@ Most AI coding tools leave you with one big context window and hope. harness-wor
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
+```bash
+pipx install --force git+https://github.com/togally/harness-workflow.git
+```
+
+
 Then initialize a repository:
 
 ```bash
