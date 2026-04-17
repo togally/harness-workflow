@@ -1,4 +1,4 @@
-current_requirement: "req-23"
+current_requirement: "req-22"
 stage: "done"
 conversation_mode: "open"
 locked_requirement: ""
@@ -7,6 +7,4 @@ current_regression: ""
 ff_mode: false
 ff_stage_history: []
 active_requirements:
-  - req-21
   - req-22
-  - req-23
