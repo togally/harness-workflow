@@ -37,11 +37,13 @@ Use these commands conceptually:
    Create and route into a requirement workspace.
 5. `harness change <title>`
    Create one concrete change under the active requirement.
-6. `harness next`
+6. `harness bugfix <issue>`
+   Create a fast-track bugfix workspace and enter the regression stage.
+7. `harness next`
    Advance the current requirement through the next stage.
-7. `harness regression <issue>`
+8. `harness regression <issue>`
    Diagnose dissatisfaction or failures before creating new work.
-8. `harness suggest`
+9. `harness suggest`
    Manage the suggestion pool and convert suggestions into requirements.
 
 ### `harness suggest --apply-all` 强制打包要求
