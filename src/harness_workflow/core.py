@@ -91,6 +91,13 @@ WORKFLOW_SEQUENCE = [
     "acceptance",
     "done",
 ]
+BUGFIX_SEQUENCE = [
+    "regression",
+    "executing",
+    "testing",
+    "acceptance",
+    "done",
+]
 LANGUAGE_SPECS = {
     "english": {
         "requirements_dir": "requirements",
@@ -214,26 +221,38 @@ def load_simple_yaml(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
     payload: dict[str, object] = {}
-    current_list_key = ""
+    current_collection_key = ""
+    collection_indent = 0
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.rstrip()
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        if current_list_key and stripped.startswith("- "):
-            items = payload.setdefault(current_list_key, [])
-            if isinstance(items, list):
-                items.append(_parse_simple_yaml_scalar(stripped[2:].strip()))
+        indent = len(line) - len(line.lstrip())
+        if current_collection_key and indent > collection_indent:
+            if stripped.startswith("- "):
+                if not isinstance(payload.get(current_collection_key), list):
+                    payload[current_collection_key] = []
+                payload[current_collection_key].append(_parse_simple_yaml_scalar(stripped[2:].strip()))
+                continue
+            if ":" in stripped:
+                if not isinstance(payload.get(current_collection_key), dict):
+                    payload[current_collection_key] = {}
+                sub_key, sub_value = stripped.split(":", 1)
+                sub_key = sub_key.strip()
+                sub_value = sub_value.strip()
+                payload[current_collection_key][sub_key] = _parse_simple_yaml_scalar(sub_value)
+                continue
+        current_collection_key = ""
+        if ":" not in stripped:
             continue
-        current_list_key = ""
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
+        key, value = stripped.split(":", 1)
         key = key.strip()
         value = value.strip()
         if not value:
-            payload[key] = []
-            current_list_key = key
+            current_collection_key = key
+            collection_indent = indent
+            payload[key] = []  # tentatively a list
             continue
         payload[key] = _parse_simple_yaml_scalar(value)
     return payload
@@ -2893,6 +2912,22 @@ def _next_req_id(root: Path) -> str:
     return f"req-{max_num + 1:02d}"
 
 
+def _next_bugfix_id(root: Path) -> str:
+    """Return the next available bugfix-N id."""
+    max_num = 0
+    for d in [
+        root / ".workflow" / "state" / "bugfixes",
+        root / ".workflow" / "flow" / "bugfixes",
+    ]:
+        if not d.exists():
+            continue
+        for item in d.iterdir():
+            m = re.match(r"bugfix-(\d+)", item.name)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+    return f"bugfix-{max_num + 1}"
+
+
 def _next_suggestion_id(root: Path) -> str:
     max_num = 0
     suggestions_dir = root / ".workflow" / "flow" / "suggestions"
@@ -3287,6 +3322,88 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     save_requirement_runtime(root, runtime)
 
     print(f"Requirement workspace: {requirement_dir}")
+    for path in created:
+        print(f"- created {path}")
+    for path in skipped:
+        print(f"- skipped {path}")
+    return 0
+
+
+def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, title: str | None = None) -> int:
+    config = ensure_config(root)
+    runtime = load_requirement_runtime(root)
+    repo_name = root.name
+    bugfix_title = (name or title or "").strip()
+    if not bugfix_title:
+        raise SystemExit("A bugfix title is required.")
+
+    bfx_num_id = bugfix_id.strip() if bugfix_id else _next_bugfix_id(root)
+    dir_name = f"{bfx_num_id}-{bugfix_title}"
+    bugfix_dir = root / ".workflow" / "flow" / "bugfixes" / dir_name
+    created: list[str] = []
+    skipped: list[str] = []
+    replacements = {"ID": bfx_num_id, "TITLE": bugfix_title}
+
+    write_if_missing(
+        bugfix_dir / "bugfix.md",
+        render_template("bugfix.md.tmpl", repo_name, config["language"], replacements),
+        created,
+        skipped,
+    )
+    write_if_missing(
+        bugfix_dir / "session-memory.md",
+        render_template("session-memory.md.tmpl", repo_name, config["language"], replacements),
+        created,
+        skipped,
+    )
+    write_if_missing(
+        bugfix_dir / "regression" / "diagnosis.md",
+        render_template("diagnosis.md.tmpl", repo_name, config["language"], replacements),
+        created,
+        skipped,
+    )
+    write_if_missing(
+        bugfix_dir / "regression" / "required-inputs.md",
+        render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements),
+        created,
+        skipped,
+    )
+    write_if_missing(
+        bugfix_dir / "test-evidence.md",
+        render_template("self-test.md.tmpl", repo_name, config["language"], replacements),
+        created,
+        skipped,
+    )
+
+    state_file = root / ".workflow" / "state" / "bugfixes" / f"{dir_name}.yaml"
+    if not state_file.exists():
+        today = date.today().isoformat()
+        save_simple_yaml(
+            state_file,
+            {
+                "id": bfx_num_id,
+                "title": bugfix_title,
+                "stage": "regression",
+                "status": "active",
+                "created_at": today,
+                "started_at": today,
+                "completed_at": "",
+                "stage_timestamps": {},
+                "description": "",
+            },
+            ordered_keys=["id", "title", "stage", "status", "created_at", "started_at", "completed_at", "stage_timestamps", "description"],
+        )
+        created.append(str(state_file.relative_to(root)))
+
+    active_reqs = list(runtime.get("active_requirements", []))
+    if bfx_num_id not in [str(r) for r in active_reqs]:
+        active_reqs.append(bfx_num_id)
+    runtime["current_requirement"] = bfx_num_id
+    runtime["stage"] = "regression"
+    runtime["active_requirements"] = active_reqs
+    save_requirement_runtime(root, runtime)
+
+    print(f"Bugfix workspace: {bugfix_dir}")
     for path in created:
         print(f"- created {path}")
     for path in skipped:
@@ -3698,14 +3815,15 @@ def list_active_requirements(root: Path) -> list[dict]:
     """返回 runtime active_requirements 中的需求列表，含 title 和 stage。"""
     runtime = load_requirement_runtime(root)
     active_ids = [str(r).strip() for r in runtime.get("active_requirements", [])]
-    req_state_dir = root / ".workflow" / "state" / "requirements"
     id_to_state: dict[str, dict] = {}
-    if req_state_dir.exists():
-        for req_file in sorted(req_state_dir.rglob("*.yaml")):
-            state = load_simple_yaml(req_file)
-            req_id = _get_req_id(state)
-            if req_id:
-                id_to_state[req_id] = state
+    for subdir in ["requirements", "bugfixes"]:
+        state_dir = root / ".workflow" / "state" / subdir
+        if state_dir.exists():
+            for req_file in sorted(state_dir.rglob("*.yaml")):
+                state = load_simple_yaml(req_file)
+                req_id = _get_req_id(state)
+                if req_id:
+                    id_to_state[req_id] = state
     results = []
     for req_id in active_ids:
         state = id_to_state.get(req_id, {})
@@ -3945,32 +4063,34 @@ def workflow_status(root: Path) -> int:
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
     current_stage = str(runtime.get("stage", "")).strip()
+    req_id = str(runtime.get("current_requirement", "")).strip()
+    is_bugfix = req_id.startswith("bugfix-")
+    sequence = BUGFIX_SEQUENCE if is_bugfix else WORKFLOW_SEQUENCE
 
     if not current_stage:
         raise SystemExit("No active workflow stage. Run `harness requirement <title>` to begin.")
     if current_stage == "done":
         raise SystemExit("Workflow is already complete.")
-    if current_stage not in WORKFLOW_SEQUENCE:
+    if current_stage not in sequence:
         raise SystemExit(f"Unknown stage: {current_stage}")
 
-    idx = WORKFLOW_SEQUENCE.index(current_stage)
+    idx = sequence.index(current_stage)
     if current_stage == "ready_for_execution" and not execute:
         raise SystemExit("Workflow is ready_for_execution. Run `harness next --execute` to confirm execution start.")
 
-    next_stage = WORKFLOW_SEQUENCE[idx + 1] if idx + 1 < len(WORKFLOW_SEQUENCE) else current_stage
+    next_stage = sequence[idx + 1] if idx + 1 < len(sequence) else current_stage
 
     prev_entered_at = str(runtime.get("stage_entered_at", ""))
     runtime["stage"] = next_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
 
-    req_id = str(runtime.get("current_requirement", "")).strip()
     if req_id:
-        req_state_dir = root / ".workflow" / "state" / "requirements"
-        if req_state_dir.exists():
-            for req_file in sorted(req_state_dir.rglob("*.yaml")):
-                state = load_simple_yaml(req_file)
+        state_dir = root / ".workflow" / "state" / ("bugfixes" if is_bugfix else "requirements")
+        if state_dir.exists():
+            for state_file in sorted(state_dir.rglob("*.yaml")):
+                state = load_simple_yaml(state_file)
                 state_id = _get_req_id(state)
-                if state_id == req_id or req_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in req_file.stem):
+                if state_id == req_id or state_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in state_file.stem):
                     state["stage"] = next_stage
                     if next_stage == "done":
                         state["status"] = "done"
@@ -3978,7 +4098,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
                     if "stage_timestamps" not in state:
                         state["stage_timestamps"] = {}
                     state["stage_timestamps"][next_stage] = datetime.now(timezone.utc).isoformat()
-                    save_simple_yaml(req_file, state)
+                    save_simple_yaml(state_file, state)
                     break
 
     save_requirement_runtime(root, runtime)
@@ -4009,25 +4129,27 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 def workflow_fast_forward(root: Path) -> int:
     runtime = load_requirement_runtime(root)
     from_stage = str(runtime.get("stage", "")).strip()
-    runtime["stage"] = "ready_for_execution"
+    req_id = str(runtime.get("current_requirement", "")).strip()
+    is_bugfix = req_id.startswith("bugfix-")
+    target_stage = "executing" if is_bugfix else "ready_for_execution"
+    runtime["stage"] = target_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
 
-    req_id = str(runtime.get("current_requirement", "")).strip()
     if req_id:
-        req_state_dir = root / ".workflow" / "state" / "requirements"
-        if req_state_dir.exists():
-            for req_file in sorted(req_state_dir.rglob("*.yaml")):
-                state = load_simple_yaml(req_file)
+        state_dir = root / ".workflow" / "state" / ("bugfixes" if is_bugfix else "requirements")
+        if state_dir.exists():
+            for state_file in sorted(state_dir.rglob("*.yaml")):
+                state = load_simple_yaml(state_file)
                 state_id = _get_req_id(state)
-                if state_id == req_id or req_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in req_file.stem):
-                    state["stage"] = "ready_for_execution"
-                    save_simple_yaml(req_file, state)
+                if state_id == req_id or state_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in state_file.stem):
+                    state["stage"] = target_stage
+                    save_simple_yaml(state_file, state)
                     break
 
     save_requirement_runtime(root, runtime)
     record_feedback_event(root, "stage_skip", {"from_stage": from_stage})
     record_feedback_event(root, "ff", {"from_stage": from_stage})
-    print("Workflow advanced to ready_for_execution")
+    print(f"Workflow advanced to {target_stage}")
     return 0
 
 

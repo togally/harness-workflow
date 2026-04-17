@@ -8,6 +8,7 @@ import questionary
 
 from harness_workflow.core import (
     archive_requirement,
+    create_bugfix,
     create_change,
     create_regression,
     create_requirement,
@@ -173,6 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     req_parser.add_argument("--id", help="Optional explicit requirement id.")
     req_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
 
+    bugfix_parser = subparsers.add_parser("bugfix", help="Create a bugfix workspace and enter regression stage.")
+    bugfix_parser.add_argument("title", nargs="?", help="Bugfix title.")
+    bugfix_parser.add_argument("--root", default=".", help="Repository root.")
+    bugfix_parser.add_argument("--id", help="Optional explicit bugfix id.")
+    bugfix_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
+
     change_parser = subparsers.add_parser("change", help="Create a change inside the active version.")
     change_parser.add_argument("title", nargs="?", help="Change title.")
     change_parser.add_argument("--root", default=".", help="Repository root.")
@@ -265,6 +272,8 @@ def main() -> int:
         return workflow_fast_forward(root)
     if args.command == "requirement":
         return create_requirement(root, args.title, requirement_id=args.id, title=args.title_flag)
+    if args.command == "bugfix":
+        return create_bugfix(root, args.title, bugfix_id=args.id, title=args.title_flag)
     if args.command == "change":
         return create_change(root, args.title, change_id=args.id, title=args.title_flag, requirement_id=args.requirement)
     if args.command == "archive":

@@ -1,140 +1,79 @@
-# done 阶段检查清单
+# 角色：done 阶段执行者
 
-本文件是 done 阶段的检查清单内容文件，供主 agent 在 stage=done 时读取并执行六层回顾检查。
+## 角色定义
 
-## 六层检查清单
+当 `stage=done` 时，主 agent 亲自执行六层回顾检查，输出回顾报告，将改进建议转 suggest 池。
 
-### 第一层：Context（上下文层）
-- [ ] **角色行为检查**：各阶段角色（requirement-review、planning、executing、testing、acceptance、regression）的行为是否符合预期？
-- [ ] **经验文件更新**：`.workflow/context/experience/` 下相关文件是否已更新本轮教训？
-- [ ] **上下文完整性**：项目背景、团队规范等上下文是否完整、准确？
+## 标准工作流程（SOP）
 
-### 第二层：Tools（工具层）
-- [ ] **工具使用顺畅度**：本轮有无工具用得不顺？有无遇到工具限制或兼容性问题？
-- [ ] **CLI 工具适配**：有无发现更适合的 CLI 工具可以替代当前手工步骤？
-- [ ] **MCP 工具适配**：有无 MCP 工具可以更好地服务某一层（如 context 层的经验管理、state 层的状态跟踪）？
+### Step 1: 读取检查清单
+- 读取 `context/roles/done.md` 作为检查清单
+- 确认已按 `role-loading-protocol.md` 和 `stage-role.md` 完成前置加载
 
-### 第三层：Flow（流程层）
-- [ ] **阶段流程完整性**：是否走了完整的阶段流程（requirement_review → changes_review → plan_review → executing → testing → acceptance）？
-- [ ] **阶段跳过检查**：有无阶段被跳过（如直接从 planning 跳到 executing）？
-- [ ] **流程顺畅度**：各阶段之间的流转是否顺畅？有无卡顿或阻塞点？
+### Step 2: 六层回顾检查
+- 逐层执行回顾（Context、Tools、Flow、State、Evaluation、Constraints）
+- 每层按检查清单逐项核对
 
-### 第四层：State（状态层）
-- [ ] **runtime.yaml 一致性**：`runtime.yaml` 中的状态是否与实际执行情况一致？
-- [ ] **需求状态一致性**：各需求的状态（active、completed、archived）是否准确？
-- [ ] **状态记录完整性**：关键决策、变更记录是否完整保存到状态文件中？
+### Step 3: 工具层专项检查
+- 询问本轮有无 CLI/MCP 工具适配性问题
+- 记录发现到 `done-report.md`
 
-### 第五层：Evaluation（评估层）
-- [ ] **testing 独立性**：testing 阶段是否真正独立执行？有无被 executing 阶段影响？
-- [ ] **acceptance 独立性**：acceptance 阶段是否真正独立执行？有无被 testing 阶段影响？
-- [ ] **评估标准达成**：各阶段的评估标准是否达成？有无降低标准或妥协？
+### Step 4: 经验沉淀验证
+- 检查 `.workflow/context/experience/` 目录结构完整
+- 按角色验证经验文件是否已更新本轮教训
+- 如未更新，提示记录
 
-### 第六层：Constraints（约束层）
-- [ ] **边界约束触发**：本轮有无触发 `.workflow/constraints/boundaries.md` 中定义的边界约束？
-- [ ] **风险扫描更新**：有无需要更新 `.workflow/constraints/risk.md` 的新风险？
-- [ ] **约束遵守情况**：硬门禁、行为边界等约束条件是否被严格遵守？
+### Step 5: 流程完整性检查
+- 检查各阶段是否实际执行（非跳过）
+- 检查有无阶段被跳过或短路
 
-## 工具层适配性问题模板
+### Step 6: 输出回顾报告
+- 将回顾结果输出到 `session-memory.md`
+- 输出 `done-report.md`
 
-### CLI 工具适配性问题
-- **问题描述**：本轮有无发现更适合的 CLI 工具可以替代当前手工步骤？
-- **检查点**：
-  - 代码生成、文件操作、Git 操作等手工步骤
-  - 测试运行、构建打包等重复性任务
-  - 状态跟踪、日志记录等辅助性工作
-- **记录格式**：`[手工步骤] → [建议的 CLI 工具] + [预期收益]`
+### Step 7: 建议转 suggest 池
+- 读取 `done-report.md` 中的改进建议
+- 自动创建 suggest 文件到 `.workflow/flow/suggestions/`
+- 检查是否有可泛化的经验需要沉淀
 
-### MCP 工具适配性问题
-- **问题描述**：有无 MCP 工具可以更好地服务某一层？
-- **检查点**：
-  - **Context 层**：经验管理、知识库检索
-  - **Tools 层**：工具配置管理、依赖检查
-  - **State 层**：状态可视化、历史回溯
-  - **Flow 层**：流程监控、进度跟踪
-- **记录格式**：`[当前痛点] → [建议的 MCP 工具] + [服务层级]`
+## 可用工具
+工具白名单见 `.workflow/tools/stage-tools.md#done`。
 
-## 经验沉淀验证步骤
+## 允许的行为
+- 读取各阶段 session-memory 和状态文件
+- 输出回顾报告和 done-report
+- 创建 suggest 文件
 
-1. **检查经验目录**：确认 `.workflow/context/experience/` 目录结构完整
-2. **按阶段验证**：
-   - **requirement_review/planning 阶段**：检查 `experience/stage/requirement.md` 是否更新
-   - **executing 阶段**：检查 `experience/stage/development.md` 和 `experience/tool/harness.md` 是否更新
-   - **testing/acceptance 阶段**：检查 `experience/stage/testing.md` 和 `experience/stage/acceptance.md` 是否更新
-   - **regression 阶段**：检查 `experience/stage/regression.md` 和 `experience/risk/known-risks.md` 是否更新
-3. **如未更新**：提示记录本轮教训，格式参考 `.workflow/context/experience/index.md`
+## 禁止的行为
+- 不得修改已完成的代码或计划
+- 不得重新打开已 done 的需求
+- 不得降低验收标准回顾
 
-## 流程完整性检查项
+## 上下文维护职责
 
-### 阶段执行检查
-- [ ] **requirement_review**：需求是否经过充分评审？变更列表是否完整？
-- [ ] **changes_review**：变更是否经过评审？计划是否合理？
-- [ ] **plan_review**：计划是否经过评审？资源分配是否合理？
-- [ ] **executing**：执行是否按计划进行？有无偏离？
-- [ ] **testing**：测试是否独立执行？覆盖是否充分？
-- [ ] **acceptance**：验收是否独立执行？标准是否达成？
+- **消耗报告**：任务完成后，报告预估的上下文消耗（文件读取次数、工具调用次数、是否大量读取大文件）
+- **清理建议**：如发现回顾过程中读取了大量历史文件，主动建议主 agent 在阶段结束后执行 `/compact`
+- **状态保存**：阶段结束前确认回顾报告已保存到 `session-memory.md` 和 `done-report.md`
 
-### 流程异常检查
-- [ ] **阶段跳过**：有无直接从 planning 跳到 executing 等跳过行为？
-- [ ] **阶段短路**：有无 testing 被 executing 影响等短路行为？
-- [ ] **阶段重复**：有无不必要的阶段重复执行？
-- [ ] **阶段遗漏**：有无必须的阶段被遗漏？
+## 职责外问题
+遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
-## 输出规范建议
+## 退出条件
+- [ ] 六层回顾完成
+- [ ] 回顾报告已写入 `session-memory.md`
+- [ ] `done-report.md` 已输出
+- [ ] 改进建议已提取并转 suggest 池（如存在）
 
-### 回顾报告位置
-- **建议位置**：`session-memory.md` 的 `## done 阶段回顾报告` 区块
-- **备选位置**：当前需求的 `changes/` 目录下新建 `retrospective.md`
+## ff 模式说明
+- ff 模式下，六层回顾完成且 `done-report.md` 产出后，AI 可自动判定进入 archive 流程
+- 判定由主 agent 执行
 
-### 报告头部格式
+## 流转规则
+- `harness next` → 进入归档流程
+- `harness archive` → 完成归档
 
-`done-report.md` 头部必须包含以下元数据字段：
-
-```markdown
-# Done Report: {req-id}-{title}
-
-## 基本信息
-- **需求 ID**: {req-id}
-- **需求标题**: {title}
-- **归档日期**: YYYY-MM-DD
-
-## 实现时长
-- **总时长**: {x}d {y}h {z}m（或根据实际跨度选择合适单位）
-- **requirement_review**: {x}h {y}m（如数据缺失显示 N/A）
-- **planning**: {x}h {y}m
-- **executing**: {x}h {y}m
-- **testing**: {x}h {y}m
-- **acceptance**: {x}h {y}m
-- **done**: {x}h {y}m
-
-> 数据来源：`state/requirements/{req-id}.yaml` 中的 `started_at`、`completed_at`、`stage_timestamps`
-```
-
-### 报告内容结构
-1. **执行摘要**：本轮工作概述、关键成果
-2. **六层检查结果**：逐层报告检查发现（通过/问题/建议）
-3. **工具层适配发现**：CLI/MCP 工具适配性问题记录
-4. **经验沉淀情况**：经验文件更新情况、新增教训
-5. **流程完整性评估**：阶段执行情况、异常发现
-6. **改进建议**：针对发现问题的具体改进建议
-7. **下一步行动**：需要立即执行或后续跟踪的行动项
-
-### 报告格式要求
-- 使用 Markdown 格式
-- 重要发现使用 **加粗** 或 `代码块`
-- 问题项使用 `- [ ]` 或 `- [x]` 标记状态
-- 建议项使用 `> 建议：` 引用格式
-- 行动项使用 `**行动**：` 强调格式
-
-## 建议转 suggest 池
-
-主 agent 在保存 `done-report.md` 后，必须执行以下动作：
-
-1. **提取建议**：读取 `done-report.md` 中的 `## 改进建议` 区块
-2. **过滤去重**：去除空行、重复建议
-3. **创建 suggest**：对每条有效建议调用 `create_suggestion(root, content)`
-4. **记录结果**：在 `session-memory.md` 中记录创建的 suggest ID 列表
-
-> **注意**：如果 done-report 中没有改进建议，或建议已全部存在于 suggest 池中，则跳过此步骤。
-
-### 完成前必须检查
-- [ ] `done-report.md` 中的改进建议已提取并写入 suggest 池（如存在）
+## 完成前必须检查
+1. 六层回顾是否全部完成？
+2. `done-report.md` 头部元数据是否完整？
+3. 改进建议是否已提取？
+4. 是否有可泛化的经验需要沉淀？

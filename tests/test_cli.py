@@ -1028,6 +1028,29 @@ class HarnessCliTest(unittest.TestCase):
         text = ratings_path.read_text(encoding="utf-8")
         self.assertIn("count: 2", text)
 
+    def test_bugfix_creates_workspace_and_enters_regression(self) -> None:
+        self.run_cli("install", "--root", str(self.repo))
+        result = self.run_cli("bugfix", "Login form validation fails", "--root", str(self.repo))
+        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+
+        bugfix_dir = self.repo / ".workflow" / "flow" / "bugfixes" / "bugfix-1-Login form validation fails"
+        self.assertTrue((bugfix_dir / "bugfix.md").exists())
+        self.assertTrue((bugfix_dir / "session-memory.md").exists())
+        self.assertTrue((bugfix_dir / "regression" / "diagnosis.md").exists())
+        self.assertTrue((bugfix_dir / "regression" / "required-inputs.md").exists())
+        self.assertTrue((bugfix_dir / "test-evidence.md").exists())
+
+        state_file = self.repo / ".workflow" / "state" / "bugfixes" / "bugfix-1-Login form validation fails.yaml"
+        self.assertTrue(state_file.exists())
+        state_text = state_file.read_text(encoding="utf-8")
+        self.assertIn('stage: "regression"', state_text)
+        self.assertIn('status: "active"', state_text)
+
+        runtime_path = self.repo / ".workflow" / "state" / "runtime.yaml"
+        runtime_text = runtime_path.read_text(encoding="utf-8")
+        self.assertIn('current_requirement: "bugfix-1"', runtime_text)
+        self.assertIn('stage: "regression"', runtime_text)
+
 
 if __name__ == "__main__":
     unittest.main()

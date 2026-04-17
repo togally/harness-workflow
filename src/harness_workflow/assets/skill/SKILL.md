@@ -60,6 +60,14 @@ Use these commands conceptually:
 - keep root guides thin and route them back to `WORKFLOW.md`
 - avoid restoring legacy entrypoints such as `.workflow/context/rules/workflow-runtime.yaml`
 
+## Validation
+
+After installing or updating the workflow, verify the repository structure with:
+
+```bash
+python3 tools/lint_harness_repo.py --root . --strict-claude --strict-stage-roles
+```
+
 ## Fallback
 
 If the global `harness` CLI is unavailable, the local script at `.codex/skills/harness/scripts/harness.py` may be used as a thin fallback entrypoint.

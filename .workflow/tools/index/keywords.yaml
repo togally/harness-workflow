@@ -4,6 +4,11 @@ tools:
     catalog: "catalog/agent.md"
     description: "启动 subagent 执行独立任务"
 
+  - tool_id: "find-skills"
+    keywords: ["skill", "skills", "skillhub", "查找技能", "发现工具", "扩展工具", "工具查询", "未命中"]
+    catalog: "catalog/find-skills.md"
+    description: "调用 find-skills skill 查询 skillhub 商店发现其他可用 skills"
+
   - tool_id: "git-commit"
     keywords: ["git", "commit", "提交代码", "保存变更"]
     catalog: "catalog/git.md"

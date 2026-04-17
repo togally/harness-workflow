@@ -1,135 +1,44 @@
-# Context 加载规则
+# Context 角色索引
 
-本文件定义会话启动时的完整加载顺序，以及如何根据运行时状态路由到对应角色、经验和约束文件。
-
----
-
-## 加载顺序
-
-### Session Start（每次会话开启时，在 Step 1 之前）
-
-读取以下背景文件，建立项目和团队上下文：
-- `.workflow/tools/index.md`：了解工具系统结构和可用工具层
-- `.workflow/context/project/project-overview.md`：项目定位、六层架构、演进背景
+本文件是 Harness Workflow 的**角色索引表**。所有 agent 在被唤醒后，请先根据下方索引确认自己的角色，然后严格按照 `.workflow/context/roles/role-loading-protocol.md` 加载角色文件并执行。
 
 ---
 
-### Step 1：读取运行时状态（必须第一步）
+## 角色索引
 
-读取 `.workflow/state/runtime.yaml`，提取以下字段：
+### 顶级角色（Director）
 
-| 字段 | 用途 |
-|------|------|
-| `current_requirement` | 确定当前活跃需求 |
-| `stage` | 路由到对应角色文件和经验分类 |
-| `conversation_mode` | 判断是否锁定当前节点 |
-| `locked_requirement` / `locked_stage` | 若非空，优先使用锁定值 |
+| 角色名称 | 职责 | 文件路径 |
+|---------|------|---------|
+| **技术总监** | 编排整个工作流，维护 stage 按研发流程图流转，监控上下文负载和异常，在 done 阶段执行六层回顾 | `.workflow/context/roles/directors/technical-director.md` |
 
-**如果 `current_requirement` 为空或 `stage` 字段缺失**：立即停止加载，告知用户会话未路由，引导用户创建需求（`harness requirement "<title>"`）。
+### Stage 执行角色
 
----
+| 角色名称 | 职责 | 文件路径 |
+|---------|------|---------|
+| **需求分析师** | 澄清用户意图，识别边界和风险，编写并确认 `requirement.md` | `.workflow/context/roles/requirement-review.md` |
+| **架构师** | 将需求拆分为独立变更，为每个变更制定 `change.md` + `plan.md` | `.workflow/context/roles/planning.md` |
+| **开发者** | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` |
+| **测试工程师** | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` |
+| **验收官** | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` |
+| **诊断师** | 独立分析问题，判断是否是真实问题，确定根因，决定路由方向 | `.workflow/context/roles/regression.md` |
+| **主 agent（done 阶段）** | 对整个需求周期进行六层回顾检查，输出回顾报告，转 suggest 池 | `.workflow/context/roles/done.md` |
 
-### Step 2：加载角色文件（依据 stage 路由）
+### 辅助角色
 
-读取 `.workflow/context/roles/index.md` 获取路由表，再按 stage 加载对应角色文件：
+| 角色名称 | 职责 | 文件路径 |
+|---------|------|---------|
+| **工具管理员（toolsManager）** | 在其他 agent 执行操作前，为其搜索、匹配并推荐最合适的工具 | `.workflow/context/roles/tools-manager.md` |
 
-| Stage | 角色文件 |
-|-------|---------|
-| `requirement_review` | `.workflow/context/roles/requirement-review.md` |
-| `planning` | `.workflow/context/roles/planning.md` |
-| `executing` | `.workflow/context/roles/executing.md` |
-| `testing` | `.workflow/context/roles/testing.md` |
-| `acceptance` | `.workflow/context/roles/acceptance.md` |
-| `regression` | `.workflow/context/roles/regression.md` |
-| `done` | `.workflow/context/roles/done.md`（主 agent 执行） |
+### 抽象父类
 
-角色文件包含该阶段的完整行为约束，是 subagent 的完整 briefing，**必须完整加载**。
+| 角色名称 | 职责 | 文件路径 |
+|---------|------|---------|
+| **基础角色（base-role）** | 所有角色（含 Director、toolsManager、stage 角色）的通用规约，定义通用硬门禁、工具优先原则、经验沉淀规则、上下文维护规则 | `.workflow/context/roles/base-role.md` |
+| **Stage 角色公共规约（stage-role）** | 所有 stage 执行角色和辅助角色的公共父类，继承 base-role 并叠加 Session Start 约定、Stage 切换交接、经验文件加载规则、流转规则 | `.workflow/context/roles/stage-role.md` |
 
-在 `testing`、`acceptance`、`regression` 阶段，还需在 `.workflow/evaluation/` 下加载对应的评估文件（如存在）：
-- `evaluation/testing.md`（testing 阶段）
-- `evaluation/acceptance.md`（acceptance 阶段）
-- `evaluation/regression.md`（regression 阶段）
+### 通用协议
 
----
-
-### Step 3：加载经验文件（按 stage 分类）
-
-读取 `.workflow/state/experience/index.md` 获取加载规则，再按 stage 加载 `.workflow/context/experience/` 下的对应经验文件：
-
-| Stage | 加载分类 |
-|-------|---------|
-| `requirement_review` / `planning` | `.workflow/context/experience/stage/requirement.md` |
-| `executing` | `.workflow/context/experience/stage/development.md` + `.workflow/context/experience/tool/harness.md` |
-| `testing` / `acceptance` | `.workflow/context/experience/stage/testing.md` + `.workflow/context/experience/stage/acceptance.md` |
-| `regression` | `.workflow/context/experience/stage/regression.md` + `.workflow/context/experience/risk/known-risks.md` |
-
-**不得批量加载整棵经验目录树**，只加载与当前 stage 匹配的分类。
-
----
-
-### Step 4：加载团队与项目上下文（before-task）
-
-在开始实质性任务（生成代码、修改文件、制定计划）前加载：
-- `.workflow/context/team/development-standards.md`：团队开发规范、代码风格约束
-
-**上下文负载检查**（每次 before-task 时执行）：
-估算当前上下文负载，参考 chg-01 阈值：
-- 消息条数是否超过 100 条（预警），150 条（强制维护），200 条（紧急）
-- 文件读取次数是否超过 50 次（预警），80 次（强制维护），100 次（紧急）
-- 会话时长是否超过 2 小时（预警），4 小时（强制维护），6 小时（紧急）
-
-若达到预警及以上阈值，主 agent 在派发任务前先处理上下文维护（参考 WORKFLOW.md 上下文维护职责）。
-
----
-
-### Step 5：加载风险文件
-
-读取 `.workflow/constraints/risk.md`，扫描高风险关键词。
-
-约束文件层级参考 `.workflow/constraints/index.md`：
-- `constraints/boundaries.md`：行为边界细则（before-task 时按需加载）
-- `constraints/risk.md`：风险扫描规则（before-task 必须执行）
-- `constraints/recovery.md`：失败恢复路径（遇到失败时加载）
-
----
-
-### Step 6：检查流转规则（按需）
-
-如需判断 stage 推进条件或归档规则，读取 `.workflow/flow/stages.md`。
-
----
-
-## 状态缺失或不一致的处理
-
-| 情况 | 处理方式 |
-|------|---------|
-| `runtime.yaml` 不存在 | 立即停止，告知用户文件缺失，不执行任何工作 |
-| `current_requirement` 为空 | 停止，引导用户用 `harness requirement` 创建需求 |
-| `stage` 字段缺失或不在已知列表 | 停止，告知 stage 未识别，请检查 runtime.yaml |
-| `conversation_mode: harness` | 锁定当前节点，不得漂移到其他需求或阶段 |
-| `locked_requirement` / `locked_stage` 非空 | 使用锁定值覆盖 `current_requirement` / `stage` |
-
----
-
-## 加载顺序速查
-
-```
-[session-start]
-tools/index.md + context/project/project-overview.md ← 工具和项目背景
-    ↓
-runtime.yaml
-    ↓ 提取 current_requirement + stage
-roles/{stage}.md          ← 角色约束（必须）
-evaluation/{stage}.md     ← testing/acceptance/regression 阶段额外加载
-    ↓
-context/experience/{分类}/  ← 按 stage 过滤（规则见 state/experience/index.md）
-    ↓
-[before-task]
-team/development-standards.md ← 团队规范
-    ↓
-上下文负载检查              ← 估算消息数/读取数/时长（参考 chg-01 阈值）
-    ↓
-constraints/risk.md       ← 风险扫描（必须）
-    ↓
-flow/stages.md            ← 按需（流转判断时）
-```
+| 协议名称 | 用途 | 文件路径 |
+|---------|------|---------|
+| **角色加载协议** | 定义所有角色的通用加载步骤，所有 agent 必须遵循 | `.workflow/context/roles/role-loading-protocol.md` |

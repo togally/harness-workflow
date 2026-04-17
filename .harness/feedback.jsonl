@@ -45,3 +45,9 @@
 {"ts": "2026-04-15T07:41:16.485474+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-15T07:41:29.823111+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
 {"ts": "2026-04-15T07:41:29.823231+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-17T07:40:36.323832+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-17T07:40:36.324098+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-17T07:40:44.214458+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-17T07:40:44.214641+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-17T07:40:49.442004+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-17T07:40:49.442128+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

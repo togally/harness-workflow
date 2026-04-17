@@ -1,6 +1,4 @@
-# done 阶段检查清单
-
-本文件是 done 阶段的检查清单内容文件，供主 agent 在 stage=done 时读取并执行六层回顾检查。
+# 角色：主 agent（done 阶段）
 
 ## 角色定义
 
@@ -35,6 +33,63 @@
 - 将回顾结果写入 `session-memory.md`
 - 提取 `done-report.md` 中的改进建议，自动创建 suggest 文件
 
+## 可用工具
+
+done 阶段由主 agent（技术总监）亲自执行，可用工具不受 stage 白名单限制，但应优先使用适合文档整理、状态检查和报告生成的工具。
+
+## 允许的行为
+
+- 读取需求、变更、session-memory、experience 等所有相关文档
+- 编写 `done-report.md` 和 `session-memory.md` 回顾报告
+- 创建 suggest 文件到 `.workflow/flow/suggestions/`
+- 更新 `state/requirements/{req-id}.yaml` 的 `completed_at`
+
+## 禁止的行为
+
+- 不得跳过六层回顾检查中的任何一层
+- 不得未读检查清单就直接输出"完成"
+- 不得遗漏 `done-report.md` 中的改进建议提取
+- 不得在经验文件未检查的情况下直接标记 done 完成
+
+## 上下文维护职责
+
+- **消耗报告**：任务完成后，报告预估的上下文消耗（文件读取次数、工具调用次数、是否大量读取大文件）
+- **清理建议**：done 阶段通常位于需求周期末尾，若上下文负载较高，建议在归档前执行 `/compact`
+- **状态保存**：阶段结束前确认回顾报告已保存到 `session-memory.md`，关键产出（`done-report.md`、suggest 文件）已落盘
+
+## 职责外问题
+
+done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 创建），直接处理；若超出本阶段范围，按技术总监职责上报给用户。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
+
+## 退出条件
+
+- [ ] 六层回顾检查已全部完成
+- [ ] `session-memory.md` 的 `## done 阶段回顾报告` 区块已产出
+- [ ] `done-report.md` 中的改进建议已提取（如有）
+- [ ] 经验沉淀已验证
+
+## ff 模式说明
+
+- ff 模式下，六层回顾完成且回顾报告已写入 `session-memory.md` 后，主 agent 可自动标记 done 阶段完成
+- 可选择自动执行 `harness archive` 进行归档
+- done 阶段是工作流的最后一个阶段，完成后不再自动推进
+
+## 流转规则
+
+- `done` 阶段完成后，可执行 `harness archive "<req-id>" [--folder <name>]` 归档需求
+- 归档完成后，需求从 active 状态转为 archived
+
+## 完成前必须检查
+
+1. `done-report.md` 中的改进建议已提取并写入 suggest 池（如存在）
+2. 若本轮 done 阶段的回顾发现新的产出标准、阶段变更或角色行为调整，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新。
+3. `runtime.yaml` 和 `state/requirements/{req-id}.yaml` 的状态是否一致？
+4. 回顾报告是否覆盖了全部六层？
+
+---
+
+# 附录：done 阶段检查清单详情
+
 ## 六层检查清单
 
 ### 第一层：Context（上下文层）
@@ -48,7 +103,7 @@
 - [ ] **MCP 工具适配**：有无 MCP 工具可以更好地服务某一层（如 context 层的经验管理、state 层的状态跟踪）？
 
 ### 第三层：Flow（流程层）
-- [ ] **阶段流程完整性**：是否走了完整的阶段流程（requirement_review → changes_review → plan_review → executing → testing → acceptance）？
+- [ ] **阶段流程完整性**：是否走了完整的阶段流程（requirement_review → planning → executing → testing → acceptance）？
 - [ ] **阶段跳过检查**：有无阶段被跳过（如直接从 planning 跳到 executing）？
 - [ ] **流程顺畅度**：各阶段之间的流转是否顺畅？有无卡顿或阻塞点？
 
@@ -90,18 +145,17 @@
 
 1. **检查经验目录**：确认 `.workflow/context/experience/` 目录结构完整
 2. **按阶段验证**：
-   - **requirement_review/planning 阶段**：检查 `experience/stage/requirement.md` 是否更新
-   - **executing 阶段**：检查 `experience/stage/development.md` 和 `experience/tool/harness.md` 是否更新
-   - **testing/acceptance 阶段**：检查 `experience/stage/testing.md` 和 `experience/stage/acceptance.md` 是否更新
-   - **regression 阶段**：检查 `experience/stage/regression.md` 和 `experience/risk/known-risks.md` 是否更新
+   - **requirement_review/planning 阶段**：检查 `experience/roles/requirement-review.md` 和 `experience/roles/planning.md` 是否更新
+   - **executing 阶段**：检查 `experience/roles/executing.md` 和 `experience/tool/harness.md` 是否更新
+   - **testing/acceptance 阶段**：检查 `experience/roles/testing.md` 和 `experience/roles/acceptance.md` 是否更新
+   - **regression 阶段**：检查 `experience/roles/regression.md` 和 `experience/risk/known-risks.md` 是否更新
 3. **如未更新**：提示记录本轮教训，格式参考 `.workflow/context/experience/index.md`
 
 ## 流程完整性检查项
 
 ### 阶段执行检查
 - [ ] **requirement_review**：需求是否经过充分评审？变更列表是否完整？
-- [ ] **changes_review**：变更是否经过评审？计划是否合理？
-- [ ] **plan_review**：计划是否经过评审？资源分配是否合理？
+- [ ] **planning**：变更拆分是否合理？计划是否经过评审？资源分配是否恰当？
 - [ ] **executing**：执行是否按计划进行？有无偏离？
 - [ ] **testing**：测试是否独立执行？覆盖是否充分？
 - [ ] **acceptance**：验收是否独立执行？标准是否达成？
@@ -168,7 +222,3 @@
 4. **记录结果**：在 `session-memory.md` 中记录创建的 suggest ID 列表
 
 > **注意**：如果 done-report 中没有改进建议，或建议已全部存在于 suggest 池中，则跳过此步骤。
-
-### 完成前必须检查
-- [ ] `done-report.md` 中的改进建议已提取并写入 suggest 池（如存在）
-- [ ] 若本轮 done 阶段的回顾发现新的产出标准、阶段变更或角色行为调整，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新。

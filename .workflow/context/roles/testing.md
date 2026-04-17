@@ -10,7 +10,8 @@
 - 读取 `requirement.md` 和所有 `change.md` 的验收标准
 
 ### Step 2: 设计测试用例
-- 基于验收标准为每个变更设计测试用例
+- 从 `requirement.md` 和每个 `change.md` 中提取所有验收标准（AC）
+- 基于 AC 为每个变更设计测试用例
 - 确保每条 AC 至少有一个测试用例覆盖
 
 ### Step 3: 执行测试
@@ -26,12 +27,7 @@
 ### Step 5: 判定与流转
 - 全部通过 → 准备进入 acceptance
 - 有失败 → 触发 `harness regression`
-
-## 本阶段任务
-- 测试用例设计：基于 `requirement.md` 的验收标准设计测试用例
-- 测试计划产出：明确测试范围、方法和通过标准
-- 执行测试：运行测试用例，记录结果
-- 经验沉淀：阶段结束时检查是否有可泛化的经验
+- 检查是否有可泛化的经验需要沉淀
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#testing`。
@@ -68,20 +64,6 @@
 - 全部通过 → `harness next` → `acceptance`
 - ff 模式下全部通过 → 主 agent 自动推进到 `acceptance`
 - 有测试失败 → `harness regression "<issue>"` → 路由到 `requirement_review` 或 `testing`
-
-## 自验证 Checklist（AC 逐项检查）
-
-在执行测试用例之前，必须先从当前需求的 `requirement.md` 和每个 `change.md` 中提取所有验收标准（AC），然后逐项检查：
-
-1. 读取 `requirement.md`，列出所有 AC 条目
-2. 读取每个 `change.md`，列出每个变更的 AC 条目
-3. 对每条 AC，设计至少一个测试用例覆盖它
-4. 逐条执行并记录结果：
-   - `[x]` AC-n: 通过（附测试证据）
-   - `[ ]` AC-n: 未通过（附失败原因）
-5. 所有 AC 条目均为 `[x]` 时，方可视为测试通过
-
-**未覆盖的 AC 视为测试未通过，不得跳过。**
 
 ## 完成前必须检查
 1. 是否覆盖了 requirement.md 中所有验收标准？

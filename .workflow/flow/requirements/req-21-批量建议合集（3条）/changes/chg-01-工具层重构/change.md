@@ -15,6 +15,7 @@
 - `keywords.yaml`、`ratings.yaml`、`missing-log.yaml`
 - `tool-search`、`tool-rate` CLI 命令
 - `action-log.md` 写入逻辑
+- `tools-manager.md` 角色文件及所有 stage 角色的 SOP 优化
 - 对应测试
 
 **不包含**：
@@ -27,3 +28,5 @@
 - [x] `tool-search` 能按关键词返回最匹配工具
 - [x] `tool-rate` 能正确计算累计均分
 - [x] 新增测试全部通过
+- [x] `tools-manager.md` 已创建，含完整 SOP
+- [x] 所有 stage 角色文件已增加标准工作流程（SOP）章节

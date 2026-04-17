@@ -38,4 +38,4 @@ done
 进入 testing / acceptance / regression 时：
 1. 加载对应角色文件（`context/roles/{stage}.md`）
 2. 加载本层对应规则文件（`evaluation/{stage}.md`）
-3. 加载经验：`context/experience/stage/testing.md` / `context/experience/stage/acceptance.md` + `context/experience/risk/known-risks.md`（regression时）
+3. 加载经验：`context/experience/roles/testing.md` / `context/experience/roles/acceptance.md` + `context/experience/risk/known-risks.md`（regression时）

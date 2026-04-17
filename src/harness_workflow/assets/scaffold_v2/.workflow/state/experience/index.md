@@ -2,15 +2,18 @@
 
 ## 经验分类与加载规则
 
-实际经验内容存储于 `.workflow/context/experience/`（stage/, tool/, risk/ 等子目录）。
+实际经验内容存储于 `.workflow/context/experience/`（roles/, tool/, risk/ 等子目录）。
 本文件（`.workflow/state/experience/index.md`）是加载规则索引，指向 context/experience/ 的实际文件。
 
-| Stage | 加载分类 |
-|-------|---------|
-| `requirement_review` / `planning` | `context/experience/stage/requirement.md` |
-| `executing` | `context/experience/stage/development.md` + `context/experience/tool/harness.md` |
-| `testing` / `acceptance` | `context/experience/stage/testing.md` + `context/experience/stage/acceptance.md` |
-| `regression` | `context/experience/stage/regression.md` + `context/experience/risk/known-risks.md` |
+| 角色 | 加载分类 |
+|------|---------|
+| `requirement-review` | `context/experience/roles/requirement-review.md` |
+| `planning` | `context/experience/roles/planning.md` |
+| `executing` | `context/experience/roles/executing.md` + `context/experience/tool/harness.md` |
+| `testing` / `acceptance` | `context/experience/roles/testing.md` + `context/experience/roles/acceptance.md` |
+| `regression` | `context/experience/roles/regression.md` + `context/experience/risk/known-risks.md` |
+| `done` | 按需加载同阶段相关经验 |
+| `toolsManager` | `context/experience/tool/` 下相关工具经验 |
 
 ## 目录说明
 
@@ -18,7 +21,7 @@
 
 | 目录 | 内容 |
 |------|------|
-| `context/experience/stage/` | 各阶段（需求、开发、测试、验收、回归）相关经验 |
+| `context/experience/roles/` | 各角色（需求分析、架构师、开发者、测试、验收、回归）相关经验 |
 | `context/experience/tool/` | 工具使用技巧、prompt 模式、工具选择经验 |
 | `context/experience/risk/` | 风险识别、已知风险、失败恢复相关经验 |
 
@@ -26,7 +29,7 @@
 
 ### 触发时机
 - after-task hook 执行后
-- 每个 stage 完成时
+- 每个角色任务完成时
 - 发现通用规律时（任何时候）
 
 ### 沉淀标准

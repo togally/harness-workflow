@@ -25,9 +25,12 @@
 
 ### 第一层：Context（上下文层）
 - [ ] **角色行为检查（高）**：当前阶段角色文件（`.workflow/context/roles/{stage}.md`）是否已被完整加载？角色行为是否符合预期？
-- [ ] **经验文件更新（高）**：`.workflow/context/experience/` 下与当前阶段相关的经验文件是否已更新本轮教训？
+- [ ] **角色自我介绍检查（高）**：`base-role.md` 的硬门禁三是否生效？各角色在执行实质性任务前是否向用户说明了身份和任务意图？
+- [ ] **角色加载协议检查（高）**：`.workflow/context/roles/role-loading-protocol.md` 是否存在且为最新版本？所有角色加载顺序是否符合协议（base-role → stage-role → 具体角色）？
+- [ ] **经验文件更新（高）**：`.workflow/context/experience/` 下与当前角色相关的经验文件是否已更新本轮教训？
 - [ ] **上下文完整性（中）**：项目背景（`project-overview.md`）、团队规范（`development-standards.md`）等上下文是否完整、准确？
-- [ ] **经验索引有效性（中）**：经验目录结构是否清晰？新增经验是否已按分类归档到正确位置？
+- [ ] **角色体系完整性（中）**：`base-role.md`、`stage-role.md`、顶级角色（`technical-director.md`）等核心角色文件是否完整且一致？
+- [ ] **经验索引有效性（中）**：经验目录结构是否清晰？新增经验是否已按分类归档到正确位置（`experience/roles/`、`experience/tool/`、`experience/risk/`）？
 
 ### 第二层：Tools（工具层）
 - [ ] **工具使用顺畅度（高）**：本轮有无工具用得不顺？有无遇到工具限制或兼容性问题？
@@ -36,8 +39,9 @@
 - [ ] **工具新增记录（低）**：若本轮新增或修改了工具脚本，相关文档（`tools/index.md` 等）是否同步更新？
 
 ### 第三层：Flow（流程层）
-- [ ] **阶段流程完整性（高）**：是否走了完整的阶段流程（requirement_review → planning → executing → testing → acceptance → done）？
-- [ ] **阶段跳过检查（高）**：有无阶段被跳过（如直接从 planning 跳到 executing）？
+- [ ] **阶段流程完整性（高）**：是否走了完整的阶段流程（标准需求：requirement_review → planning → executing → testing → acceptance → done；bugfix 需求：regression → executing → testing → acceptance → done）？
+- [ ] **阶段跳过检查（高）**：有无阶段被跳过（如标准需求直接从 planning 跳到 executing；bugfix 需求跳过 regression 或 executing）？
+- [ ] **bugfix 模式识别（中）**：若 `current_requirement` 以 `bugfix-` 开头，是否启用了 bugfix 快速流程？是否避免了 loading `planning` 角色？
 - [ ] **阶段短路检查（高）**：有无 testing 被 executing 影响、acceptance 被 testing 影响等短路行为？
 - [ ] **阶段重复检查（中）**：有无不必要的阶段重复执行？
 - [ ] **流程顺畅度（中）**：各阶段之间的流转是否顺畅？有无卡顿或阻塞点？
@@ -69,6 +73,7 @@
 - [ ] **需求文件（高）**：`.workflow/flow/requirements/{req-id}/requirement.md` 存在且内容完整
 - [ ] **变更目录（高）**：`.workflow/flow/requirements/{req-id}/changes/` 下包含所有已规划的变更子目录（`chg-XX-*/`）
 - [ ] **变更计划（高）**：每个变更子目录下包含 `change.md` 和 `plan.md`
+- [ ] **bugfix 目录规范（中）**：若当前为 bugfix 需求，`.workflow/flow/bugfixes/{bugfix-id}/` 下是否包含 `bugfix.md`、`session-memory.md` 和 `regression/diagnosis.md`？
 - [ ] **归档产物（高）**：`.workflow/flow/archive/` 下已归档的需求文件与变更记录是否完整、命名规范
 
 ### 根目录制品仓库
@@ -102,35 +107,35 @@
 - [ ] 需求已正确注册到 `.workflow/state/requirements/{req-id}.yaml`（高）
 - [ ] 变更列表（changes/）已初步规划，目录命名规范（高）
 - [ ] 角色文件 `roles/requirement-review.md` 已加载（中）
-- [ ] 经验文件 `experience/stage/requirement.md` 已加载（中）
+- [ ] 经验文件 `experience/roles/requirement-review.md` 已加载（中）
 
 ### planning 阶段重点
 - [ ] 每个变更子目录下已包含 `change.md` 和 `plan.md`（高）
 - [ ] 变更执行顺序和依赖关系已明确（高）
 - [ ] `runtime.yaml` 中 `stage` 为 `planning`（中）
 - [ ] 角色文件 `roles/planning.md` 已加载（中）
-- [ ] 经验文件 `experience/stage/requirement.md` 已加载（低）
+- [ ] 经验文件 `experience/roles/planning.md` 已加载（低）
 
 ### executing 阶段重点
 - [ ] 当前变更的 `plan.md` 已被读取并遵循（高）
 - [ ] `session-memory.md` 已持续更新，记录关键决策和遇到的问题（高）
 - [ ] 禁止行为未被触发（高）
 - [ ] 角色文件 `roles/executing.md` 已加载（中）
-- [ ] 经验文件 `experience/stage/development.md` + `experience/tool/harness.md` 已加载（中）
+- [ ] 经验文件 `experience/roles/executing.md` + `experience/tool/harness.md` 已加载（中）
 
 ### testing 阶段重点
 - [ ] testing 阶段独立执行，未受 executing 阶段结果预设影响（高）
 - [ ] 测试覆盖度充分，预存测试和新增测试均已运行（高）
 - [ ] 测试报告或运行结果已记录（高）
 - [ ] 角色文件 `roles/testing.md` 和 `evaluation/testing.md` 已加载（中）
-- [ ] 经验文件 `experience/stage/testing.md` 已加载（中）
+- [ ] 经验文件 `experience/roles/testing.md` 已加载（中）
 
 ### acceptance 阶段重点
 - [ ] acceptance 阶段独立执行，未受 testing 阶段结果预设影响（高）
 - [ ] 验收标准逐项核对，无降低标准或妥协（高）
 - [ ] 验收结论已记录（高）
 - [ ] 角色文件 `roles/acceptance.md` 和 `evaluation/acceptance.md` 已加载（中）
-- [ ] 经验文件 `experience/stage/acceptance.md` 已加载（中）
+- [ ] 经验文件 `experience/roles/acceptance.md` 已加载（中）
 
 ### done 阶段重点
 - [ ] 六层回顾检查已逐层执行（高）

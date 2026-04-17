@@ -22,12 +22,7 @@
 - 编写 `regression/diagnosis.md`
 - 明确问题描述、根因、路由方向
 - 如需人工输入，先填写 `required-inputs.md`
-
-## 本阶段任务
-- 问题确认：判断触发 regression 的现象是否是真实问题
-- 根因分析：找到问题的根本原因，不只是表象
-- 路由决定：确定问题属于需求/设计层面还是实现/测试层面
-- 产出诊断文档：输出 `regression/diagnosis.md`
+- 检查是否有可泛化的经验需要沉淀
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#regression`。
