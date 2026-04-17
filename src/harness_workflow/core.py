@@ -146,6 +146,7 @@ COMMAND_DEFINITIONS = [
     {"name": "harness-status", "cli": "harness status", "hint": ""},
     {"name": "harness-requirement", "cli": "harness requirement", "hint": "<title>"},
     {"name": "harness-change", "cli": "harness change", "hint": "<title>"},
+    {"name": "harness-bugfix", "cli": "harness bugfix", "hint": "<issue>"},
     {"name": "harness-next", "cli": "harness next", "hint": "[--execute]"},
     {"name": "harness-ff", "cli": "harness ff", "hint": ""},
     {"name": "harness-regression", "cli": "harness regression", "hint": "<issue>|--confirm|--change <title>"},

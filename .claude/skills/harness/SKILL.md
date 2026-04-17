@@ -43,16 +43,6 @@ Use these commands conceptually:
    Advance the current requirement through the next stage.
 8. `harness regression <issue>`
    Diagnose dissatisfaction or failures before creating new work.
-9. `harness suggest`
-   Manage the suggestion pool and convert suggestions into requirements.
-
-### `harness suggest --apply-all` 强制打包要求
-
-执行 `harness suggest --apply-all` 前，必须：
-1. 检查 `.workflow/constraints/suggest-conversion.md` 是否存在并阅读其约束
-2. 确保使用 `--pack-title` 或将所有 pending suggest 打包为**单一需求**
-3. 禁止手写脚本逐条创建独立需求
-4. 打包后的 `requirement.md` 必须包含所有 suggest 的标题和摘要列表
 
 ## Routing Rules
 
@@ -71,6 +61,14 @@ Use these commands conceptually:
 - create the role / constraint / evaluation docs referenced by `.workflow/context/index.md`
 - keep root guides thin and route them back to `WORKFLOW.md`
 - avoid restoring legacy entrypoints such as `.workflow/context/rules/workflow-runtime.yaml`
+
+## Validation
+
+After installing or updating the workflow, verify the repository structure with:
+
+```bash
+python3 tools/lint_harness_repo.py --root . --strict-claude --strict-stage-roles
+```
 
 ## Fallback
 
