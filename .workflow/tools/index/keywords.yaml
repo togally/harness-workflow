@@ -1,8 +1,23 @@
 tools:
   - tool_id: "agent"
-    keywords: ["subagent", "agent", "派发任务", "独立视角", "测试", "验收", "诊断"]
+    keywords: ["subagent", "agent", "派发任务", "独立视角", "测试", "验收", "诊断", "协调"]
     catalog: "catalog/agent.md"
     description: "启动 subagent 执行独立任务"
+
+  - tool_id: "bash"
+    keywords: ["bash", "执行命令", "运行", "运行脚本", "编译", "测试", "单元测试", "git", "mvn", "npm", "build"]
+    catalog: "catalog/bash.md"
+    description: "执行系统命令和脚本"
+
+  - tool_id: "claude-code-context"
+    keywords: ["compact", "clear", "上下文维护", "压缩", "压缩上下文", "清理", "清理上下文", "新开 agent", "handoff", "上下文过长", "太长"]
+    catalog: "catalog/claude-code-context.md"
+    description: "Claude Code 上下文维护命令（/compact、/clear、/new）"
+
+  - tool_id: "edit"
+    keywords: ["edit", "write", "编辑文件", "修改文件", "修改代码", "改代码", "代码", "替换内容", "创建文件", "新建文件"]
+    catalog: "catalog/edit.md"
+    description: "编辑或创建文件内容（Edit / Write）"
 
   - tool_id: "find-skills"
     keywords: ["skill", "skills", "skillhub", "查找技能", "发现工具", "扩展工具", "工具查询", "未命中"]
@@ -10,6 +25,16 @@ tools:
     description: "调用 find-skills skill 查询 skillhub 商店发现其他可用 skills"
 
   - tool_id: "git-commit"
-    keywords: ["git", "commit", "提交代码", "保存变更"]
+    keywords: ["git", "commit", "提交代码", "保存变更", "push", "仓库"]
     catalog: "catalog/git.md"
     description: "将代码变更提交到 Git 仓库"
+
+  - tool_id: "grep"
+    keywords: ["grep", "glob", "搜索", "搜索内容", "查找", "查找代码", "内容匹配", "找文件", "文件模式", "函数", "定义"]
+    catalog: "catalog/grep.md"
+    description: "搜索文件内容（Grep）或按模式查找文件（Glob）"
+
+  - tool_id: "read"
+    keywords: ["read", "读取文件", "查看文件", "文件内容", "读取状态", "读取配置"]
+    catalog: "catalog/read.md"
+    description: "读取文件内容"

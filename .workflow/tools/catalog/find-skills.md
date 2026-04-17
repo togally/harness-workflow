@@ -6,16 +6,27 @@
 
 ## 前提条件
 
-- 已安装 skillhub CLI
-- 已安装 `find-skills` skill（`skillhub install find-skills`）
+- 当前 agent 环境中已安装并识别 `find-skills` skill
+- 在 Claude Code 中，该 skill 需出现在可用 skill 列表中方可通过 `Skill` 工具调用
 
 ## 调用方式
+
+### Claude Code
+
+通过 `Skill` 工具调用：
+
+```json
+{
+  "skill": "find-skills",
+  "args": "<查询关键词>"
+}
+```
+
+### 其他平台（如已安装 skillhub CLI）
 
 ```bash
 skillhub find-skills --query "<操作意图>" --keywords "<关键词1,关键词2>"
 ```
-
-或按 skill 自身定义的调用方式（如通过 `Skill` 工具调用 `find-skills`）。
 
 ## 预期行为
 
