@@ -14,3 +14,5 @@ build/
 !.workflow/
 .workflow/context/backup/
 .worktrees/
+/docs/
+/.workflow/

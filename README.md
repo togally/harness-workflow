@@ -39,7 +39,7 @@ pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
 ```bash
-pipx install --force git+https://github.com/togally/harness-workflow.git
+pipx reinstall harness-workflow                                                                                                                                                                                                  
 ```
 
 
