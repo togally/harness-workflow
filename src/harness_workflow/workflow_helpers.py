@@ -4059,6 +4059,7 @@ def workflow_fast_forward(root: Path) -> int:
 
     runtime["stage"] = target_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
+    runtime["ff_mode"] = False  # ff 单次生效
 
     if operation_target:
         state_dir = root / ".workflow" / "state" / ("bugfixes" if operation_type == "bugfix" else "requirements")
