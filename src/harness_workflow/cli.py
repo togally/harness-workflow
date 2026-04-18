@@ -8,6 +8,7 @@ import questionary
 
 from harness_workflow.core import (
     archive_requirement,
+    archive_suggestion,
     create_bugfix,
     create_change,
     create_regression,
@@ -19,6 +20,8 @@ from harness_workflow.core import (
     export_feedback,
     init_repo,
     install_repo,
+    install_agent,
+    scan_project,
     list_active_requirements,
     list_done_requirements,
     list_suggestions,
@@ -86,6 +89,33 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
     return platforms or []
 
 
+def prompt_agent_selection() -> str | None:
+    """
+    交互式 agent 单选
+
+    Returns:
+        用户选择的 agent 名称，取消时返回 None
+    """
+    import sys
+
+    # If not in an interactive terminal, return default
+    if not sys.stdin.isatty():
+        return "kimi"
+
+    agent = questionary.select(
+        "选择目标 agent:",
+        choices=[
+            {"name": "kimi (.kimi/skills/)", "value": "kimi"},
+            {"name": "claude (.claude/skills/)", "value": "claude"},
+            {"name": "codex (.codex/skills/)", "value": "codex"},
+            {"name": "qoder (.qoder/skills/)", "value": "qoder"},
+        ],
+        default="kimi",
+    ).ask()
+
+    return agent
+
+
 def prompt_requirement_selection(requirements: list[dict], preselect: str | None = None) -> str | None:
     """
     交互式需求单选
@@ -129,6 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser = subparsers.add_parser("install", help="Install harness skill and initialize current repository.")
     install_parser.add_argument("--root", default=".", help="Repository root.")
     install_parser.add_argument("--force-skill", action="store_true", help="Overwrite existing local project skills.")
+    install_parser.add_argument("--agent", choices=["kimi", "claude", "codex", "qoder"], help="Install harness skill to specific agent directory.")
 
     init_parser = subparsers.add_parser("init", help="Initialize harness docs structure.")
     init_parser.add_argument("--root", default=".", help="Repository root.")
@@ -143,6 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Overwrite managed files even if they were modified locally.",
     )
+    update_parser.add_argument("--scan", action="store_true", help="Scan project characteristics for skill adaptation.")
 
     language_parser = subparsers.add_parser("language", help="Switch the repository language profile.")
     language_parser.add_argument("language", help="Language profile: english or cn.")
@@ -206,6 +238,7 @@ def build_parser() -> argparse.ArgumentParser:
     suggest_parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
     suggest_parser.add_argument("--apply-all", action="store_true", help="将所有 pending suggest 打包为单一需求并创建.")
     suggest_parser.add_argument("--delete", dest="delete_id", help="Delete a suggestion by id.")
+    suggest_parser.add_argument("--archive", dest="archive_id", help="Archive an applied suggestion by id.")
     suggest_parser.add_argument("--pack-title", default="", help="Title for the packed requirement when using --apply-all.")
 
     tool_parser = subparsers.add_parser("tool-search", help="Search local tool index by keywords.")
@@ -241,10 +274,18 @@ def main() -> int:
     root = Path(args.root).resolve()
 
     if args.command == "install":
-        return install_repo(root, force_skill=args.force_skill)
+        if args.agent:
+            return install_agent(root, args.agent)
+        agent = prompt_agent_selection()
+        if not agent:
+            print("No agent selected.")
+            return 1
+        return install_agent(root, agent)
     if args.command == "init":
         return init_repo(root, args.write_agents, args.write_claude)
     if args.command == "update":
+        if args.scan:
+            return scan_project(root)
         return update_repo(root, check=args.check, force_managed=args.force_managed)
     if args.command == "language":
         return set_language(root, args.language)
@@ -299,6 +340,8 @@ def main() -> int:
             return apply_suggestion(root, args.apply_id)
         if args.delete_id:
             return delete_suggestion(root, args.delete_id)
+        if args.archive_id:
+            return archive_suggestion(root, args.archive_id)
         return create_suggestion(root, args.content or "", title=args.title)
     if args.command == "tool-search":
         root = Path(args.root)

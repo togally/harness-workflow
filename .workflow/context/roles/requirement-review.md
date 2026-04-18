@@ -5,6 +5,9 @@
 
 ## 标准工作流程（SOP）
 
+### Step 0: 初始化
+- 确认前置上下文已加载（runtime.yaml、base-role.md、stage-role.md、本角色文件）
+
 ### Step 1: 读取需求上下文
 - 读取 `requirement.md`（如存在）
 - 读取相关变更历史或 session-memory
@@ -23,7 +26,10 @@
 ### Step 4: 产出检查
 - 对照退出条件逐项确认
 - 更新 session-memory 中的需求决策记录
-- 检查是否有可泛化的经验需要沉淀
+
+### Step 5: 交接
+- 将需求决策（背景、目标、范围、验收标准）保存到 `requirement.md` 和 `session-memory.md`
+- 向主 agent 报告任务完成，包含上下文消耗评估和维护建议
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#requirement_review--planning`。
@@ -42,7 +48,7 @@
 ## 上下文维护职责
 
 - **消耗报告**：任务完成后，报告预估的上下文消耗（文件读取次数、工具调用次数、是否大量读取大文件）
-- **清理建议**：如发现当前任务消耗较大（大量讨论往复、多次读取文件），主动建议主 agent 在阶段结束后执行 `/compact`
+- **清理建议**：按 base-role 上下文维护规则执行，达到 70% 阈值时评估 `/compact` 或 `/clear`
 - **状态保存**：阶段结束前确认关键需求决策（背景、目标、范围、验收标准）已保存到 `requirement.md`，确保上下文维护后可恢复
 
 ## 职责外问题

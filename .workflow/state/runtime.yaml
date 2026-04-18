@@ -1,9 +1,9 @@
 current_requirement: ""
-stage: "done"
+stage: ""
 conversation_mode: "open"
 locked_requirement: ""
 locked_stage: ""
 current_regression: ""
-ff_mode: false
+ff_mode: true
 ff_stage_history: []
 active_requirements: []

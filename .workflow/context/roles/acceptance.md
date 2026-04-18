@@ -5,6 +5,9 @@
 
 ## 标准工作流程（SOP）
 
+### Step 0: 初始化
+- 确认前置上下文已加载（runtime.yaml、base-role.md、stage-role.md、本角色文件）
+
 ### Step 1: 读取需求与变更文档
 - 读取 `requirement.md` 和所有 `change.md`
 - 提取所有验收标准（AC）
@@ -21,8 +24,11 @@
 ### Step 4: 产出验收报告
 - 编写完整的验收报告
 - 记录所有核查结论
-- 等待人工最终判定
-- 检查是否有可泛化的经验需要沉淀
+- 更新 session-memory
+
+### Step 5: 交接
+- 将验收结论保存到验收报告和 `session-memory.md`
+- 向主 agent 报告任务完成，包含上下文消耗评估和维护建议
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#acceptance`。
@@ -41,7 +47,7 @@
 ## 上下文维护职责
 
 - **消耗报告**：任务完成后，报告预估的上下文消耗（文件读取次数、工具调用次数、是否大量读取大文件）
-- **清理建议**：如发现验收核查过程中消耗较大（逐条核查需多次文件读取），主动建议主 agent 在阶段结束后执行 `/compact`
+- **清理建议**：按 base-role 上下文维护规则执行，达到 70% 阈值时评估 `/compact` 或 `/clear`
 - **状态保存**：阶段结束前确认每条验收标准的核查结论已保存到验收报告，确保上下文维护后可恢复
 
 ## 职责外问题
@@ -62,6 +68,12 @@
 - ff 模式下 AI 自主判定通过 → 主 agent 自动推进到 `done`
 - 人工判定驳回 → `harness regression "<issue>"` → 路由到 `requirement_review` 或 `testing`
 - ff 模式下 AI 自主判定驳回 → 自动进入 `regression`
+
+### acceptance → done 状态同步检查（sug-05）
+在流转到 done 之前，必须自动执行以下状态一致性检查：
+1. 检查 `state/requirements/{req-id}.yaml` 的 `stage` 字段与 `runtime.yaml` 的 `stage` 是否一致
+2. 检查 `state/requirements/{req-id}.yaml` 的 `status` 字段与 `runtime.yaml` 中的需求状态是否一致
+3. 如发现不一致，**必须先修复**再流转到 done，防止状态漂移累积
 
 ## 完成前必须检查
 1. requirement.md 中每条验收标准是否都有对应的核查结论？

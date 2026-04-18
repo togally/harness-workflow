@@ -3082,6 +3082,60 @@ def delete_suggestion(root: Path, suggest_id: str) -> int:
     return 0
 
 
+def archive_suggestion(root: Path, suggest_id: str) -> int:
+    ensure_harness_root(root)
+    suggestions_dir = root / ".workflow" / "flow" / "suggestions"
+    if not suggestions_dir.exists():
+        raise SystemExit("No suggestions found.")
+
+    target = None
+    for path in sorted(suggestions_dir.glob("sug-*.md")):
+        # Extract id from filename (e.g., "sug-01-executing-selftest-restart.md" -> "sug-01")
+        filename_id = path.stem.split("-")[0] + "-" + path.stem.split("-")[1]
+        if filename_id == suggest_id:
+            target = path
+            break
+
+    if not target:
+        raise SystemExit(f"Suggestion not found: {suggest_id}")
+
+    text = target.read_text(encoding="utf-8")
+    # Check if already archived
+    if "status: archived" in text or "已归档" in text:
+        raise SystemExit(f"Suggestion {suggest_id} is already archived.")
+
+    # Check if applied (supports both YAML frontmatter and Markdown format)
+    is_applied = False
+    if "status: applied" in text:
+        is_applied = True
+    elif "已应用 (applied)" in text or "> **状态**: 已应用" in text:
+        is_applied = True
+
+    if not is_applied:
+        raise SystemExit(f"Suggestion {suggest_id} is not in 'applied' status. Only applied suggestions can be archived.")
+
+    today = date.today().isoformat()
+
+    # Replace status marker (supports both formats)
+    if "> **状态**: 已应用 (applied)" in text:
+        updated = text.replace("> **状态**: 已应用 (applied)", f"> **状态**: 已归档 (archived)\n> **归档时间**: {today}")
+    elif "> **状态**: applied" in text:
+        updated = text.replace("> **状态**: applied", f"> **状态**: archived\n> **归档时间**: {today}")
+    elif "status: applied" in text:
+        updated = text.replace("status: applied", f"status: archived\narchived_at: {today}")
+    else:
+        updated = text
+
+    archive_dir = suggestions_dir / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = archive_dir / target.name
+    target.rename(archive_path)
+    archive_path.write_text(updated, encoding="utf-8")
+
+    print(f"Archived suggestion: {suggest_id} -> {archive_path.relative_to(root)}")
+    return 0
+
+
 def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
     # 本函数强制将所有 pending suggest 打包为单一需求
     ensure_harness_root(root)
@@ -4201,4 +4255,184 @@ def exit_workflow(root: Path) -> int:
     runtime = exit_harness_mode(runtime)
     save_requirement_runtime(root, runtime)
     print("Exited harness mode.")
+    return 0
+
+
+def get_skill_template_root() -> Path:
+    """Get the skill template root directory."""
+    return Path(__file__).resolve().parent / "skills" / "harness"
+
+
+def get_agent_skill_path(root: Path, agent: str) -> Path:
+    """Get the target skill path for an agent."""
+    agent_dir_map = {
+        "kimi": root / ".kimi" / "skills" / "harness",
+        "claude": root / ".claude" / "skills" / "harness",
+        "codex": root / ".codex" / "skills" / "harness",
+        "qoder": root / ".qoder" / "skills" / "harness",
+    }
+    return agent_dir_map.get(agent, root / f".{agent}" / "skills" / "harness")
+
+
+def install_agent(root: Path, agent: str) -> int:
+    """Install harness skill to target agent directory.
+
+    Args:
+        root: Repository root
+        agent: Target agent (kimi, claude, codex, qoder)
+
+    Returns:
+        0 on success, non-zero on failure
+    """
+    ensure_harness_root(root)
+
+    template_root = get_skill_template_root()
+    if not template_root.exists():
+        raise SystemExit(f"Skill template not found: {template_root}")
+
+    target_path = get_agent_skill_path(root, agent)
+    template_skill = template_root / "SKILL.md"
+    target_skill = target_path / "SKILL.md"
+
+    # Check for existing skill files
+    changes: list[dict[str, str]] = []
+
+    if target_path.exists():
+        # Scan for existing files
+        for existing_file in sorted(target_path.rglob("*")):
+            if existing_file.is_file():
+                rel_path = existing_file.relative_to(target_path)
+                template_file = template_root / rel_path
+                if not template_file.exists():
+                    changes.append({"type": "delete", "path": str(rel_path)})
+                elif existing_file.read_text(encoding="utf-8") != template_file.read_text(encoding="utf-8"):
+                    changes.append({"type": "modify", "path": str(rel_path)})
+
+    # Check for new files
+    if template_root.exists():
+        for template_file in sorted(template_root.rglob("*")):
+            if template_file.is_file():
+                rel_path = template_file.relative_to(template_root)
+                target_file = target_path / rel_path
+                if not target_file.exists():
+                    changes.append({"type": "add", "path": str(rel_path)})
+
+    # Show changes
+    if changes:
+        print("Changes detected:")
+        for change in changes:
+            print(f"  [{change['type']}] {change['path']}")
+    else:
+        print("No changes detected. Skill is up to date.")
+        return 0
+
+    # Create target directory
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    # Copy all template files
+    if template_root.exists():
+        for template_file in sorted(template_root.rglob("*")):
+            if template_file.is_file():
+                rel_path = template_file.relative_to(template_root)
+                target_file = target_path / rel_path
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                content = template_file.read_text(encoding="utf-8")
+                # Render template variables
+                content = content.replace("{AGENT_NAME}", agent)
+                content = content.replace("{SKILL_DIR}", str(target_path))
+                target_file.write_text(content, encoding="utf-8")
+
+    print(f"Installed harness skill to {target_path.relative_to(root)}")
+    return 0
+
+
+def scan_project(root: Path) -> int:
+    """Scan project characteristics for skill adaptation.
+
+    Args:
+        root: Repository root
+
+    Returns:
+        0 on success
+    """
+    print("## 项目适配报告\n")
+
+    # Tech stack detection
+    tech_stack: list[str] = []
+    build_tools: list[str] = []
+
+    indicators = {
+        "Node.js/TypeScript": ["package.json", "package-lock.json"],
+        "Go": ["go.mod", "go.sum"],
+        "Java/Maven": ["pom.xml"],
+        "Rust": ["Cargo.toml", "Cargo.lock"],
+        "Python": ["pyproject.toml", "requirements.txt", "setup.py"],
+        "C#/.NET": ["*.csproj", "*.sln"],
+    }
+
+    for stack, files in indicators.items():
+        for pattern in files:
+            if "*" in pattern:
+                if list(root.glob(pattern)):
+                    tech_stack.append(stack)
+                    break
+            elif (root / pattern).exists():
+                tech_stack.append(stack)
+                break
+
+    print("### 技术栈")
+    if tech_stack:
+        for t in tech_stack:
+            print(f"- {t}")
+    else:
+        print("- 未检测到已知技术栈")
+
+    # Directory structure
+    print("\n### 目录结构")
+    dir_indicators = {
+        "源码目录": ["src", "lib", "app"],
+        "测试目录": ["tests", "test", "spec"],
+        "文档目录": ["docs", "doc"],
+        "CI/CD 配置": [".github", ".gitlab-ci.yml", "Jenkinsfile"],
+        "辅助脚本": ["scripts", "tools"],
+    }
+
+    found_dirs: dict[str, list[str]] = {}
+    for category, dirs in dir_indicators.items():
+        found = []
+        for d in dirs:
+            if (root / d).exists():
+                found.append(d)
+        if found:
+            found_dirs[category] = found
+
+    for category, dirs in found_dirs.items():
+        print(f"- {category}: {', '.join(dirs)}")
+
+    if not found_dirs:
+        print("- 未检测到标准目录结构")
+
+    # Existing standards
+    print("\n### 已有规范")
+    standards = {
+        "工作流规范": ".workflow/context/index.md",
+        "开发规范": ".workflow/context/team/development-standards.md",
+        "Agent 配置": ".claude/skills",
+    }
+
+    for name, path in standards.items():
+        status = "存在" if (root / path).exists() else "不存在"
+        print(f"- {name}: {status}")
+
+    # Suggestions
+    print("\n### 建议")
+    if tech_stack:
+        print(f"- 基于检测到的技术栈 ({', '.join(tech_stack)})，建议启用相关工具集成")
+    else:
+        print("- 建议在项目中添加技术栈标志性文件以便工具自动检测")
+        print("  (如 package.json, go.mod, pom.xml 等)")
+
+    if not found_dirs.get("开发规范"):
+        print("- 建议添加 development-standards.md 定义团队开发规范")
+
     return 0

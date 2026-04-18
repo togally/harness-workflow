@@ -6,25 +6,36 @@
 
 ## 标准工作流程（SOP）
 
+### Step 0: 初始化
+- 确认当前处于 `done` 阶段，主 agent（技术总监）已接管控制权
+
 ### Step 1: 读取检查清单
 - 读取本文件（`context/roles/done.md`）作为检查清单
 - 确认六层回顾的范围
 
 ### Step 2: 六层回顾检查
-逐层执行以下回顾：
-- **Context 层**：检查上下文是否完整、准确
-- **Tools 层**：检查工具配置与使用情况
-- **Flow 层**：检查流程执行是否顺畅
-- **State 层**：检查状态记录是否准确
-- **Evaluation 层**：检查评估标准是否达成
-- **Constraints 层**：检查约束条件是否遵守
+- 逐层执行以下回顾：
+  - **Context 层**：检查上下文是否完整、准确
+  - **Tools 层**：检查工具配置与使用情况
+  - **Flow 层**：检查流程执行是否顺畅
+  - **State 层**：检查状态记录是否准确
+  - **Evaluation 层**：检查评估标准是否达成
+  - **Constraints 层**：检查约束条件是否遵守
 
 ### Step 3: 工具层专项检查
 - 询问本轮有无 CLI/MCP 工具适配性问题
 - 记录到回顾报告中
 
-### Step 4: 经验沉淀验证
-- 确认 `experience/` 目录下的文件已更新本轮教训
+### Step 4: 经验沉淀验证（sug-06）
+- **强制验证** `experience/` 目录下的相关文件是否已更新本轮教训：
+  - 读取 `context/experience/index.md` 获取各角色对应的经验文件路径
+  - 按阶段验证：
+    - requirement_review/planning → `experience/roles/requirement-review.md`、`experience/roles/planning.md`
+    - executing → `experience/roles/executing.md`、`experience/tool/harness.md`
+    - testing/acceptance → `experience/roles/testing.md`、`experience/roles/acceptance.md`
+    - regression → `experience/roles/regression.md`、`experience/risk/known-risks.md`
+  - 如发现经验文件未更新，**必须**补充本轮教训后再标记 done 完成
+- 如有新的可泛化经验，按格式补充到对应经验文件
 
 ### Step 5: 流程完整性检查
 - 检查各阶段是否实际执行（非跳过）
@@ -32,6 +43,10 @@
 ### Step 6: 输出回顾报告与建议转 suggest 池
 - 将回顾结果写入 `session-memory.md`
 - 提取 `done-report.md` 中的改进建议，自动创建 suggest 文件
+
+### Step 7: 交接
+- 确认 `done-report.md`、`session-memory.md`、suggest 文件等关键产出已保存
+- 向用户报告六层回顾完成，包含上下文消耗评估
 
 ## 可用工具
 
@@ -54,7 +69,7 @@ done 阶段由主 agent（技术总监）亲自执行，可用工具不受 stage
 ## 上下文维护职责
 
 - **消耗报告**：任务完成后，报告预估的上下文消耗（文件读取次数、工具调用次数、是否大量读取大文件）
-- **清理建议**：done 阶段通常位于需求周期末尾，若上下文负载较高，建议在归档前执行 `/compact`
+- **清理建议**：按 base-role 上下文维护规则执行，达到 70% 阈值时评估 `/compact` 或 `/clear`
 - **状态保存**：阶段结束前确认回顾报告已保存到 `session-memory.md`，关键产出（`done-report.md`、suggest 文件）已落盘
 
 ## 职责外问题
@@ -66,7 +81,7 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 - [ ] 六层回顾检查已全部完成
 - [ ] `session-memory.md` 的 `## done 阶段回顾报告` 区块已产出
 - [ ] `done-report.md` 中的改进建议已提取（如有）
-- [ ] 经验沉淀已验证
+- [ ] **经验沉淀已强制验证**（sug-06: experience/ 目录相关文件已确认包含本轮教训）
 
 ## ff 模式说明
 
