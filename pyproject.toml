@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "questionary>=2.0.0",
+  "pyyaml>=6.0",
 ]
 authors = [
   { name = "togally" }
@@ -60,4 +61,5 @@ harness_workflow = [
   "assets/scaffold_v2/.workflow/flow/*.md",
   "assets/scaffold_v2/.workflow/tools/*.md",
   "assets/scaffold_v2/.workflow/tools/catalog/*.md",
+  "harness_workflow/tools/*.py",
 ]

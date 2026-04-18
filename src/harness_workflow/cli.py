@@ -12,6 +12,12 @@ from questionary.prompts.common import Choice
 # CLI now forwards to tool scripts - all logic is in tools/ directory
 
 
+def _get_tools_dir() -> Path:
+    """Get the tools directory from the installed harness_workflow package."""
+    import harness_workflow
+    return Path(harness_workflow.__file__).parent / "tools"
+
+
 def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> list[str]:
     """
     交互式平台多选
@@ -240,7 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _run_tool_script(script_name: str, args: list[str], root: Path) -> int:
     """Run a tool script and return its exit code."""
-    script = root / "tools" / script_name
+    script = _get_tools_dir() / script_name
     cmd = [sys.executable, str(script)] + args + ["--root", str(root)]
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout, end="")
@@ -396,7 +402,7 @@ def main() -> int:
             cmd_args.extend(["--pack-title", args.pack_title])
         return _run_tool_script("harness_suggest.py", cmd_args, root)
     if args.command == "tool-search":
-        script = root / "tools" / "harness_tool_search.py"
+        script = _get_tools_dir() / "harness_tool_search.py"
         result = subprocess.run(
             [sys.executable, str(script)] + args.keywords + ["--root", str(root)],
             capture_output=True,
@@ -407,7 +413,7 @@ def main() -> int:
             print(result.stderr, end="", file=sys.stderr)
         return result.returncode
     if args.command == "tool-rate":
-        script = root / "tools" / "harness_tool_rate.py"
+        script = _get_tools_dir() / "harness_tool_rate.py"
         result = subprocess.run(
             [sys.executable, str(script), args.tool_id, str(args.rating), "--root", str(root)],
             capture_output=True,
@@ -437,7 +443,7 @@ def main() -> int:
             cmd_args.append("--testing")
         return _run_tool_script("harness_regression.py", cmd_args, root)
     if args.command == "feedback":
-        script = root / "tools" / "harness_export_feedback.py"
+        script = _get_tools_dir() / "harness_export_feedback.py"
         cmd = [sys.executable, str(script), "--root", str(root)]
         if args.reset:
             cmd.append("--reset")
