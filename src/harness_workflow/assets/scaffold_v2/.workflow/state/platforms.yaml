@@ -1,6 +1,7 @@
-disabled:
-- qoder
+disabled: []
 enabled:
 - codex
+- qoder
 - cc
-last_updated: '2026-04-13'
+- kimi
+last_updated: '2026-04-18'

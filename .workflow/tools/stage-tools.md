@@ -48,6 +48,7 @@
 - **Edit / Write**：按 plan.md 步骤修改代码、创建文件
 - **Grep / Glob**：查找代码位置、搜索依赖关系
 - **Agent**：执行复杂子任务时派发 subagent
+- **write-bootstrap**：install_agent 完成后，将 harness-manager 引导指令写入目标 agent 的入口文件
 
 ### 上下文管理
 - **允许**：`/compact`（主要维护动作）、`/clear`（仅任务刚开始时）

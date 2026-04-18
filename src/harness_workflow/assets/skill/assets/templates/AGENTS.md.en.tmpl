@@ -13,9 +13,10 @@ If any of those files are missing, inconsistent, or unreadable, stop immediately
 1. Read `WORKFLOW.md`.
 2. Read `.workflow/context/index.md`.
 3. Read `.workflow/state/runtime.yaml`.
-4. Load the matching role, experience, and constraint files by following `.workflow/context/index.md`.
-5. If the human is unhappy with a completed result, start `harness regression "<issue>"` before creating new work.
-6. If `conversation_mode: harness`, stay inside the locked requirement and stage until the human explicitly exits.
+4. **Immediately load the `harness-manager` role**: use the Skill tool to invoke `harness-install`, letting harness-manager take over routing.
+5. Load the matching role, experience, and constraint files by following `.workflow/context/index.md`.
+6. If the human is unhappy with a completed result, start `harness regression "<issue>"` before creating new work.
+7. If `conversation_mode: harness`, stay inside the locked requirement and stage until the human explicitly exits.
 
 ## Main Entry
 

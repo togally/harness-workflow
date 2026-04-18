@@ -1,0 +1,9 @@
+id: "req-18"
+title: "建议为 req-12 补充更精确的 stage 时间戳：当前 req-12 的时间戳是在 executing 阶段后补录的，无法准确反映各阶段真实耗时。未来应确保 harness next 正确记录时间戳。"
+stage: "done"
+status: "archived"
+created_at: "2026-04-15"
+started_at: "2026-04-15"
+completed_at: ""
+stage_timestamps: {}
+description: ""

@@ -28,6 +28,7 @@
 
 | 角色名称 | 职责 | 文件路径 |
 |---------|------|---------|
+| **命令引导中心（harness-manager）** | 作为所有 harness 命令的统一入口，解析命令意图、调度角色、管理 skill 生命周期 | `.workflow/context/roles/harness-manager.md` |
 | **工具管理员（toolsManager）** | 在其他 agent 执行操作前，为其搜索、匹配并推荐最合适的工具 | `.workflow/context/roles/tools-manager.md` |
 
 ### 抽象父类

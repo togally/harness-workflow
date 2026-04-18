@@ -93,6 +93,83 @@ req-XX — 需求名称
 - 关键决策已保存到 `session-memory.md` 或其他相关文件
 - 执行后能够恢复工作流连续性
 
+## Subagent 嵌套调用规则
+
+任何 agent（主 agent 或 subagent）都可以派发下层 subagent，形成无限层级的嵌套调用链。
+
+### 嵌套调用链结构
+
+```
+主 agent (Level 0)
+  └── Subagent (Level 1)
+        └── Subagent (Level 2)
+              └── Subagent (Level 3)
+                    └── ... (无限层级)
+```
+
+### 派发协议
+
+当需要派发 subagent 时，必须提供以下 briefing：
+
+1. **角色文件内容**：来源 `.workflow/context/roles/{stage}.md`
+
+2. **任务描述**：具体要执行的任务内容
+
+3. **上下文链 (context_chain)**：
+   ```yaml
+   context_chain:
+     - level: 0
+       agent: "主 agent"
+       current_stage: "{stage}"
+     - level: 1
+       agent: "Subagent-1"
+       task: "..."
+     - level: 2
+       agent: "Subagent-2"
+       task: "..."
+   ```
+
+4. **会话内存路径**：subagent 结果写入路径
+
+### 上下文传递机制
+
+- **读取**：subagent 可以读取所有上层的上下文
+- **写入**：subagent 只写入自己的 session-memory.md
+- **不修改**：subagent 不修改上层的 session-memory.md
+
+### 深度限制
+
+**无深度限制** - 上层可以无限调用下层。建议：
+- Level 1-3: 正常业务任务
+- Level 4+: 仅在复杂拆分任务时使用
+- Level 10+: 需在 session-memory 中记录原因
+
+### Session Memory 格式
+
+subagent 必须将结果写入 session-memory.md，格式：
+
+```markdown
+# Session Memory
+
+## 1. Current Goal
+- 任务目标描述
+
+## 2. Context Chain
+- Level 0: 主 agent → {stage}
+- Level 1: Subagent-1 → {task}
+- Level 2: Subagent-2 → {task}
+
+## 3. Completed Tasks
+- [x] 任务项 1
+- [x] 任务项 2
+
+## 4. Results
+- 产出描述
+
+## 5. Next Steps
+- 下一步建议
+```
+
 ## 角色标准工作流程约定
 
 所有角色均应包含**标准工作流程（SOP）**章节。SOP 定义了角色拿到任务后的执行顺序和检查点，是角色的核心执行指南。

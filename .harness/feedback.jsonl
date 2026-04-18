@@ -67,3 +67,30 @@
 {"ts": "2026-04-17T09:14:08.553501+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-17T09:14:40.207400+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
 {"ts": "2026-04-17T09:14:40.207519+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-17T09:38:57.940038+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:38:57.940399+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-17T09:39:02.310867+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:39:02.311000+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-17T09:39:07.469476+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:39:07.469604+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-17T09:39:15.505804+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:39:15.505954+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-18T13:35:45.823638+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:35:45.823898+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-18T13:37:13.518183+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:37:13.518305+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-18T13:38:00.414875+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:38:00.414989+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-18T13:43:57.114696+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:43:57.114920+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-18T14:08:23.240706+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-18T14:08:23.240833+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-18T14:13:29.302397+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:14:19.395202+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-18T14:14:19.395430+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-18T14:15:18.827037+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:15:28.624358+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:15:51.883781+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:16:02.016062+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:37:17.346815+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-18T14:37:17.347099+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

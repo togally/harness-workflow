@@ -109,3 +109,53 @@ backup 是诊断"迁移遗漏"类问题的第一手证据，不要跳过。
 
 req-02 regression 根因分析
 
+---
+
+## 经验五：bugfix 模式下 regression 是流程入口
+
+### 场景
+
+使用 `harness bugfix "<issue>"` 创建的快速修复流程。
+
+### 经验内容
+
+bugfix 模式采用四阶段快速流转：`regression → executing → testing → acceptance → done`。此时 `regression` 不仅是问题诊断，更是流程入口，承担以下职责：
+
+1. **确认问题真实性**：判断该 issue 是否为真实 bug，而非配置/环境问题
+2. **锁定最小修复范围**：在 `bugfix.md` 中明确根因、修复方案、验证标准
+3. **跳过 planning**：`technical-director` 在识别到 `current_requirement` 以 `bugfix-` 开头时，不加载 `planning` 角色
+
+诊断完成后，直接 `harness next` 进入 `executing` 开始修复。不要为 bugfix 创建额外的 `plan.md` 或变更拆分。
+
+### 反例
+
+在 bugfix 模式下仍尝试走标准需求的六阶段流（requirement_review → changes_review → planning），导致流程冗余、角色文件缺失报错。
+
+### 来源
+
+req-23 bugfix 快速修复与验证端到端测试
+
+---
+
+## 经验六：regression 命令的 --confirm 会消费 regression，导致 --testing 无法使用
+
+### 场景
+
+req-25 验收阶段发现 core.py 尚未删除，需要通过 regression 回滚到 testing 继续修复。
+
+### 经验内容
+
+执行 `harness regression "<title>" && harness regression --confirm && harness regression --testing` 时：
+- `--confirm` 会将 regression 状态从 `analysis` 改为 `confirmed`，并清空 `current_regression`
+- 导致 `--testing` 找不到活跃的 regression，报 "No active regression"
+
+**原因**：`--confirm` 在执行后立即消费了 regression，而非等待 `--testing` 使用。
+
+** workaround**：分步执行，每次创建新的 regression。
+
+**建议**：修复 harness regression 的状态管理逻辑，支持 `--confirm --testing` 组合，或在 `--confirm` 时检查是否有 `--testing` 标志。
+
+### 来源
+
+req-25 验收阶段多次尝试回滚 testing 失败
+

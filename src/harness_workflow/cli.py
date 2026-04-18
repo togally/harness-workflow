@@ -1,45 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
 import questionary
+from questionary.prompts.common import Choice
 
-from harness_workflow.core import (
-    archive_requirement,
-    archive_suggestion,
-    create_bugfix,
-    create_change,
-    create_regression,
-    create_requirement,
-    create_suggestion,
-    delete_suggestion,
-    enter_workflow,
-    exit_workflow,
-    export_feedback,
-    init_repo,
-    install_repo,
-    install_agent,
-    scan_project,
-    list_active_requirements,
-    list_done_requirements,
-    list_suggestions,
-    rename_change,
-    rename_requirement,
-    regression_action,
-    set_language,
-    update_repo,
-    validate_requirement,
-    workflow_fast_forward,
-    workflow_next,
-    workflow_status,
-    apply_suggestion,
-    apply_all_suggestions,
-    search_tools,
-    rate_tool,
-    log_action,
-)
+# CLI now forwards to tool scripts - all logic is in tools/ directory
 
 
 def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> list[str]:
@@ -105,10 +75,10 @@ def prompt_agent_selection() -> str | None:
     agent = questionary.select(
         "选择目标 agent:",
         choices=[
-            {"name": "kimi (.kimi/skills/)", "value": "kimi"},
-            {"name": "claude (.claude/skills/)", "value": "claude"},
-            {"name": "codex (.codex/skills/)", "value": "codex"},
-            {"name": "qoder (.qoder/skills/)", "value": "qoder"},
+            Choice.build({"name": "kimi (.kimi/skills/)", "value": "kimi"}),
+            Choice.build({"name": "claude (.claude/skills/)", "value": "claude"}),
+            Choice.build({"name": "codex (.codex/skills/)", "value": "codex"}),
+            Choice.build({"name": "qoder (.qoder/skills/)", "value": "qoder"}),
         ],
         default="kimi",
     ).ask()
@@ -268,6 +238,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_tool_script(script_name: str, args: list[str], root: Path) -> int:
+    """Run a tool script and return its exit code."""
+    script = root / "tools" / script_name
+    cmd = [sys.executable, str(script)] + args + ["--root", str(root)]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    return result.returncode
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -275,50 +256,112 @@ def main() -> int:
 
     if args.command == "install":
         if args.agent:
-            return install_agent(root, args.agent)
+            return _run_tool_script("harness_install.py", ["--agent", args.agent], root)
         agent = prompt_agent_selection()
         if not agent:
             print("No agent selected.")
             return 1
-        return install_agent(root, agent)
+        return _run_tool_script("harness_install.py", ["--agent", agent], root)
     if args.command == "init":
-        return init_repo(root, args.write_agents, args.write_claude)
+        cmd_args = []
+        if args.write_agents:
+            cmd_args.append("--write-agents")
+        if args.write_claude:
+            cmd_args.append("--write-claude")
+        return _run_tool_script("harness_init.py", cmd_args, root)
     if args.command == "update":
+        cmd_args = []
+        if args.check:
+            cmd_args.append("--check")
+        if args.force_managed:
+            cmd_args.append("--force-managed")
         if args.scan:
-            return scan_project(root)
-        return update_repo(root, check=args.check, force_managed=args.force_managed)
+            cmd_args.append("--scan")
+        return _run_tool_script("harness_update.py", cmd_args, root)
     if args.command == "language":
-        return set_language(root, args.language)
+        return _run_tool_script("harness_language.py", [args.language], root)
     if args.command == "enter":
         if args.req_id:
-            return enter_workflow(root, req_id=args.req_id)
-        active_reqs = list_active_requirements(root)
+            return _run_tool_script("harness_enter.py", [args.req_id], root)
+        # Need to list active requirements for interactive selection
+        import yaml
+        reqs_dir = root / ".workflow" / "state" / "requirements"
+        active_reqs = []
+        if reqs_dir.exists():
+            for f in reqs_dir.iterdir():
+                if f.suffix in (".yaml", ".yml"):
+                    data = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+                    if data.get("status") == "active":
+                        active_reqs.append({
+                            "req_id": data.get("id", f.stem),
+                            "title": data.get("title", ""),
+                            "stage": data.get("stage", ""),
+                        })
         if not active_reqs:
             print("No active requirements found.")
-            return enter_workflow(root)
+            return _run_tool_script("harness_enter.py", [], root)
         selected = prompt_requirement_selection(active_reqs)
         if not selected:
             print("No requirement selected.")
             return 1
-        return enter_workflow(root, req_id=selected)
+        return _run_tool_script("harness_enter.py", [selected], root)
     if args.command == "exit":
-        return exit_workflow(root)
+        return _run_tool_script("harness_exit.py", [], root)
     if args.command == "status":
-        return workflow_status(root)
+        return _run_tool_script("harness_status.py", [], root)
     if args.command == "validate":
-        return validate_requirement(root)
+        return _run_tool_script("harness_validate.py", [], root)
     if args.command == "next":
-        return workflow_next(root, execute=args.execute)
+        cmd_args = []
+        if args.execute:
+            cmd_args.append("--execute")
+        return _run_tool_script("harness_next.py", cmd_args, root)
     if args.command == "ff":
-        return workflow_fast_forward(root)
+        return _run_tool_script("harness_ff.py", [], root)
     if args.command == "requirement":
-        return create_requirement(root, args.title, requirement_id=args.id, title=args.title_flag)
+        cmd_args = []
+        if args.title:
+            cmd_args.append(args.title)
+        if args.id:
+            cmd_args.extend(["--id", args.id])
+        if args.title_flag:
+            cmd_args.extend(["--title-flag", args.title_flag])
+        return _run_tool_script("harness_requirement.py", cmd_args, root)
     if args.command == "bugfix":
-        return create_bugfix(root, args.title, bugfix_id=args.id, title=args.title_flag)
+        cmd_args = []
+        if args.title:
+            cmd_args.append(args.title)
+        if args.id:
+            cmd_args.extend(["--id", args.id])
+        if args.title_flag:
+            cmd_args.extend(["--title-flag", args.title_flag])
+        return _run_tool_script("harness_bugfix.py", cmd_args, root)
     if args.command == "change":
-        return create_change(root, args.title, change_id=args.id, title=args.title_flag, requirement_id=args.requirement)
+        cmd_args = []
+        if args.title:
+            cmd_args.append(args.title)
+        if args.id:
+            cmd_args.extend(["--id", args.id])
+        if args.title_flag:
+            cmd_args.extend(["--title-flag", args.title_flag])
+        if args.requirement:
+            cmd_args.extend(["--requirement", args.requirement])
+        return _run_tool_script("harness_change.py", cmd_args, root)
     if args.command == "archive":
-        done_reqs = list_done_requirements(root)
+        # List done requirements for interactive selection
+        import yaml
+        reqs_dir = root / ".workflow" / "state" / "requirements"
+        done_reqs = []
+        if reqs_dir.exists():
+            for f in reqs_dir.iterdir():
+                if f.suffix in (".yaml", ".yml"):
+                    data = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+                    if data.get("status") == "done":
+                        done_reqs.append({
+                            "req_id": data.get("id", f.stem),
+                            "title": data.get("title", ""),
+                            "stage": data.get("stage", ""),
+                        })
         if not done_reqs:
             print("No done requirements available to archive.")
             return 1
@@ -326,51 +369,83 @@ def main() -> int:
         if not selected:
             print("No requirement selected.")
             return 1
-        return archive_requirement(root, selected, folder=args.folder)
+        cmd_args = [selected]
+        if args.folder:
+            cmd_args.extend(["--folder", args.folder])
+        return _run_tool_script("harness_archive.py", cmd_args, root)
     if args.command == "rename":
-        if args.kind == "requirement":
-            return rename_requirement(root, args.current, args.new)
-        return rename_change(root, args.current, args.new)
+        cmd_args = [args.kind, args.current, args.new]
+        return _run_tool_script("harness_rename.py", cmd_args, root)
     if args.command == "suggest":
+        cmd_args = []
+        if args.content:
+            cmd_args.append(args.content)
+        if args.title:
+            cmd_args.extend(["--title", args.title])
         if args.list:
-            return list_suggestions(root)
-        if args.apply_all:
-            return apply_all_suggestions(root, pack_title=args.pack_title)
+            cmd_args.append("--list")
         if args.apply_id:
-            return apply_suggestion(root, args.apply_id)
+            cmd_args.extend(["--apply", args.apply_id])
+        if args.apply_all:
+            cmd_args.append("--apply-all")
         if args.delete_id:
-            return delete_suggestion(root, args.delete_id)
+            cmd_args.extend(["--delete", args.delete_id])
         if args.archive_id:
-            return archive_suggestion(root, args.archive_id)
-        return create_suggestion(root, args.content or "", title=args.title)
+            cmd_args.extend(["--archive", args.archive_id])
+        if args.pack_title:
+            cmd_args.extend(["--pack-title", args.pack_title])
+        return _run_tool_script("harness_suggest.py", cmd_args, root)
     if args.command == "tool-search":
-        root = Path(args.root)
-        match = search_tools(root, args.keywords)
-        if match is None:
-            print("No matching tool found.")
-            return 0
-        print(f"Matched: {match['tool_id']}")
-        print(f"Catalog: {match['catalog']}")
-        print(f"Description: {match['description']}")
-        print(f"Score: {match['score']}")
-        return 0
-    if args.command == "tool-rate":
-        return rate_tool(Path(args.root), args.tool_id, args.rating)
-    if args.command == "regression":
-        if args.title and not any([args.status, args.confirm, args.reject, args.cancel, args.change_title, args.requirement_title, args.testing]):
-            return create_regression(root, args.title)
-        return regression_action(
-            root,
-            status_only=args.status,
-            confirm=args.confirm,
-            reject=args.reject,
-            cancel=args.cancel,
-            change_title=args.change_title,
-            requirement_title=args.requirement_title,
-            to_testing=args.testing,
+        script = root / "tools" / "harness_tool_search.py"
+        result = subprocess.run(
+            [sys.executable, str(script)] + args.keywords + ["--root", str(root)],
+            capture_output=True,
+            text=True,
         )
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        return result.returncode
+    if args.command == "tool-rate":
+        script = root / "tools" / "harness_tool_rate.py"
+        result = subprocess.run(
+            [sys.executable, str(script), args.tool_id, str(args.rating), "--root", str(root)],
+            capture_output=True,
+            text=True,
+        )
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        return result.returncode
+    if args.command == "regression":
+        cmd_args = []
+        if args.title:
+            cmd_args.append(args.title)
+        if args.status:
+            cmd_args.append("--status")
+        if args.confirm:
+            cmd_args.append("--confirm")
+        if args.reject:
+            cmd_args.append("--reject")
+        if args.cancel:
+            cmd_args.append("--cancel")
+        if args.change_title:
+            cmd_args.extend(["--change", args.change_title])
+        if args.requirement_title:
+            cmd_args.extend(["--requirement", args.requirement_title])
+        if args.testing:
+            cmd_args.append("--testing")
+        return _run_tool_script("harness_regression.py", cmd_args, root)
     if args.command == "feedback":
-        return export_feedback(root, reset=args.reset)
+        script = root / "tools" / "harness_export_feedback.py"
+        cmd = [sys.executable, str(script), "--root", str(root)]
+        if args.reset:
+            cmd.append("--reset")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        return result.returncode
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

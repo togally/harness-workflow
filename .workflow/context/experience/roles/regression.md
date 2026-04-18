@@ -135,3 +135,27 @@ bugfix 模式采用四阶段快速流转：`regression → executing → testing
 
 req-23 bugfix 快速修复与验证端到端测试
 
+---
+
+## 经验六：regression 命令的 --confirm 会消费 regression，导致 --testing 无法使用
+
+### 场景
+
+req-25 验收阶段发现 core.py 尚未删除，需要通过 regression 回滚到 testing 继续修复。
+
+### 经验内容
+
+执行 `harness regression "<title>" && harness regression --confirm && harness regression --testing` 时：
+- `--confirm` 会将 regression 状态从 `analysis` 改为 `confirmed`，并清空 `current_regression`
+- 导致 `--testing` 找不到活跃的 regression，报 "No active regression"
+
+**原因**：`--confirm` 在执行后立即消费了 regression，而非等待 `--testing` 使用。
+
+** workaround**：分步执行，每次创建新的 regression。
+
+**建议**：修复 harness regression 的状态管理逻辑，支持 `--confirm --testing` 组合，或在 `--confirm` 时检查是否有 `--testing` 标志。
+
+### 来源
+
+req-25 验收阶段多次尝试回滚 testing 失败
+

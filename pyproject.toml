@@ -35,6 +35,8 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 harness_workflow = [
+  "skills/harness/SKILL.md",
+  "skills/harness/agent/*.md",
   "assets/skill/SKILL.md",
   "assets/skill/agents/openai.yaml",
   "assets/skill/assets/templates/*.tmpl",

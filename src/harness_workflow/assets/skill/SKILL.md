@@ -3,11 +3,11 @@ name: harness
 description: "Use when Codex, Claude Code, or Qoder needs to operate a repository with the current Harness workflow rooted at WORKFLOW.md and .workflow/state/runtime.yaml."
 ---
 
-# Harness
+# Harness Workflow
 
 ## Overview
 
-Operate the repository from the workflow entrypoint, not from ad-hoc chat and not from legacy version-flow files.
+Harness is a structured workflow system for managing software development tasks. All harness commands are routed through the **harness-manager** role, which serves as the command guiding center.
 
 The source of truth is:
 
@@ -15,42 +15,70 @@ The source of truth is:
 2. `.workflow/context/index.md`
 3. `.workflow/state/runtime.yaml`
 
-Load any additional role, experience, and constraint files by following `.workflow/context/index.md`.
-
 ## Hard Gate
 
 Do not act until `WORKFLOW.md`, `.workflow/context/index.md`, and `.workflow/state/runtime.yaml` have been read.
 
 If any of those files are missing, inconsistent, or unreadable, stop immediately and do not fall back to a legacy entrypoint.
 
-## Command Model
+## Command Guiding Center (harness-manager)
 
-Use these commands conceptually:
+The harness-manager role is the unified entry point for all harness commands:
 
-1. `harness install`
-   Install local skills and scaffold the current workflow entry files.
-2. `harness update`
-   Refresh harness-managed files without restoring legacy entrypoints.
-3. `harness status`
-   Show the current requirement, stage, and routing state from `.workflow/state/runtime.yaml`.
-4. `harness requirement <title>`
-   Create and route into a requirement workspace.
-5. `harness change <title>`
-   Create one concrete change under the active requirement.
-6. `harness bugfix <issue>`
-   Create a fast-track bugfix workspace and enter the regression stage.
-7. `harness next`
-   Advance the current requirement through the next stage.
-8. `harness regression <issue>`
-   Diagnose dissatisfaction or failures before creating new work.
+1. **Command Understanding Layer**: Parses `harness <command>` intent
+2. **Role Scheduling Layer**: Dispatches to appropriate subagents
+3. **Project Insight Layer**: Scans project characteristics
+4. **Tools Integration**: Delegates to toolsManager for tool recommendations
+
+## Command Categories
+
+### Installation & Update (harness-manager executes directly)
+- `harness install` — Initialize repository and install harness skill
+- `harness install --agent <agent>` — Install to specific agent
+- `harness update` — Refresh harness-managed files
+- `harness update --check` — Check without writing
+- `harness update --scan` — Generate adaptation report
+- `harness language <english|cn>` — Set language
+
+### Session Control (technical-director executes)
+- `harness enter [req-id]` — Enter workflow mode
+- `harness exit` — Exit workflow mode
+- `harness status` — Show current status
+- `harness validate` — Validate artifacts
+
+### Workflow Progression (technical-director executes)
+- `harness next [--execute]` — Advance to next stage
+- `harness ff` — Fast-forward to execution
+
+### Artifact Management (stage roles execute)
+- `harness requirement <title>` — Create requirement
+- `harness change <title>` — Create change
+- `harness bugfix <title>` — Create bugfix
+- `harness archive [req-id]` — Archive requirement
+- `harness rename <kind> <old> <new>` — Rename artifact
+
+### Auxiliary Functions (respective roles execute)
+- `harness suggest [content]` — Manage suggestions
+- `harness tool-search <keywords...>` — Search tools
+- `harness tool-rate <tool-id> <rating>` — Rate tool
+- `harness regression [issue]` — Diagnose issues
+- `harness feedback [--reset]` — Export feedback
 
 ## Routing Rules
 
-- Prefer the global `harness` CLI when available.
-- Do not treat `.workflow/context/rules/workflow-runtime.yaml` as the primary entrypoint.
-- If the human is unhappy with a completed result, start `harness regression "<issue>"` first.
-- If `conversation_mode: harness`, stay inside the locked requirement and stage until the human explicitly exits.
-- If `.workflow/state/runtime.yaml` is missing or inconsistent, repair it instead of improvising a parallel workflow.
+- Prefer the global `harness` CLI when available
+- If the human is unhappy with a completed result, start `harness regression "<issue>"` first
+- If `conversation_mode: harness`, stay inside the locked requirement and stage until the human explicitly exits
+- If `.workflow/state/runtime.yaml` is missing or inconsistent, repair it instead of improvising a parallel workflow
+- Do not treat `.workflow/context/rules/workflow-runtime.yaml` as the primary entrypoint
+
+## Stage Flow
+
+```
+requirement_review → planning → executing → testing → acceptance → done
+                           ↓
+                     regression (when needed)
+```
 
 ## Install / Update Expectations
 

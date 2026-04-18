@@ -25,6 +25,29 @@ requirement_review          ← 第三层管辖
 
 ---
 
+## Bugfix 快速流转图
+
+针对已知缺陷的快速修复流程（`bugfix-*` 需求）：
+
+```
+regression                  ← 第五层管辖
+      ↓ harness next
+   executing                ← 第三层管辖
+      ↓ harness next
+   testing                  ← 第五层管辖
+      ↓ harness next
+  acceptance                ← 第五层管辖
+      ↓ harness next
+    done
+```
+
+- **进入条件**：`harness bugfix "<title>"` 创建 bugfix 目录
+- **跳过阶段**：`requirement_review`、`planning`
+- **模式识别**：`current_requirement` 以 `bugfix-` 开头时启用本流程
+- **产物**：`.workflow/flow/bugfixes/{bugfix-id}/bugfix.md` 替代 `requirement.md` + `change.md` + `plan.md`
+
+---
+
 ## 第三层 Stage 定义
 
 ### requirement_review
@@ -43,10 +66,28 @@ requirement_review          ← 第三层管辖
 
 ### executing
 - **角色**：开发者（`context/roles/executing.md`）
-- **进入条件**：planning 退出条件满足
+- **进入条件**：
+  - 标准流程：planning 退出条件满足
+  - bugfix 流程：regression 诊断完成，修复方案已写入 `bugfix.md`
 - **退出条件**：所有变更实现完成，内部测试通过，session-memory 全部 ✅
 - **必须产出**：代码/文件变更 + session-memory 执行日志
 - **下一步**：`harness next` → `testing`（进入第五层）
+
+### regression
+- **角色**：诊断师（`context/roles/regression.md`）
+- **进入条件**：
+  - 标准流程：任意阶段执行 `harness regression <issue>`
+  - bugfix 流程：`harness bugfix "<title>"` 创建 bugfix 目录后直接进入
+- **退出条件**：
+  - `regression/diagnosis.md` 已产出
+  - 根因已明确，路由方向已确定（真实问题 / 误判）
+  - bugfix 流程下：修复方案已写入 `bugfix.md#修复方案`
+- **必须产出**：`regression/diagnosis.md`（含 `required-inputs.md` 如需人工输入）
+- **下一步**：
+  - 需求/设计问题 → `requirement_review`
+  - 实现/测试问题 → `testing`
+  - 误判 → 回到触发前的 stage
+  - bugfix 流程 → `executing`
 
 ### done
 - **角色**：主 agent（非 subagent）
@@ -61,6 +102,8 @@ requirement_review          ← 第三层管辖
 
 ## 需求目录规范
 
+### 标准需求（req-*）
+
 ```
 .workflow/flow/requirements/
 └── req-{两位数字}-{title}/
@@ -72,6 +115,19 @@ requirement_review          ← 第三层管辖
             └── regression/
                 ├── diagnosis.md
                 └── required-inputs.md
+```
+
+### Bugfix 需求（bugfix-*）
+
+```
+.workflow/flow/bugfixes/
+└── bugfix-{数字}-{title}/
+    ├── bugfix.md
+    ├── session-memory.md
+    ├── test-evidence.md
+    └── regression/
+        ├── diagnosis.md
+        └── required-inputs.md
 ```
 
 ## 归档目录规范
