@@ -1,13 +1,31 @@
-# Harness Workflow
+# CLAUDE.md
 
-> 核心工作流规则见 [WORKFLOW.md](WORKFLOW.md)
+This repository uses the Harness workflow for Claude Code.
 
 ## Hard Gate
 
-未读取 `WORKFLOW.md`、`.workflow/context/index.md`、`.workflow/state/runtime.yaml` 前，立即停止，不执行任何动作。
+Do not act until `WORKFLOW.md`, `.workflow/context/index.md`, and `.workflow/state/runtime.yaml` have been read.
 
-如果这三个文件任一缺失、冲突或无法解析，立即停止，不允许回退旧入口。
+If any of those files are missing, inconsistent, or unreadable, stop immediately and do not fall back to a legacy entrypoint.
 
-## 平台特定说明
+## Entry
 
-Claude Code 用户可通过 Skill 工具调用 Harness 工作流相关命令。
+1. Read `WORKFLOW.md`.
+2. Read `.workflow/context/index.md`.
+3. Read `.workflow/state/runtime.yaml`.
+4. **Immediately load the `harness-manager` role**: use the Skill tool to invoke `harness-install`, letting harness-manager take over routing.
+5. Load the matching role, experience, and constraint files by following `.workflow/context/index.md`.
+6. If the human is unhappy with a completed result, start `harness regression "<issue>"` before creating new work.
+7. If `conversation_mode: harness`, stay inside the locked requirement and stage until the human explicitly exits.
+
+## Main Entry
+
+- `harness install`
+- `harness update`
+- `harness status`
+- `harness requirement "<title>"`
+- `harness change "<title>"`
+- `harness next`
+- `harness regression "<issue>"`
+
+If runtime state is missing or inconsistent, repair `.workflow/state/runtime.yaml` instead of improvising a parallel workflow; if required files are missing, stop immediately.

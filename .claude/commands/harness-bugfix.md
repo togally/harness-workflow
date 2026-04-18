@@ -23,7 +23,9 @@ Execution rules:
 
 - center the task around `harness bugfix`
 - do not bypass the workflow with manual requirement / change / plan / execution steps
-- if workflow state is missing or inconsistent, stop and tell the user to run `harness active "<version>"`
+- if workflow state is missing or inconsistent, handle by command type:
+  - install/init/update/language/status/bugfix/suggest/regression are standalone commands; no current_requirement needed
+  - other commands require current_requirement; if missing, stop and prompt user
 - if compilation fails, startup fails, or human-provided external input is required, enter regression first
 - if human input is required, fill the related change `regression/required-inputs.md` before asking for it
 

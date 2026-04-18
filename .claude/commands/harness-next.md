@@ -1,6 +1,6 @@
 ---
 description: Run harness next and continue work inside the current Harness workflow state
-argument-hint: ""
+argument-hint: "[--execute]"
 ---
 
 This command maps to `harness next`.
@@ -17,13 +17,15 @@ Before acting:
 3. Then read `.workflow/state/runtime.yaml`
 4. Load any additional role / experience / constraint files by following `.workflow/context/index.md`
 5. Prefer the root `AGENTS.md`
-6. If `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill
+6. If `.kimi/skills/harness/SKILL.md`, `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill
 
 Execution rules:
 
 - center the task around `harness next`
 - do not bypass the workflow with manual requirement / change / plan / execution steps
-- if workflow state is missing or inconsistent, stop and tell the user to run `harness requirement "<title>"`
+- if workflow state is missing or inconsistent, handle by command type:
+  - install/init/update/language/status are standalone commands; no current_requirement needed
+  - other commands require current_requirement; if missing, stop and prompt user
 - if compilation fails, startup fails, or human-provided external input is required, enter regression first
 - if human input is required, fill the related change `regression/required-inputs.md` before asking for it
 
@@ -33,5 +35,5 @@ Focus:
 
 - explain the current stage, current task, and next action first
 - then advance according to the actual state instead of assuming a fixed sequence
-- if the version is already `ready_for_execution`, do not start implementation automatically; ask for confirmation or use `harness exec`
+- if the version is already `ready_for_execution`, do not start implementation automatically; ask for confirmation or use `harness next --execute`
 - if workflow state is incomplete, stop and require state repair first

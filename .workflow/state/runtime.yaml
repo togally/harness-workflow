@@ -1,4 +1,6 @@
-current_requirement: "req-25"
+operation_type: "requirement"  # requirement | bugfix | suggestion
+operation_target: "req-27"     # 当前操作目标（requirement id / bugfix id / suggestion id）
+current_requirement: "req-27"  # 兼容字段：用于 requirement 类型
 stage: "done"
 conversation_mode: "open"
 locked_requirement: ""
@@ -8,3 +10,4 @@ ff_mode: true
 ff_stage_history: []
 active_requirements:
   - req-25
+  - req-26

@@ -98,6 +98,30 @@ After installing or updating the workflow, verify the repository structure with:
 python3 tools/lint_harness_repo.py --root . --strict-claude --strict-stage-roles
 ```
 
+## SOP Compliance
+
+All stage roles have mandatory SOPs defined in role files. **Hard Gates are BINDING - violating a Hard Gate = immediate stop.**
+
+### Your Role's SOP
+When you execute a stage, you MUST read and follow the SOP in your role file:
+- **requirement_review**: `requirement-review.md` — Define background, goal, scope, acceptance criteria
+- **planning**: `planning.md` — Split changes, create `change.md` + `plan.md`
+- **executing**: `executing.md` — Execute plan.md steps, mark each as ✅
+- **testing**: `testing.md` — Design and run tests
+- **acceptance**: `acceptance.md` — Verify against requirement.md
+- **regression**: `regression.md` — Diagnose and confirm problem
+
+### What This Prevents
+- Skipping SOP steps
+- Claiming completion without following the process
+- Bypassing Hard Gates
+
+### SOP Execution Requirements
+1. Read your role file before starting
+2. Follow the SOP steps in order
+3. Mark each step as ✅ when completed
+4. Check exit conditions before reporting completion
+
 ## Fallback
 
 If the global `harness` CLI is unavailable, the local script at `.codex/skills/harness/scripts/harness.py` may be used as a thin fallback entrypoint.

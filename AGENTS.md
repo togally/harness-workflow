@@ -1,23 +1,24 @@
 # AGENTS.md
 
-本仓库使用 Harness workflow 协作。
+This repository uses the Harness workflow for agent collaboration.
 
 ## Hard Gate
 
-未读取 `WORKFLOW.md`、`.workflow/context/index.md`、`.workflow/state/runtime.yaml` 前，立即停止，不执行任何动作。
+Do not act until `WORKFLOW.md`, `.workflow/context/index.md`, and `.workflow/state/runtime.yaml` have been read.
 
-如果这三个文件任一缺失、冲突或无法解析，立即停止，不允许回退旧入口。
+If any of those files are missing, inconsistent, or unreadable, stop immediately and do not fall back to a legacy entrypoint.
 
-## 入口
+## Entry
 
-1. 读取 `WORKFLOW.md`
-2. 读取 `.workflow/context/index.md`
-3. 读取 `.workflow/state/runtime.yaml`
-4. 按 `.workflow/context/index.md` 的路由加载匹配的角色、经验和约束文件
-5. 如果人类对已完成结果不满意，先执行 `harness regression "<问题>"`，再创建新工作
-6. 如果 `conversation_mode: harness`，保持在当前锁定的 requirement 和 stage 内，直到人类显式退出
+1. Read `WORKFLOW.md`.
+2. Read `.workflow/context/index.md`.
+3. Read `.workflow/state/runtime.yaml`.
+4. **Immediately load the `harness-manager` role**: use the Skill tool to invoke `harness-install`, letting harness-manager take over routing.
+5. Load the matching role, experience, and constraint files by following `.workflow/context/index.md`.
+6. If the human is unhappy with a completed result, start `harness regression "<issue>"` before creating new work.
+7. If `conversation_mode: harness`, stay inside the locked requirement and stage until the human explicitly exits.
 
-## 主命令
+## Main Entry
 
 - `harness install`
 - `harness update`
@@ -27,4 +28,4 @@
 - `harness next`
 - `harness regression "<issue>"`
 
-如果运行时状态缺失或不一致，优先修复 `.workflow/state/runtime.yaml`，不要临时并行造一套流程；缺文件时必须 stop immediately。
+If runtime state is missing or inconsistent, repair `.workflow/state/runtime.yaml` instead of improvising a parallel workflow; if required files are missing, stop immediately.

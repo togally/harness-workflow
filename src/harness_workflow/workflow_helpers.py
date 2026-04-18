@@ -52,7 +52,9 @@ LANGUAGE_ALIASES = {
     "chinese": "cn",
 }
 DEFAULT_STATE_RUNTIME = {
-    "current_requirement": "",
+    "operation_type": "requirement",  # requirement | bugfix | suggestion
+    "operation_target": "",           # 当前操作目标
+    "current_requirement": "",        # 兼容字段：用于 requirement 类型
     "stage": "",
     "conversation_mode": "open",
     "locked_requirement": "",
@@ -100,6 +102,11 @@ BUGFIX_SEQUENCE = [
     "executing",
     "testing",
     "acceptance",
+    "done",
+]
+SUGGESTION_SEQUENCE = [
+    "suggestion",
+    "apply",
     "done",
 ]
 LANGUAGE_SPECS = {
@@ -3187,6 +3194,8 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     active_reqs = list(runtime.get("active_requirements", []))
     if req_num_id not in [str(r) for r in active_reqs]:
         active_reqs.append(req_num_id)
+    runtime["operation_type"] = "requirement"
+    runtime["operation_target"] = req_num_id
     runtime["current_requirement"] = req_num_id
     runtime["stage"] = "requirement_review"
     runtime["active_requirements"] = active_reqs
@@ -3269,7 +3278,9 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
     active_reqs = list(runtime.get("active_requirements", []))
     if bfx_num_id not in [str(r) for r in active_reqs]:
         active_reqs.append(bfx_num_id)
-    runtime["current_requirement"] = bfx_num_id
+    runtime["operation_type"] = "bugfix"
+    runtime["operation_target"] = bfx_num_id
+    runtime["current_requirement"] = bfx_num_id  # 兼容字段
     runtime["stage"] = "regression"
     runtime["active_requirements"] = active_reqs
     save_requirement_runtime(root, runtime)
@@ -3663,6 +3674,34 @@ def _get_req_id(state: dict[str, object]) -> str:
     return str(state.get("id", state.get("req_id", ""))).strip()
 
 
+def _check_plan_completion(plan_path: Path) -> tuple[bool, list[str]]:
+    """
+    检查 plan.md 所有步骤是否完成。
+
+    Args:
+        plan_path: plan.md 文件路径
+
+    Returns:
+        (is_complete, incomplete_steps)
+        - is_complete: 所有步骤是否全部完成
+        - incomplete_steps: 未完成步骤的描述列表
+    """
+    if not plan_path.exists():
+        return False, [f"plan.md not found: {plan_path}"]
+
+    content = plan_path.read_text(encoding="utf-8")
+    incomplete_steps = []
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- [ ]"):
+            step_text = stripped[5:].strip()
+            if step_text:
+                incomplete_steps.append(step_text)
+
+    return len(incomplete_steps) == 0, incomplete_steps
+
+
 def list_done_requirements(root: Path) -> list[dict]:
     """返回 stage == 'done' 且尚未归档的需求列表。"""
     req_state_dir = root / ".workflow" / "state" / "requirements"
@@ -3934,9 +3973,15 @@ def workflow_status(root: Path) -> int:
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
     current_stage = str(runtime.get("stage", "")).strip()
-    req_id = str(runtime.get("current_requirement", "")).strip()
-    is_bugfix = req_id.startswith("bugfix-")
-    sequence = BUGFIX_SEQUENCE if is_bugfix else WORKFLOW_SEQUENCE
+    operation_type = str(runtime.get("operation_type", "")).strip()
+
+    # 根据 operation_type 选择对应的 stage 序列
+    if operation_type == "bugfix":
+        sequence = BUGFIX_SEQUENCE
+    elif operation_type == "suggestion":
+        sequence = SUGGESTION_SEQUENCE
+    else:
+        sequence = WORKFLOW_SEQUENCE
 
     if not current_stage:
         raise SystemExit("No active workflow stage. Run `harness requirement <title>` to begin.")
@@ -3955,13 +4000,14 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     runtime["stage"] = next_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
 
-    if req_id:
-        state_dir = root / ".workflow" / "state" / ("bugfixes" if is_bugfix else "requirements")
+    operation_target = str(runtime.get("operation_target", "")).strip()
+    if operation_target:
+        state_dir = root / ".workflow" / "state" / ("bugfixes" if operation_type == "bugfix" else "requirements")
         if state_dir.exists():
             for state_file in sorted(state_dir.rglob("*.yaml")):
                 state = load_simple_yaml(state_file)
                 state_id = _get_req_id(state)
-                if state_id == req_id or state_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in state_file.stem):
+                if state_id == operation_target or state_file.stem == operation_target or (state_id and state_id in operation_target) or (operation_target and operation_target in state_file.stem):
                     state["stage"] = next_stage
                     if next_stage == "done":
                         state["status"] = "done"
@@ -3974,8 +4020,8 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 
     save_requirement_runtime(root, runtime)
 
-    if next_stage == "done" and req_id:
-        extract_suggestions_from_done_report(root, req_id)
+    if next_stage == "done" and operation_target:
+        extract_suggestions_from_done_report(root, operation_target)
         print("Review `context/experience/stage/` and update relevant stage experience before archiving.")
 
     duration_seconds: float | None = None
@@ -4000,19 +4046,27 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 def workflow_fast_forward(root: Path) -> int:
     runtime = load_requirement_runtime(root)
     from_stage = str(runtime.get("stage", "")).strip()
-    req_id = str(runtime.get("current_requirement", "")).strip()
-    is_bugfix = req_id.startswith("bugfix-")
-    target_stage = "executing" if is_bugfix else "ready_for_execution"
+    operation_type = str(runtime.get("operation_type", "")).strip()
+    operation_target = str(runtime.get("operation_target", "")).strip()
+
+    # 根据 operation_type 确定目标 stage
+    if operation_type == "bugfix":
+        target_stage = "executing"
+    elif operation_type == "suggestion":
+        target_stage = "apply"
+    else:
+        target_stage = "ready_for_execution"
+
     runtime["stage"] = target_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
 
-    if req_id:
-        state_dir = root / ".workflow" / "state" / ("bugfixes" if is_bugfix else "requirements")
+    if operation_target:
+        state_dir = root / ".workflow" / "state" / ("bugfixes" if operation_type == "bugfix" else "requirements")
         if state_dir.exists():
             for state_file in sorted(state_dir.rglob("*.yaml")):
                 state = load_simple_yaml(state_file)
                 state_id = _get_req_id(state)
-                if state_id == req_id or state_file.stem == req_id or (state_id and state_id in req_id) or (req_id and req_id in state_file.stem):
+                if state_id == operation_target or state_file.stem == operation_target or (state_id and state_id in operation_target) or (operation_target and operation_target in state_file.stem):
                     state["stage"] = target_stage
                     save_simple_yaml(state_file, state)
                     break
