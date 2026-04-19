@@ -135,6 +135,9 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 
 （命名本身不得变更；planning 阶段可在不偏离契约 1/2 的前提下微调表述措辞。）
 
+- `决策汇总.md`（ff --auto 模式产出，acceptance 前由 chg-03 工具自动生成，路径
+  artifacts/{branch}/requirements/{req-id}-{slug}/决策汇总.md，字段按 DecisionPoint）
+
 ### 契约 4：硬门禁
 
 - 每个 stage 角色的"退出条件"清单中**必须**包含一条："对人文档 `{文件名}.md` 已产出且字段完整"。

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import py_compile
 import re
 import shutil
@@ -4277,31 +4278,62 @@ def resolve_requirement_root(root: Path) -> Path:
     return primary  # 新仓 / 空仓 / 仅噪声 → 落到新路径
 
 
-def resolve_archive_root(root: Path) -> Path:
+def resolve_archive_root(root: Path, prefer_legacy: bool = False) -> Path:
     """返回归档产出根目录。
 
-    1. ``artifacts/{branch}/archive``（新规）
-    2. ``.workflow/flow/archive``（legacy，降级时 stderr 告警）
+    req-29 / chg-01（AC-03）：**primary 始终优先**，legacy 仅在显式 opt-in
+    时使用。默认判据链：
 
-    若 legacy 路径有实质性内容则返回 legacy；否则默认返回新路径（让调用方创建）。
+    1. ``artifacts/{branch}/archive``（primary，默认）
+    2. ``.workflow/flow/archive``（legacy，仅在显式 opt-in 时返回）
+
+    opt-in 机制（二者任一命中即视为 opt-in）：
+
+    - 参数 ``prefer_legacy=True``
+    - 环境变量 ``HARNESS_ARCHIVE_LEGACY=1``
+
+    **默认行为**（未 opt-in）：无论 legacy 是否非空，都返回 primary；若 legacy
+    非空，额外在 stderr 打印一次迁移提示（``run `harness migrate archive` to
+    consolidate``），引导用户用 chg-02 的 migrate 命令把历史归档搬到 primary。
+
+    **opt-in 行为**：若 legacy 非空，返回 legacy（保留原告警）；若 legacy 空，
+    仍返回 primary（opt-in 也无法凭空制造 legacy 数据）。
+
+    helper 不做 ``mkdir``，创建责任留给调用方。
     """
     branch = _get_git_branch(root) or "main"
     primary = root / "artifacts" / branch / "archive"
     legacy = root / ".workflow" / "flow" / "archive"
 
-    if _has_substantive_content(primary):
-        return primary
-    if _has_substantive_content(legacy):
+    # 环境变量 opt-in：只有值严格等于 "1" 时生效，避免 "0"/空字符串等误触发。
+    env_opt_in = os.environ.get("HARNESS_ARCHIVE_LEGACY", "") == "1"
+    opt_in = prefer_legacy or env_opt_in
+
+    legacy_nonempty = _has_substantive_content(legacy)
+
+    if opt_in and legacy_nonempty:
         try:
             display = legacy.relative_to(root)
         except ValueError:
             display = legacy
         print(
             f"[harness] warning: using legacy archive path {display}; "
-            f"run `harness migrate requirements` to consolidate.",
+            f"run `harness migrate archive` to consolidate.",
             file=sys.stderr,
         )
         return legacy
+
+    # 默认：primary 优先。若 legacy 非空，打印一次迁移提示（不降级）。
+    if legacy_nonempty:
+        try:
+            display = legacy.relative_to(root)
+        except ValueError:
+            display = legacy
+        print(
+            f"[harness] notice: using primary archive path; legacy at {display} "
+            f"has data, run `harness migrate archive` to consolidate.",
+            file=sys.stderr,
+        )
     return primary
 
 
@@ -4400,6 +4432,131 @@ def migrate_requirements(root: Path, dry_run: bool = False) -> int:
 
     _process_source(src_legacy)
     _process_source(src_mid)
+
+    if dry_run:
+        print(
+            f"[migrate] done (dry-run): {len(dry_run_planned)} planned, "
+            f"{len(conflicts)} conflict(s), {len(skipped_idempotent)} already-at-target"
+        )
+        return 0
+
+    total = len(migrated) + len(conflicts) + len(skipped_idempotent)
+    if total == 0:
+        print("[migrate] nothing to migrate")
+        return 0
+
+    print(
+        f"[migrate] done: {len(migrated)} migrated, "
+        f"{len(conflicts)} skipped (conflict), "
+        f"{len(skipped_idempotent)} already-at-target"
+    )
+    return 1 if conflicts else 0
+
+
+def migrate_archive(root: Path, dry_run: bool = False) -> int:
+    """把 legacy 归档目录搬到 ``artifacts/{branch}/archive/``（req-29 / chg-02, AC-04）。
+
+    **源**：``.workflow/flow/archive/`` 下两种形态：
+
+      1. 带分支前缀：``.workflow/flow/archive/<branch>/{requirements,bugfixes}/<dir>/``
+         （历史上 archive_requirement 在带 folder=branch 拼接时产生的）
+      2. 裸形态：``.workflow/flow/archive/{requirements,bugfixes}/<dir>/``
+         （chg-01 前的默认 legacy 布局）
+
+    **目标**：统一落到 ``artifacts/{branch}/archive/{requirements,bugfixes}/<dir>/``；
+    当前仓库分支由 ``_get_git_branch(root)`` 解析，失败兜底 ``main``。注意：带分支
+    前缀的 legacy 条目会被"重新归位"到当前 git 分支下——保留 ``{requirements,
+    bugfixes}/<dir>`` 这一层相对结构。
+
+    **策略**：
+      - 逐条目 ``shutil.move`` 整目录（由调用方保证 dry_run 时不动文件）。
+      - 目标已存在 → 记 conflict、跳过、不覆盖。
+      - ``src == dst`` 幂等边界 → 记 already-at-target、跳过。
+      - 迁移完保留 ``.workflow/flow/archive/`` 空父目录作为退路，不删。
+      - ``dry_run=True`` → 仅打印 plan、rc=0、不动文件。
+
+    **返回**：rc=0（无冲突） / rc=1（有冲突；仍继续处理其他条目）。
+    """
+    branch = _get_git_branch(root) or "main"
+    legacy_root = root / ".workflow" / "flow" / "archive"
+    dst_root = root / "artifacts" / branch / "archive"
+
+    migrated: list[str] = []
+    conflicts: list[str] = []
+    skipped_idempotent: list[str] = []
+    dry_run_planned: list[str] = []
+
+    if not dry_run and legacy_root.exists():
+        dst_root.mkdir(parents=True, exist_ok=True)
+
+    def _plan_pairs() -> list[tuple[Path, Path]]:
+        """枚举 (src, dst) 对：只收集两种合法形态下的 requirements/bugfixes 子条目。"""
+        if not legacy_root.exists() or not legacy_root.is_dir():
+            return []
+        pairs: list[tuple[Path, Path]] = []
+
+        def _collect_from_kind_root(kind_root: Path, kind: str) -> None:
+            """从 ``<some>/<kind>/`` 目录收集直接子目录作为迁移单元。"""
+            if not kind_root.exists() or not kind_root.is_dir():
+                return
+            for child in sorted(kind_root.iterdir()):
+                if child.name in _REQUIREMENT_ROOT_NOISE_FILENAMES:
+                    continue
+                if not child.is_dir():
+                    continue
+                dst = dst_root / kind / child.name
+                pairs.append((child, dst))
+
+        # 形态 1：带分支前缀 `<branch>/{requirements,bugfixes}/<dir>`
+        for branch_dir in sorted(legacy_root.iterdir()):
+            if branch_dir.name in _REQUIREMENT_ROOT_NOISE_FILENAMES:
+                continue
+            if not branch_dir.is_dir():
+                continue
+            if branch_dir.name in ("requirements", "bugfixes"):
+                continue  # 形态 2，后面单独处理
+            # branch_dir 是一个分支名（不强校验名称，保留任意分支子树）
+            for kind in ("requirements", "bugfixes"):
+                _collect_from_kind_root(branch_dir / kind, kind)
+
+        # 形态 2：裸 `requirements/`、`bugfixes/` 子目录
+        for kind in ("requirements", "bugfixes"):
+            _collect_from_kind_root(legacy_root / kind, kind)
+
+        return pairs
+
+    pairs = _plan_pairs()
+
+    for src, dst in pairs:
+        label = f"{dst.parent.name}/{src.name}"  # e.g. "requirements/req-26-xxx"
+
+        # src == dst 幂等边界（罕见：调用者把 legacy 指向 primary）
+        try:
+            if src.resolve() == dst.resolve():
+                skipped_idempotent.append(label)
+                continue
+        except OSError:
+            pass
+
+        if dst.exists():
+            conflicts.append(label)
+            print(
+                f"[migrate] conflict: {dst} already exists, skipped; "
+                f"please manually reconcile `{src}` and `{dst}` "
+                f"(rename or merge) before retrying.",
+                file=sys.stderr,
+            )
+            continue
+
+        if dry_run:
+            dry_run_planned.append(label)
+            print(f"[migrate] (dry-run) {src} -> {dst}")
+            continue
+
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        print(f"[migrate] {src} -> {dst}")
+        shutil.move(str(src), str(dst))
+        migrated.append(label)
 
     if dry_run:
         print(

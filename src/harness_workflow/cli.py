@@ -192,6 +192,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     ff_parser = subparsers.add_parser("ff", help="Fast-forward workflow stages until execution confirmation.")
     ff_parser.add_argument("--root", default=".", help="Repository root.")
+    ff_parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="自主推进模式：把 current_requirement 推进到 acceptance 前一步，期间批量 ack 决策点（req-29 5.1/5.2/5.3）。",
+    )
+    ff_parser.add_argument(
+        "--auto-accept",
+        dest="auto_accept",
+        choices=["low", "all"],
+        default=None,
+        help="配合 --auto：low=仅 low 风险自动 ack，all=全部自动 ack，未传=每条决策点都交互。",
+    )
 
     req_parser = subparsers.add_parser("requirement", help="Create a requirement inside the active version.")
     req_parser.add_argument("title", nargs="?", help="Requirement title.")
@@ -370,6 +382,14 @@ def main() -> int:
             cmd_args.append("--execute")
         return _run_tool_script("harness_next.py", cmd_args, root)
     if args.command == "ff":
+        auto_flag = getattr(args, "auto", False)
+        auto_accept = getattr(args, "auto_accept", None)
+        # 5.3 约束：`--auto-accept` 必须依赖 `--auto`。
+        if auto_accept and not auto_flag:
+            parser.error("--auto-accept requires --auto")
+        if auto_flag:
+            from harness_workflow.ff_auto import workflow_ff_auto
+            return workflow_ff_auto(root, auto_accept=auto_accept)
         return _run_tool_script("harness_ff.py", [], root)
     if args.command == "requirement":
         cmd_args = []
