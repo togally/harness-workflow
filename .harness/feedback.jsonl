@@ -160,3 +160,9 @@
 {"ts": "2026-04-19T16:32:00.578165+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
 {"ts": "2026-04-19T16:32:04.399728+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 3.823958}}
 {"ts": "2026-04-19T16:32:04.399885+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-19T17:08:55.505965+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 2211.108977}}
+{"ts": "2026-04-19T17:08:55.506104+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-19T17:16:01.992598+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 426.490583}}
+{"ts": "2026-04-19T17:16:01.992902+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-19T17:16:02.449301+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0.460264}}
+{"ts": "2026-04-19T17:16:02.449446+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

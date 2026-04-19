@@ -1,8 +1,8 @@
 operation_type: "requirement"
 operation_target: "req-29"
-current_requirement: "req-29"
-stage: "executing"
-stage_entered_at: "2026-04-19T16:32:04.396950+00:00"
+current_requirement: ""
+stage: "done"
+stage_entered_at: "2026-04-19T17:16:02.445994+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_stage: ""
@@ -13,5 +13,4 @@ ff_stage_history:
   - planning
   - testing
   - acceptance
-active_requirements:
-  - req-29
+active_requirements: []
