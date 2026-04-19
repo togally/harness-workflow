@@ -369,6 +369,9 @@ def _scaffold_v2_file_contents(root: Path, include_agents: bool, include_claude:
             if not path.is_file():
                 continue
             relative = path.relative_to(SCAFFOLD_V2_ROOT).as_posix()
+            # 排除 requirements 目录（这些是 harness 自身的开发数据，不应同步到用户项目）
+            if "/requirements/" in relative or relative.startswith("requirements/"):
+                continue
             managed[relative] = path.read_text(encoding="utf-8")
     repo_name = root.name
     if include_agents:
@@ -1957,11 +1960,19 @@ def _copy_tree(source: Path, target: Path) -> None:
 
 
 def _project_skill_targets(root: Path) -> list[Path]:
-    return [
-        root / ".codex" / "skills" / "harness",
-        root / ".claude" / "skills" / "harness",
-        root / ".qoder" / "skills" / "harness",
-    ]
+    from harness_workflow.backup import read_platforms_config
+    config = read_platforms_config(str(root))
+    enabled = config.get("enabled", [])
+
+    targets = []
+    if "codex" in enabled:
+        targets.append(root / ".codex" / "skills" / "harness")
+    if "cc" in enabled:
+        targets.append(root / ".claude" / "skills" / "harness")
+    if "qoder" in enabled:
+        targets.append(root / ".qoder" / "skills" / "harness")
+    # kimi 不通过 install_local_skills 安装，通过其他机制处理
+    return targets
 
 
 def _managed_hash(text: str) -> str:

@@ -1,9 +1,13 @@
-current_requirement: ""
-stage: ""
-conversation_mode: "open"
+current_requirement: bugfix-1
+stage: done
+conversation_mode: open
 locked_requirement: ""
 locked_stage: ""
-current_regression: ""
 ff_mode: false
-ff_stage_history: []
-active_requirements: []
+ff_stage_history:
+  - regression
+  - planning
+  - testing
+  - acceptance
+active_requirements:
+  - req-27
