@@ -2864,6 +2864,7 @@ def _next_bugfix_id(root: Path) -> str:
     """Return the next available bugfix-N id."""
     max_num = 0
     for d in [
+        root / "artifacts" / "bugfixes",
         root / ".workflow" / "state" / "bugfixes",
         root / ".workflow" / "flow" / "bugfixes",
     ]:
@@ -3158,7 +3159,8 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
 
     req_num_id = requirement_id.strip() if requirement_id else _next_req_id(root)
     dir_name = f"{req_num_id}-{requirement_title}"
-    requirement_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+    branch = _get_git_branch(root) or "main"
+    requirement_dir = root / "artifacts" / branch / "requirements" / dir_name
     created: list[str] = []
     skipped: list[str] = []
     replacements = {"ID": req_num_id, "TITLE": requirement_title}
@@ -3219,7 +3221,8 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
 
     bfx_num_id = bugfix_id.strip() if bugfix_id else _next_bugfix_id(root)
     dir_name = f"{bfx_num_id}-{bugfix_title}"
-    bugfix_dir = root / ".workflow" / "flow" / "bugfixes" / dir_name
+    branch = _get_git_branch(root) or "main"
+    bugfix_dir = root / "artifacts" / branch / "bugfixes" / dir_name
     created: list[str] = []
     skipped: list[str] = []
     replacements = {"ID": bfx_num_id, "TITLE": bugfix_title}
@@ -3322,8 +3325,9 @@ def create_change(
     req_ref = requirement_id.strip() or str(runtime.get("current_requirement", "")).strip()
     req_dir = None
     if req_ref:
+        branch = _get_git_branch(root) or "main"
         req_dir = resolve_requirement_reference(
-            root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+            root / "artifacts" / branch / "requirements", req_ref, config["language"]
         )
     if not req_dir:
         raise SystemExit("No active requirement. Run `harness requirement <title>` first.")
@@ -3662,7 +3666,7 @@ def generate_requirement_artifact(root: Path, archive_target: Path, req_id: str,
     if pending_issues:
         sections += ["", "## 遗留问题与注意事项", "", pending_issues]
 
-    out_dir = root / "artifacts" / "requirements"
+    out_dir = root / "artifacts" / (git_branch or "main") / "requirements"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{req_id}-{title}.md"
     out_path.write_text("\n".join(sections) + "\n", encoding="utf-8")
