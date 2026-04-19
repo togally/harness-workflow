@@ -1,0 +1,167 @@
+# 工作流 Hooks
+
+## 1. 目标
+
+本文件定义 Harness 工作流的生命周期 hooks。
+所有 Agent 在开始行动前，必须先经过对应 hook 的硬门禁自检。
+
+原则：
+
+- hook 是强约束，不是建议
+- 任一硬门禁失败时，立即停止当前动作
+- 不允许绕过 hook 手工模拟流程
+- 如果需要脱离当前 Harness 节点，必须先显式执行 `harness exit`
+
+## 2. 生命周期
+
+### `session_start`
+
+触发时机：
+
+- 新会话开始
+- 恢复中断会话
+- 显式执行 `harness enter`
+
+必须检查：
+
+- `.workflow/context/rules/workflow-runtime.yaml`
+- 当前 `current_version`
+- 当前 version `meta.yaml`
+- `.workflow/context/rules/development-flow.md`
+- `.workflow/context/rules/agent-workflow.md`
+- `.workflow/context/rules/risk-rules.md`
+- `.workflow/context/experience/index.md`
+
+硬门禁：
+
+- 如果 `current_version` 缺失、version `meta.yaml` 缺失、runtime/config 冲突，立即停止
+- 如果 `conversation_mode` 已是 `harness`，后续对话自动受当前锁定节点约束
+
+### `before_each_reply`
+
+触发时机：
+
+- 每次正式回复用户前
+- 每次准备开始读代码、改文档、写代码、执行命令前
+
+必须检查：
+
+- 当前准备做的动作是否符合 `locked_version`、`locked_stage`、`locked_artifact_kind`、`locked_artifact_id`
+- 当前动作是否会绕过 requirement / change / plan / regression 的阶段门禁
+
+硬门禁：
+
+- 当 `conversation_mode = harness` 时，不允许脱离当前节点自由发挥
+- 如果动作超出当前阶段允许范围，停止并先提示用户推进 workflow 或执行 `harness exit`
+- 如果当前处于 `requirement_review`，即使用户给了实现型 prompt，也不能直接开始编码
+
+### `before_requirement_action`
+
+触发时机：
+
+- 创建 requirement 后
+- requirement 讨论、补充、审核前
+
+硬门禁：
+
+- requirement 阶段只允许讨论、澄清、补全文档
+- 不允许把实现型 prompt 当作编码授权
+- 不允许直接改源码
+
+### `before_change_action`
+
+触发时机：
+
+- 创建 change 后
+- change 讨论、拆分、设计前
+
+硬门禁：
+
+- 先确认该 change 是否属于当前 version
+- 先补 change 文档，再谈实现
+- 不允许跳过 change 直接进入自由编码
+
+### `before_plan_action`
+
+触发时机：
+
+- 生成或修改 plan 前
+
+硬门禁：
+
+- 必须先有明确的 change
+- plan 必须可执行，并包含验证步骤
+- 不允许在没有 plan 的情况下宣称进入实施
+
+### `before_execution`
+
+触发时机：
+
+- 准备改源码、运行实施命令、开始落代码前
+
+硬门禁：
+
+- 当前阶段必须已到 `executing`
+- 如果当前阶段还是 `requirement_review`、`changes_review`、`plan_review`、`ready_for_execution`，停止
+- 没有显式执行确认前，不允许开始实现
+
+### `before_human_input`
+
+触发时机：
+
+- 准备向用户索要额外信息前
+
+硬门禁：
+
+- 本机可直接获得的日志、编译输出、测试失败、堆栈信息，必须先由 AI 自行采集
+- 如果仍然需要用户提供配置、账号、测试数据或外部依赖信息，必须先填写对应 change `regression/required-inputs.md`
+- 不允许跳过模板直接在对话里临时发问
+
+### `after_stage_complete`
+
+触发时机：
+
+- requirement / change / plan / execution / regression 每个阶段完成后
+
+硬门禁：
+
+- 必须复盘本阶段新增经验
+- 先更新 `session-memory.md`
+- 成熟经验再融合进 `.workflow/context/experience/` 或正式规则
+
+### `before_completion`
+
+触发时机：
+
+- 准备宣称 change 完成、requirement 完成或 version 完成前
+
+硬门禁：
+
+- change 完成前必须有 `mvn compile`
+- requirement 完成前必须有项目启动成功验证
+- 如果编译失败或启动失败，必须进入 regression
+
+## 3. 执行顺序
+
+默认顺序：
+
+1. `session_start`
+2. `before_each_reply`
+3. 按当前阶段进入对应专用 hook
+4. 真正执行动作
+5. `after_stage_complete`
+6. `before_completion`
+
+## 4. 对话锁规则
+
+- `harness enter`：显式进入 Harness 会话模式
+- 任意 `harness` 命令：默认自动进入 Harness 会话模式
+- `harness exit`：解除会话锁，但不修改当前 workflow 阶段
+
+当会话锁处于开启状态：
+
+- 所有回复都必须先过 `before_each_reply`
+- 如果准备做的事不属于当前锁定节点，先停止
+- 只有两种合法出路：
+  - 继续在当前 workflow 节点内推进
+  - 显式执行 `harness exit`

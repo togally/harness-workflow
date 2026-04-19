@@ -1,0 +1,166 @@
+# Workflow Hooks
+
+## 1. Purpose
+
+This file defines lifecycle hooks for the Harness workflow.
+Every agent must pass the relevant hard-gate checks before acting.
+
+Principles:
+
+- hooks are mandatory, not advisory
+- if any hard gate fails, stop the current action immediately
+- do not improvise a manual flow around the hooks
+- if the agent needs to leave the current Harness node, it must explicitly run `harness exit` first
+
+## 2. Lifecycle
+
+### `session_start`
+
+Trigger:
+
+- a new session starts
+- a suspended session resumes
+- `harness enter` is called explicitly
+
+Required reads:
+
+- `.workflow/context/rules/workflow-runtime.yaml`
+- the active version `meta.yaml`
+- `.workflow/context/rules/development-flow.md`
+- `.workflow/context/rules/agent-workflow.md`
+- `.workflow/context/rules/risk-rules.md`
+- `.workflow/context/experience/index.md`
+
+Hard gates:
+
+- stop immediately if `current_version` is missing, the version `meta.yaml` is missing, or runtime/config disagree
+- if `conversation_mode` is already `harness`, all later replies are constrained by the locked workflow node
+
+### `before_each_reply`
+
+Trigger:
+
+- before every substantive user reply
+- before reading code, editing docs, writing code, or running commands
+
+Required checks:
+
+- whether the planned action matches `locked_version`, `locked_stage`, `locked_artifact_kind`, and `locked_artifact_id`
+- whether the action would bypass requirement / change / plan / regression stage gates
+
+Hard gates:
+
+- when `conversation_mode = harness`, do not drift outside the locked node
+- if the action exceeds the current stage allowance, stop and require workflow advancement or `harness exit`
+- during `requirement_review`, even an implementation-oriented prompt is not permission to code
+
+### `before_requirement_action`
+
+Trigger:
+
+- after a requirement is created
+- before requirement discussion, refinement, or review
+
+Hard gates:
+
+- requirement stage allows discussion, clarification, and document refinement only
+- do not treat an implementation-oriented prompt as coding authorization
+- do not modify production source files
+
+### `before_change_action`
+
+Trigger:
+
+- after a change is created
+- before change discussion, decomposition, or design work
+
+Hard gates:
+
+- confirm the change belongs to the active version
+- fill the change docs before implementation discussion
+- do not bypass the change stage and jump into free-form coding
+
+### `before_plan_action`
+
+Trigger:
+
+- before generating or revising a plan
+
+Hard gates:
+
+- there must be a concrete change in focus
+- the plan must be executable and contain verification steps
+- do not claim implementation is ready without a plan
+
+### `before_execution`
+
+Trigger:
+
+- before modifying source code, running implementation commands, or starting delivery work
+
+Hard gates:
+
+- the current stage must already be `executing`
+- if the stage is still `requirement_review`, `changes_review`, `plan_review`, or `ready_for_execution`, stop
+- without explicit execution confirmation, do not start implementation
+
+### `before_human_input`
+
+Trigger:
+
+- before asking the human for additional information
+
+Hard gates:
+
+- locally available logs, compile output, test failures, and stack traces must be collected by the AI first
+- if human-provided configuration, credentials, test data, or external dependency details are still required, fill the current change `regression/required-inputs.md` first
+- do not skip the template and ask ad hoc questions in chat
+
+### `after_stage_complete`
+
+Trigger:
+
+- after each requirement / change / plan / execution / regression stage
+
+Hard gates:
+
+- review what was learned in that stage
+- update `session-memory.md` first
+- then promote mature lessons into `.workflow/context/experience/` or formal rules when justified
+
+### `before_completion`
+
+Trigger:
+
+- before claiming a change, requirement, or version is complete
+
+Hard gates:
+
+- every completed change must include `mvn compile`
+- every completed requirement must include successful project startup validation
+- if compilation or startup fails, enter regression first
+
+## 3. Execution Order
+
+Default order:
+
+1. `session_start`
+2. `before_each_reply`
+3. the stage-specific hook for the current action
+4. the actual work
+5. `after_stage_complete`
+6. `before_completion`
+
+## 4. Conversation Lock
+
+- `harness enter`: explicitly enter Harness conversation mode
+- any `harness` command: implicitly enter Harness conversation mode
+- `harness exit`: release the conversation lock without changing the current workflow stage
+
+While the lock is active:
+
+- every reply must pass `before_each_reply`
+- if the planned action does not belong to the locked node, stop first
+- there are only two valid exits:
+  - continue advancing within the current workflow node
+  - explicitly run `harness exit`
