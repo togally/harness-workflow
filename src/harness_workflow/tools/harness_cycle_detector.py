@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Detect circular dependencies in subagent call chains."""
+"""Detect circular dependencies in subagent call chains.
+
+本文件历史上同时承担两种职责：
+
+1. CLI 入口（``main()``，被 ``python -m`` 或 harness 命令调用），基于文件
+   级 JSON 调用链持久化。
+2. in-process API（``CallChainNode`` / ``CycleDetector`` 等），供其它 Python
+   代码在派发 subagent 前做快速判断。
+
+req-28 / chg-04 恢复时把对象模型统一迁到
+``harness_workflow.cycle_detection``，本文件保留 CLI，并**再出口**一次这些
+符号以兼容旧 import 路径 ``from harness_workflow.tools.harness_cycle_detector
+import CallChainNode``。
+"""
 
 from __future__ import annotations
 
@@ -8,6 +21,16 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+from harness_workflow.cycle_detection import (  # noqa: F401  (re-export)
+    CallChainNode,
+    CycleDetectionResult,
+    CycleDetector,
+    detect_subagent_cycle,
+    get_cycle_detector,
+    report_cycle_detection,
+    reset_cycle_detector,
+)
 
 
 def main() -> int:

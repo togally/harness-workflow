@@ -69,6 +69,16 @@ cd your-project
 harness install          # 安装 Claude Code / Codex / Qoder / kimicli 的 skill 文件
 ```
 
+### 刷新 change / plan 模板到最新版本
+
+`harness change` 使用的 change.md / plan.md 模板由已安装的 `harness_workflow` Python 包动态读取。要拿到最新模板，只需升级 Python 包：
+
+```bash
+pip install -U harness-workflow
+```
+
+之后新建的 change 会用最新模板；已经落盘的历史 change 是一次性快照，不会也不需要更新。
+
 ---
 
 ## 核心命令

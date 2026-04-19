@@ -11,6 +11,9 @@
 ### Step 1: 读取需求与变更文档
 - 读取 `requirement.md` 和所有 `change.md`
 - 提取所有验收标准（AC）
+- **对人文档落盘硬门禁（req-28 / chg-05，AC-09）**：验收开始前必须调用
+  `harness validate --human-docs --requirement <current_requirement>`（bugfix 场景使用 `--bugfix <id>`），
+  结果须为全 ok；未达项必须写入后续产出的 `验收摘要.md`，并停下来把 subagent 交回 executing 角色补齐对人文档。
 
 ### Step 2: 逐条核查
 - 对照 AC 逐项检查实际交付
@@ -101,8 +104,17 @@
 2. 检查 `state/requirements/{req-id}.yaml` 的 `status` 字段与 `runtime.yaml` 中的需求状态是否一致
 3. 如发现不一致，**必须先修复**再流转到 done，防止状态漂移累积
 
+## 核查清单
+
+- [ ] requirement.md 中每条验收标准是否都有对应的核查结论？
+- [ ] 每个 change.md 中的 AC 是否都已逐条核查？
+- [ ] 验收报告是否客观，不带修复建议？
+- [ ] 人工是否已做出明确的通过/驳回判定？
+- [ ] 已调用 `harness validate --human-docs` 并确认对人文档落盘完整，未达项已写入验收摘要（req-28 / chg-05，AC-09）。
+
 ## 完成前必须检查
 1. requirement.md 中每条验收标准是否都有对应的核查结论？
 2. 每个 change.md 中的 AC 是否都已逐条核查？
 3. 验收报告是否客观，不带修复建议？
 4. 人工是否已做出明确的通过/驳回判定？
+5. `harness validate --human-docs` 结果是否为全 ok？未达项是否写入 `验收摘要.md`？（req-28 / chg-05，AC-09）

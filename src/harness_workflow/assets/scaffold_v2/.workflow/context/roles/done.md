@@ -65,6 +65,19 @@ done 阶段由主 agent（技术总监）亲自执行，可用工具不受 stage
 - 不得未读检查清单就直接输出"完成"
 - 不得遗漏 `done-report.md` 中的改进建议提取
 - 不得在经验文件未检查的情况下直接标记 done 完成
+- 不得写入缺少 YAML frontmatter 的 sug 文件（req-28 / chg-01 硬门禁）
+
+## sug 文件 frontmatter 硬门禁（req-28 / chg-01，AC-15）
+
+done 阶段新增 sug 文件（`.workflow/flow/suggestions/sug-NN-*.md`）**必须**带完整的 YAML frontmatter，字段要求：
+
+- `id`：形如 `sug-NN`，必须与文件名编号一致
+- `title`：一句话建议标题
+- `status`：初始值 `pending`
+- `created_at`：ISO 日期字符串
+- `priority`：`high` / `medium` / `low` 三者之一
+
+缺失上述任一必填字段的 sug 文件视为不合法，CI / reviewer 应拒绝落盘。存量无 frontmatter 的历史 sug 不强制回填，但 `harness suggest --apply / --delete / --archive` 的 filename fallback（基于 `sug-NN` 前缀）保障其可被操作。
 
 ## 上下文维护职责
 

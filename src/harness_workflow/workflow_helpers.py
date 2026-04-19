@@ -341,18 +341,40 @@ def load_requirement_runtime(root: Path) -> dict[str, object]:
     active_requirements = payload.get("active_requirements", [])
     if not isinstance(active_requirements, list):
         payload["active_requirements"] = []
+    # req-28 / chg-02（AC-12）：懒回填 operation_type / operation_target。
+    # 若 runtime.yaml 中缺失（被旧版本 save 裁剪、或人工清空），从 current_requirement
+    # 的前缀推断。仅在字段为空时触发，不覆盖已存在的显式值。
+    current_req = str(payload.get("current_requirement", "")).strip()
+    operation_type = str(payload.get("operation_type", "")).strip()
+    operation_target = str(payload.get("operation_target", "")).strip()
+    if current_req and not operation_type:
+        if current_req.startswith("bugfix-"):
+            payload["operation_type"] = "bugfix"
+        elif current_req.startswith("sug-"):
+            payload["operation_type"] = "suggestion"
+        else:
+            payload["operation_type"] = "requirement"
+    if current_req and not operation_target:
+        payload["operation_target"] = current_req
     return payload
 
 
 def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
     payload = dict(DEFAULT_STATE_RUNTIME)
     payload.update(runtime)
+    # req-28 / chg-02（AC-12）：ordered_keys 必须包含 operation_type / operation_target
+    # 以及 stage_entered_at，否则 save_simple_yaml 会按白名单裁剪字段，导致
+    # `create_bugfix` 写入的 operation_type 在第一次 save→load 往返后丢失，
+    # 进而触发 `workflow_next` 走错 sequence → `Unknown stage: regression`。
     save_simple_yaml(
         root / STATE_RUNTIME_PATH,
         payload,
         ordered_keys=[
+            "operation_type",
+            "operation_target",
             "current_requirement",
             "stage",
+            "stage_entered_at",
             "conversation_mode",
             "locked_requirement",
             "locked_stage",
@@ -2918,11 +2940,21 @@ def _next_bugfix_id(root: Path) -> str:
 
 
 def _next_suggestion_id(root: Path) -> str:
+    """计算下一个 sug-NN 编号（req-28 / chg-01，覆盖 AC-15）。
+
+    同时扫描 `.workflow/flow/suggestions/` 当前目录与 `archive/` 子目录，
+    聚合两处的最大编号后 +1，保证当前目录被清空后编号不会回滚到 01
+    与 `archive/` 下历史 sug 冲突。
+    """
+    pattern = re.compile(r"^sug-(\d+)(?:-|\.)")
     max_num = 0
     suggestions_dir = root / ".workflow" / "flow" / "suggestions"
-    if suggestions_dir.exists():
-        for item in suggestions_dir.iterdir():
-            m = re.match(r"sug-(\d+)", item.name)
+    scan_dirs = [suggestions_dir, suggestions_dir / "archive"]
+    for dir_path in scan_dirs:
+        if not dir_path.exists():
+            continue
+        for p in dir_path.glob("sug-*.md"):
+            m = pattern.match(p.name)
             if m:
                 max_num = max(max_num, int(m.group(1)))
     return f"sug-{max_num + 1:02d}"
@@ -3044,10 +3076,19 @@ def apply_suggestion(root: Path, suggest_id: str) -> int:
     if not suggestions_dir.exists():
         raise SystemExit("No suggestions found.")
 
+    # req-28 / chg-01（AC-15）：frontmatter `id:` 优先匹配，失败时回退 filename。
+    # 兼容三种形态：(a) frontmatter.id 精确等于；(b) path.stem 精确等于（如 `sug-01`）；
+    # (c) path.stem 以 `sug-NN-` 开头。
     target = None
     for path in sorted(suggestions_dir.glob("sug-*.md")):
         state = load_simple_yaml(path)
-        if str(state.get("id", "")).strip() == suggest_id:
+        sid_from_yaml = str(state.get("id", "")).strip()
+        sid_from_filename = path.stem
+        if (
+            sid_from_yaml == suggest_id
+            or sid_from_filename == suggest_id
+            or sid_from_filename.startswith(suggest_id + "-")
+        ):
             target = path
             break
 
@@ -3073,10 +3114,17 @@ def delete_suggestion(root: Path, suggest_id: str) -> int:
     if not suggestions_dir.exists():
         raise SystemExit("No suggestions found.")
 
+    # req-28 / chg-01（AC-15）：frontmatter `id:` 优先匹配，失败时回退 filename。
     target = None
     for path in sorted(suggestions_dir.glob("sug-*.md")):
         state = load_simple_yaml(path)
-        if str(state.get("id", "")).strip() == suggest_id:
+        sid_from_yaml = str(state.get("id", "")).strip()
+        sid_from_filename = path.stem
+        if (
+            sid_from_yaml == suggest_id
+            or sid_from_filename == suggest_id
+            or sid_from_filename.startswith(suggest_id + "-")
+        ):
             target = path
             break
 
@@ -3094,11 +3142,18 @@ def archive_suggestion(root: Path, suggest_id: str) -> int:
     if not suggestions_dir.exists():
         raise SystemExit("No suggestions found.")
 
+    # req-28 / chg-01（AC-15）：frontmatter `id:` 优先匹配，失败时回退 filename，
+    # 同时兼容 `sug-NN` 与 `sug-NN-slug` 两种 stem 形态。
     target = None
     for path in sorted(suggestions_dir.glob("sug-*.md")):
-        # Extract id from filename (e.g., "sug-01-executing-selftest-restart.md" -> "sug-01")
-        filename_id = path.stem.split("-")[0] + "-" + path.stem.split("-")[1]
-        if filename_id == suggest_id:
+        state = load_simple_yaml(path)
+        sid_from_yaml = str(state.get("id", "")).strip()
+        sid_from_filename = path.stem
+        if (
+            sid_from_yaml == suggest_id
+            or sid_from_filename == suggest_id
+            or sid_from_filename.startswith(suggest_id + "-")
+        ):
             target = path
             break
 
@@ -4087,21 +4142,27 @@ def _check_plan_completion(plan_path: Path) -> tuple[bool, list[str]]:
 
 
 def list_done_requirements(root: Path) -> list[dict]:
-    """返回 stage == 'done' 且尚未归档的需求列表。"""
-    req_state_dir = root / ".workflow" / "state" / "requirements"
-    results = []
-    if not req_state_dir.exists():
-        return results
-    for req_file in sorted(req_state_dir.rglob("*.yaml")):
-        state = load_simple_yaml(req_file)
-        stage = str(state.get("stage", "")).strip()
-        status = str(state.get("status", "")).strip()
-        if stage == "done" and status != "archived":
-            results.append({
-                "req_id": _get_req_id(state),
-                "title": str(state.get("title", "")).strip(),
-                "stage": stage,
-            })
+    """返回 stage == 'done' 且尚未归档的需求与 bugfix 列表。
+
+    req-28 / chg-03（AC-14）：同时扫 ``.workflow/state/requirements/`` 与
+    ``.workflow/state/bugfixes/``，每条结果带 ``kind`` 字段（``req`` / ``bugfix``）。
+    """
+    results: list[dict] = []
+    for sub, kind in (("requirements", "req"), ("bugfixes", "bugfix")):
+        state_dir = root / ".workflow" / "state" / sub
+        if not state_dir.exists():
+            continue
+        for req_file in sorted(state_dir.rglob("*.yaml")):
+            state = load_simple_yaml(req_file)
+            stage = str(state.get("stage", "")).strip()
+            status = str(state.get("status", "")).strip()
+            if stage == "done" and status != "archived":
+                results.append({
+                    "req_id": _get_req_id(state),
+                    "title": str(state.get("title", "")).strip(),
+                    "stage": stage,
+                    "kind": kind,
+                })
     return results
 
 
@@ -4244,6 +4305,34 @@ def resolve_archive_root(root: Path) -> Path:
     return primary
 
 
+def resolve_bugfix_root(root: Path) -> Path:
+    """返回 bugfix 工作目录根（非归档）。
+
+    req-28 / chg-03：与 ``resolve_requirement_root`` 对称，用于定位 bugfix
+    活跃目录，供 ``archive_requirement`` 在 bugfix 分流时找到源目录。
+
+    优先级：
+      1. ``artifacts/{branch}/bugfixes``
+      2. ``artifacts/bugfixes``（过渡形态）
+      3. ``.workflow/flow/bugfixes``（legacy）
+
+    与 ``resolve_requirement_root`` 一致，helper 不做 mkdir；全不存在时返回
+    primary 路径，由调用方负责创建。
+    """
+    branch = _get_git_branch(root) or "main"
+    primary = root / "artifacts" / branch / "bugfixes"
+    secondary = root / "artifacts" / "bugfixes"
+    legacy = root / ".workflow" / "flow" / "bugfixes"
+
+    if _has_substantive_content(primary):
+        return primary
+    if _has_substantive_content(secondary):
+        return secondary
+    if _has_substantive_content(legacy):
+        return legacy
+    return primary
+
+
 def migrate_requirements(root: Path, dry_run: bool = False) -> int:
     """把 legacy 路径下的 requirement 目录搬到 ``artifacts/{branch}/requirements``。
 
@@ -4332,16 +4421,92 @@ def migrate_requirements(root: Path, dry_run: bool = False) -> int:
     return 1 if conflicts else 0
 
 
-def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> int:
-    runtime = load_requirement_runtime(root)
-    requirements_dir = resolve_requirement_root(root)
-    req_dir = resolve_requirement_reference(requirements_dir, requirement_name, "cn")
-    if not req_dir:
-        raise SystemExit(f"Requirement does not exist: {requirement_name}")
+def archive_requirement(
+    root: Path,
+    requirement_name: str,
+    folder: str = "",
+    force_done: bool = False,
+) -> int:
+    """归档 requirement 或 bugfix。
 
+    req-28 / chg-03（AC-14）：按 id 前缀分流。
+      - ``req-*`` → ``artifacts/{branch}/archive/requirements/<dir>``（保留原行为，
+        primary 形态下不再拼 ``folder=branch`` 避免双层 branch，legacy 保持）。
+      - ``bugfix-*`` → ``artifacts/{branch}/archive/bugfixes/<dir>``，源目录从
+        ``resolve_bugfix_root`` 定位，state yaml 落 ``state/bugfixes/``。
+
+    ``force_done`` 用于 sweep 历史活跃 bugfix：把目标 state yaml 的 ``stage`` 强置
+    为 ``done``、``status`` 设为 ``done``、``completed_at`` 填当前时间，然后走正常
+    归档路径。仅对 bugfix 生效；对 requirement 是 no-op（保留接口对称）。
+    """
+    from datetime import datetime as _dt
+
+    runtime = load_requirement_runtime(root)
+    current_branch = _get_git_branch(root) or "main"
+
+    # --- id 前缀分流 ---
+    raw_ref = (requirement_name or "").strip()
+    is_bugfix = raw_ref.startswith("bugfix-") or (
+        # 容错：调用者传入完整目录名（含 slug）
+        raw_ref.startswith("bugfix-") and "-" in raw_ref
+    )
+    # 真正的判定：凡是以 `bugfix-` 开头即视为 bugfix。
+    is_bugfix = raw_ref.startswith("bugfix-")
+    kind_label = "bugfix" if is_bugfix else "requirement"
+
+    if is_bugfix:
+        source_root = resolve_bugfix_root(root)
+        state_subdir = "bugfixes"
+        archive_subdir = "bugfixes"
+    else:
+        source_root = resolve_requirement_root(root)
+        state_subdir = "requirements"
+        archive_subdir = "requirements"
+
+    req_dir = resolve_requirement_reference(source_root, raw_ref, "cn")
+    if not req_dir:
+        raise SystemExit(f"{kind_label.capitalize()} does not exist: {requirement_name}")
+
+    # --- force-done：在移动目录前改写 state yaml ---
+    state_yaml_path: Path | None = None
+    if is_bugfix:
+        state_dir_for_force = root / ".workflow" / "state" / "bugfixes"
+        if state_dir_for_force.exists():
+            for yaml_path in sorted(state_dir_for_force.rglob("*.yaml")):
+                st = load_simple_yaml(yaml_path)
+                st_id = _get_req_id(st)
+                stem = yaml_path.stem
+                if (
+                    (st_id and st_id == raw_ref)
+                    or stem == raw_ref
+                    or stem.startswith(raw_ref + "-")
+                    or stem == req_dir.name
+                    or (st_id and st_id in req_dir.name)
+                ):
+                    state_yaml_path = yaml_path
+                    break
+        if state_yaml_path is None:
+            # 无 state yaml 时不硬失败；但 force_done 没有目标，直接忽略。
+            pass
+        else:
+            state_data = load_simple_yaml(state_yaml_path)
+            stage_val = str(state_data.get("stage", "")).strip()
+            if stage_val != "done":
+                if not force_done:
+                    raise SystemExit(
+                        f"Bugfix {raw_ref} stage is '{stage_val}', not 'done'. "
+                        f"Use --force-done to archive anyway."
+                    )
+                state_data["stage"] = "done"
+                state_data["status"] = "done"
+                state_data["completed_at"] = _dt.now().isoformat(timespec="seconds")
+                save_simple_yaml(state_yaml_path, state_data)
+                print(f"[archive] force-done: {state_yaml_path.name} stage -> done")
+
+    # --- 目标路径计算 ---
     # 若未传 folder，读取 git branch 作为默认
     if not folder:
-        folder = _get_git_branch(root)
+        folder = current_branch
 
     # req-26 / chg-04 AC-05：修复归档路径双层 branch。
     # ``resolve_archive_root`` 的 primary 分支（``artifacts/{branch}/archive``）已经
@@ -4351,7 +4516,6 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     # 则跳过这一层拼接；legacy 形态（``.workflow/flow/archive``）不含 branch，
     # 照旧拼一层 folder。历史已存在的双层 branch 目录保持不动（AC-05 Excluded）。
     archive_base = resolve_archive_root(root)
-    current_branch = _get_git_branch(root) or "main"
 
     def _archive_base_already_has_branch(base: Path, branch: str) -> bool:
         # primary 形态：``<root>/artifacts/{branch}/archive``，base.parent.name == branch
@@ -4364,22 +4528,27 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
 
     if folder and _archive_base_already_has_branch(archive_base, current_branch) and folder == current_branch:
         # primary：base 已经含 branch，折叠一层避免双拼
-        target_parent = archive_base
+        target_parent = archive_base / archive_subdir
     else:
-        target_parent = archive_base / folder if folder else archive_base
+        # legacy / 自定义 folder：保持原 ``archive/{folder}/<dir>`` 结构
+        # 对 bugfix 仍在 folder 下再拼一层 ``bugfixes/``，区分 requirement / bugfix
+        if folder:
+            target_parent = archive_base / folder / archive_subdir
+        else:
+            target_parent = archive_base / archive_subdir
     target_parent.mkdir(parents=True, exist_ok=True)
 
     target = target_parent / req_dir.name
     shutil.move(str(req_dir), str(target))
 
-    # Update state/requirements/*.yaml and migrate to archive
-    req_state_dir = root / ".workflow" / "state" / "requirements"
+    # Update state/{sub}/*.yaml and migrate to archive
+    req_state_dir = root / ".workflow" / "state" / state_subdir
     archived_req_id = ""
     if req_state_dir.exists():
         for req_file in sorted(req_state_dir.rglob("*.yaml")):
             state = load_simple_yaml(req_file)
             req_id_val = _get_req_id(state)
-            if req_file.stem == req_dir.name or req_id_val in req_dir.name:
+            if req_file.stem == req_dir.name or (req_id_val and req_id_val in req_dir.name):
                 archived_req_id = req_id_val
                 state["status"] = "archived"
                 save_simple_yaml(req_file, state)
@@ -4391,26 +4560,31 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     active_reqs = [str(r) for r in runtime.get("active_requirements", []) if str(r) != archived_req_id]
     runtime["active_requirements"] = active_reqs
     current_req = str(runtime.get("current_requirement", "")).strip()
-    if current_req == archived_req_id or (archived_req_id and archived_req_id in current_req) or (current_req and current_req in req_dir.name):
+    # req-28 / chg-03：归档 bugfix 不应意外切走 current_requirement（如主 req-28）。
+    # 仅当 current_requirement 精确等于被归档 id（或目录名中含之）时才清空/重定向。
+    if current_req == archived_req_id or (archived_req_id and current_req == raw_ref):
         runtime["current_requirement"] = active_reqs[0] if active_reqs else ""
     save_requirement_runtime(root, runtime)
 
-    # Migrate state/sessions/req-xx/ to archive directory
-    if archived_req_id:
+    # Migrate state/sessions/{id}/ to archive directory（仅 requirement 分支保留 sessions 迁移）
+    if archived_req_id and not is_bugfix:
         sessions_src = root / ".workflow" / "state" / "sessions" / archived_req_id
         if sessions_src.exists():
             sessions_dst = target / "sessions"
             shutil.move(str(sessions_src), str(sessions_dst))
             print(f"Migrated sessions: {sessions_dst}")
 
-    # Clean up residual active requirement directory
-    residual_req_dir = requirements_dir / req_dir.name
+    # Clean up residual active directory
+    residual_req_dir = source_root / req_dir.name
     if residual_req_dir.exists():
         shutil.rmtree(str(residual_req_dir))
-        print(f"Cleaned residual: {residual_req_dir.relative_to(root)}")
+        try:
+            print(f"Cleaned residual: {residual_req_dir.relative_to(root)}")
+        except ValueError:
+            print(f"Cleaned residual: {residual_req_dir}")
 
-    # Generate artifact document
-    if archived_req_id:
+    # Generate artifact document（仅 requirement 分支；bugfix 目前不强求 artifact 文档）
+    if archived_req_id and not is_bugfix:
         req_title = re.sub(r"^req-\d+-", "", req_dir.name)
         try:
             artifact_path = generate_requirement_artifact(root, target, archived_req_id, req_title)
@@ -4418,7 +4592,7 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
         except Exception as exc:
             print(f"Warning: artifact generation failed: {exc}")
 
-    print(f"Archived requirement: {req_dir.name}")
+    print(f"Archived {kind_label}: {req_dir.name}")
     print(f"Archive path: {target}")
 
     # Git auto-commit prompt

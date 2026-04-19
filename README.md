@@ -56,6 +56,16 @@ If you need to overwrite existing skill files (e.g., after a breaking update):
 harness install --force  # force reinstall of all platform skills
 ```
 
+### Refreshing change / plan templates
+
+`harness change` dynamically reads its `change.md` / `plan.md` templates from the installed `harness_workflow` Python package. To pick up the latest templates, simply upgrade the package:
+
+```bash
+pip install -U harness-workflow
+```
+
+New changes created afterwards will use the latest templates. Already-persisted historical changes are one-shot snapshots and will not (and need not) be updated.
+
 ---
 
 ## Core Commands

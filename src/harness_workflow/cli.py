@@ -168,6 +168,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_parser = subparsers.add_parser("validate", help="Validate the current requirement's artifacts.")
     validate_parser.add_argument("--root", default=".", help="Repository root.")
+    validate_parser.add_argument(
+        "--human-docs",
+        action="store_true",
+        help="Validate human-facing documents landed under artifacts/{branch}/... (req-28 / chg-05).",
+    )
+    validate_parser.add_argument(
+        "--requirement",
+        dest="requirement",
+        default=None,
+        help="Target requirement id for --human-docs (e.g. req-28). Falls back to current_requirement.",
+    )
+    validate_parser.add_argument(
+        "--bugfix",
+        dest="bugfix",
+        default=None,
+        help="Target bugfix id for --human-docs (e.g. bugfix-3). Mutually exclusive with --requirement.",
+    )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
     next_parser.add_argument("--root", default=".", help="Repository root.")
@@ -195,10 +212,16 @@ def build_parser() -> argparse.ArgumentParser:
     change_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
     change_parser.add_argument("--requirement", default="", help="Optional requirement title or id to link.")
 
-    archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement.")
-    archive_parser.add_argument("requirement", nargs="?", default=None, help="Requirement title or id (optional, shows list if omitted).")
+    archive_parser = subparsers.add_parser("archive", help="Archive one completed requirement or bugfix.")
+    archive_parser.add_argument("requirement", nargs="?", default=None, help="Requirement/bugfix title or id (optional, shows list if omitted).")
     archive_parser.add_argument("--root", default=".", help="Repository root.")
     archive_parser.add_argument("--folder", default="", help="Optional subfolder name within archive/.")
+    archive_parser.add_argument(
+        "--force-done",
+        dest="force_done",
+        action="store_true",
+        help="For bugfixes only: bypass stage=='done' gate and force state to done before archiving. Use to sweep historical active bugfixes.",
+    )
 
     rename_parser = subparsers.add_parser("rename", help="Rename a requirement, change, or bugfix.")
     rename_parser.add_argument("kind", choices=["requirement", "change", "bugfix"], help="Artifact kind.")
@@ -332,6 +355,14 @@ def main() -> int:
     if args.command == "status":
         return _run_tool_script("harness_status.py", [], root)
     if args.command == "validate":
+        if getattr(args, "human_docs", False):
+            # req-28 / chg-05：对人文档落盘校验分支
+            if args.requirement and args.bugfix:
+                print("[harness] validate --human-docs: --requirement 与 --bugfix 互斥")
+                return 2
+            from harness_workflow.validate_human_docs import run_cli as _run_human_docs_cli
+            target = args.requirement or args.bugfix  # None → 回退 current_requirement
+            return _run_human_docs_cli(root, target)
         return _run_tool_script("harness_validate.py", [], root)
     if args.command == "next":
         cmd_args = []
@@ -370,15 +401,25 @@ def main() -> int:
             cmd_args.extend(["--requirement", args.requirement])
         return _run_tool_script("harness_change.py", cmd_args, root)
     if args.command == "archive":
-        # List done requirements for interactive selection
+        # req-28 / chg-03（AC-14）：同时扫 requirements / bugfixes，允许 --force-done。
+        # 若调用方显式传入 `--force-done` + 具体 id，跳过 interactive 候选列表，直接
+        # 走 helper（否则 active 非 done 的 bugfix 永远进不了候选，--force-done 失去意义）。
         import yaml
-        reqs_dir = root / ".workflow" / "state" / "requirements"
-        done_reqs = []
-        if reqs_dir.exists():
-            for f in reqs_dir.iterdir():
+        if args.force_done and args.requirement:
+            cmd_args = [args.requirement, "--force-done"]
+            if args.folder:
+                cmd_args.extend(["--folder", args.folder])
+            return _run_tool_script("harness_archive.py", cmd_args, root)
+
+        done_reqs: list[dict] = []
+        for sub in ("requirements", "bugfixes"):
+            state_dir = root / ".workflow" / "state" / sub
+            if not state_dir.exists():
+                continue
+            for f in state_dir.iterdir():
                 if f.suffix in (".yaml", ".yml"):
                     data = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
-                    if data.get("status") == "done":
+                    if data.get("stage") == "done" and data.get("status") != "archived":
                         done_reqs.append({
                             "req_id": data.get("id", f.stem),
                             "title": data.get("title", ""),
@@ -394,6 +435,8 @@ def main() -> int:
         cmd_args = [selected]
         if args.folder:
             cmd_args.extend(["--folder", args.folder])
+        if args.force_done:
+            cmd_args.append("--force-done")
         return _run_tool_script("harness_archive.py", cmd_args, root)
     if args.command == "rename":
         cmd_args = [args.kind, args.current, args.new]

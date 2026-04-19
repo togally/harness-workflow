@@ -148,6 +148,24 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 - 未触碰 `.workflow/flow/` 下现存文档；
 - 未触碰 `artifacts/bugfixes/bugfix-2/`、`artifacts/main/bugfixes/bugfix-{3,4,5}/` 下历史脏数据。
 
+### 契约 6：sug 文件 frontmatter 统一约定（req-28 / chg-01，AC-15）
+
+所有阶段角色在 `done-report.md` 建议转 suggest 池、或通过 `harness suggest` 新增 sug 文件时，写入的 sug 文件**必须**带完整 YAML frontmatter，统一包含以下字段：
+
+| 字段 | 说明 |
+|------|------|
+| `id` | 形如 `sug-NN`，必须与文件名编号一致 |
+| `title` | 一句话建议标题 |
+| `status` | 初始值 `pending`；`--apply` / `--archive` 后由 CLI 自动翻转 |
+| `created_at` | ISO 日期字符串 |
+| `priority` | `high` / `medium` / `low` 三者之一 |
+
+实施要求：
+
+- sug 编号由 `create_suggestion` 统一分配，跨 `.workflow/flow/suggestions/` 与 `archive/` 子目录单调递增，禁止手工硬编码编号。
+- 无 frontmatter 的历史 sug 不做回填，`harness suggest --apply / --delete / --archive` 通过 filename fallback（`sug-NN` 前缀匹配）兼容处理。
+- 新增 sug 一律按本契约写入；未遵守的视为违反硬门禁，由 done 阶段和 reviewer 拦截。
+
 ## 流转规则（按需）
 
 - 如需判断 stage 推进条件或归档规则，读取 `.workflow/flow/stages.md`

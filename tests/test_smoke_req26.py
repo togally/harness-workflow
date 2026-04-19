@@ -319,11 +319,12 @@ class SmokeE2ETest(unittest.TestCase):
             (archive_root / "main").exists(),
             "AC-05 failed: archive/main/ subdir found (double branch)",
         )
-        archived_dir = archive_root / req_dir.name
+        # req-28 / chg-03（AC-14）：req-* 归档落到 archive/requirements/<dir>
+        archived_dir = archive_root / "requirements" / req_dir.name
         self.assertTrue(
             archived_dir.exists(),
-            f"archived directory should sit directly under archive/, got contents: "
-            f"{[p.name for p in archive_root.iterdir()]}",
+            f"archived directory should sit under archive/requirements/, got contents: "
+            f"{[p.name for p in archive_root.rglob('*') if p.is_dir()]}",
         )
         rel = archived_dir.relative_to(self.root).as_posix()
         self.assertEqual(

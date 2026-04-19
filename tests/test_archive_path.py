@@ -129,10 +129,13 @@ class ArchivePathTest(unittest.TestCase):
         shutil.rmtree(self.tempdir, ignore_errors=True)
 
     def test_archive_path_no_double_branch(self) -> None:
-        """新归档路径：`artifacts/main/archive/req-xx-.../`，branch 段只出现一次。
+        """新归档路径：`artifacts/main/archive/requirements/req-xx-.../`，branch 段只出现一次。
 
         bug 活证：旧代码会产出 `artifacts/main/archive/main/req-xx`（双层 main）。
         修复后，primary 形态下 archive_base 已含 branch，不再拼第二层。
+
+        req-28 / chg-03（AC-14）：归档按 id 前缀分流到 ``requirements/`` 或
+        ``bugfixes/`` 子树。req-* 落到 ``archive/requirements/<dir>``。
         """
         from harness_workflow.workflow_helpers import archive_requirement
 
@@ -151,8 +154,8 @@ class ArchivePathTest(unittest.TestCase):
         archive_root = self.root / "artifacts" / "main" / "archive"
         self.assertTrue(archive_root.exists(), "archive root 应存在")
 
-        # 关键断言 1：目标目录在 `archive/req-99-.../`，不在 `archive/main/req-99-.../`
-        expected_target = archive_root / folder_name
+        # 关键断言 1：目标目录在 `archive/requirements/req-99-.../`
+        expected_target = archive_root / "requirements" / folder_name
         self.assertTrue(
             expected_target.exists(),
             f"归档目标应在 {expected_target}，目录树: "
@@ -216,8 +219,8 @@ class ArchivePathTest(unittest.TestCase):
             "历史标记文件内容不得被改写",
         )
 
-        # 断言 2：新归档落到单层 branch 路径下
-        new_target = archive_root / folder_name
+        # 断言 2：新归档落到单层 branch 路径下（req-28 / chg-03：归到 requirements/ 子树）
+        new_target = archive_root / "requirements" / folder_name
         self.assertTrue(
             new_target.exists(),
             f"新归档目标应在 {new_target.relative_to(self.root).as_posix()}",
