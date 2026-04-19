@@ -1,4 +1,4 @@
-current_requirement: "bugfix-3"
+current_requirement: "bugfix-6"
 stage: "done"
 conversation_mode: "open"
 locked_requirement: ""
@@ -14,3 +14,4 @@ active_requirements:
   - bugfix-3
   - bugfix-4
   - bugfix-5
+  - bugfix-6

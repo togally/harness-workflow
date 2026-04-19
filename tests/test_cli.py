@@ -217,7 +217,12 @@ class HarnessCliTest(unittest.TestCase):
             self.assertIn(".workflow/context/index.md", text, msg=path.as_posix())
             self.assertIn(".workflow/state/runtime.yaml", text, msg=path.as_posix())
             self.assertIn("Hard Gate", text, msg=path.as_posix())
-            self.assertIn("stop immediately", text, msg=path.as_posix())
+            # Templates may be emitted in English ("stop immediately") or Chinese
+            # ("立即停止"); either phrasing satisfies the hard-gate requirement.
+            self.assertTrue(
+                ("stop immediately" in text) or ("立即停止" in text),
+                msg=f"{path.as_posix()} missing hard-gate stop phrase",
+            )
 
     def test_update_does_not_restore_legacy_runtime_entrypoint(self) -> None:
         install = self.run_cli("install", "--root", str(self.repo))
@@ -394,6 +399,9 @@ class HarnessCliTest(unittest.TestCase):
 
     def test_update_check_and_apply_refresh_qoder_skill_and_rule(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
+        # Default install seeds only the codex skill; explicitly enable the qoder
+        # skill so this test can exercise update refresh behavior for qoder.
+        self.run_cli("install", "--root", str(self.repo), "--agent", "qoder")
         qoder_skill = self.repo / ".qoder" / "skills" / "harness" / "SKILL.md"
         qoder_command = self.repo / ".qoder" / "commands" / "harness-requirement.md"
         claude_command = self.repo / ".claude" / "commands" / "harness-requirement.md"
@@ -653,6 +661,9 @@ class HarnessCliTest(unittest.TestCase):
 
     def test_update_check_and_apply_refresh_skills_and_missing_files(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
+        # Default install seeds only the codex skill; explicitly enable the
+        # claude skill so this test can exercise update refresh behavior for cc.
+        self.run_cli("install", "--root", str(self.repo), "--agent", "claude")
         acceptance_role = self.repo / ".workflow" / "context" / "roles" / "acceptance.md"
         acceptance_role.unlink()
         codex_skill = self.repo / ".codex" / "skills" / "harness" / "SKILL.md"
@@ -835,7 +846,10 @@ class HarnessCliTest(unittest.TestCase):
     def test_installed_skill_uses_global_harness_commands(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
         skill_text = (self.repo / ".codex" / "skills" / "harness" / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("harness requirement", skill_text)
+        # The installed wrapper SKILL.md should reference the global `harness` CLI,
+        # not invoke the legacy `python3 scripts/*.py` entry points.
+        self.assertIn("harness", skill_text)
+        self.assertIn("harness active", skill_text)
         self.assertNotIn("python3 scripts/harness.py", skill_text)
         self.assertIn(".workflow/state/runtime.yaml", skill_text)
         self.assertNotIn("python3 scripts/lint_harness_repo.py", skill_text)
@@ -1033,7 +1047,9 @@ class HarnessCliTest(unittest.TestCase):
         result = self.run_cli("bugfix", "Login form validation fails", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
 
-        bugfix_dir = self.repo / ".workflow" / "flow" / "bugfixes" / "bugfix-1-Login form validation fails"
+        # req-26 path-isomorphism: bugfix workspace lives under artifacts/{branch}/...
+        # instead of the legacy `.workflow/flow/bugfixes/...` location.
+        bugfix_dir = self.repo / "artifacts" / "main" / "bugfixes" / "bugfix-1-Login form validation fails"
         self.assertTrue((bugfix_dir / "bugfix.md").exists())
         self.assertTrue((bugfix_dir / "session-memory.md").exists())
         self.assertTrue((bugfix_dir / "regression" / "diagnosis.md").exists())
