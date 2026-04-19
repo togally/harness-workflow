@@ -95,3 +95,27 @@ req-05 和 req-06 修改了 `.workflow/flow/stages.md`、`.workflow/context/role
 
 ### 来源
 req-07 Yh-platform 验证（harness install 模板过时）
+
+---
+
+## 经验：`create_suggestion` 编号必须跨 archive + current 单调递增
+
+### 场景
+req-28 / chg-01 发现：`create_suggestion` 只扫描 `.workflow/flow/suggestions/` 当前目录决定下一个编号，不考虑 `archive/` 子目录。执行 `harness suggest --apply-all` 清空当前目录后，下一条新建的 sug 编号会从 `sug-01` 重新开始，与历史归档冲突（例如 sug-01-ff-auto 已存在于 archive）。
+
+### 经验内容
+任何基于"最大编号 +1"分配新 ID 的 CLI 实现，必须**同时扫描活跃目录与归档目录**取全集 max：
+
+```python
+# 正确：跨当前 + archive 取全集最大值 +1
+def next_suggestion_id():
+    current = list_ids(SUGGESTIONS_DIR)
+    archived = list_ids(SUGGESTIONS_DIR / "archive")
+    max_id = max(current + archived + [0])
+    return max_id + 1
+```
+
+`harness suggest` 同时需要 filename fallback（基于 `sug-NN` 前缀）兼容历史无 frontmatter 的 sug 文件，保证 `--apply / --delete / --archive` 对老文件可用。
+
+### 来源
+req-28/chg-01 — create_suggestion 跨 archive+current 单调递增 + filename fallback
