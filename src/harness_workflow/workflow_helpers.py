@@ -6,6 +6,7 @@ import py_compile
 import re
 import shutil
 import subprocess
+import sys
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
@@ -2043,6 +2044,11 @@ def _save_managed_state(root: Path, managed_files: dict[str, str]) -> None:
 
 
 def _required_dirs(root: Path) -> list[Path]:
+    # branch 解析失败兜底 "main"；helper 此处调用安全，因 _required_dirs 仅在 init / update 路径被触发。
+    # 注意：legacy `.workflow/flow/requirements` 保留是为了过渡期不破坏老仓读取；
+    # 运行时读取只走 `resolve_requirement_root`，init 侧同时建 legacy + 新路径以避免"写新路径、
+    # 读旧路径"或"新仓无 legacy → helper 降级误判"两种情况。
+    branch = _get_git_branch(root) or "main"
     return [
         root / ".workflow" / "state",
         root / ".workflow" / "state" / "requirements",
@@ -2050,6 +2056,7 @@ def _required_dirs(root: Path) -> list[Path]:
         root / ".workflow" / "state" / "experience",
         root / ".workflow" / "flow",
         root / ".workflow" / "flow" / "requirements",
+        root / "artifacts" / branch / "requirements",
         root / ".workflow" / "constraints",
         root / ".workflow" / "evaluation",
         root / ".workflow" / "context" / "roles",
@@ -2856,12 +2863,28 @@ def set_language(root: Path, language: str) -> int:
 
 
 def _next_req_id(root: Path) -> str:
-    """Return the next available req-NN id."""
+    """Return the next available req-NN id.
+
+    扫描多个来源以避免 id 回滚：
+      - ``.workflow/state/requirements``（runtime state 产出）
+      - ``.workflow/flow/requirements``（legacy 路径）
+      - ``resolve_requirement_root(root)``（当前 requirement 根，新/过渡路径）
+    """
     max_num = 0
-    for d in [
+    scan_dirs = [
         root / ".workflow" / "state" / "requirements",
         root / ".workflow" / "flow" / "requirements",
-    ]:
+        resolve_requirement_root(root),
+    ]
+    seen: set[Path] = set()
+    for d in scan_dirs:
+        try:
+            key = d.resolve()
+        except OSError:
+            key = d
+        if key in seen:
+            continue
+        seen.add(key)
         if not d.exists():
             continue
         for item in d.iterdir():
@@ -3131,7 +3154,7 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
 
     # 向生成的 requirement.md 追加被合并的 suggest 清单
     if req_id:
-        req_dir = root / ".workflow" / "flow" / "requirements" / f"{req_id}-{title}"
+        req_dir = resolve_requirement_root(root) / f"{req_id}-{title}"
         req_md = req_dir / "requirement.md"
         if req_md.exists():
             lines = ["\n## 合并建议清单\n"]
@@ -3374,9 +3397,9 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     req_dir = None
     if req_ref:
         req_dir = resolve_requirement_reference(
-            root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+            resolve_requirement_root(root), req_ref, config["language"]
         )
-    regressions_base = (req_dir / "regressions") if req_dir else (root / ".workflow" / "flow" / "regressions")
+    regressions_base = (req_dir / "regressions") if req_dir else (resolve_requirement_root(root).parent / "regressions")
     regression_dir = regressions_base / resolved_id
     created: list[str] = []
     skipped: list[str] = []
@@ -3527,7 +3550,7 @@ def regression_action(
 
 def rename_requirement(root: Path, current_name: str, new_name: str, version_name: str = "") -> int:
     config = ensure_config(root)
-    requirements_dir = root / ".workflow" / "flow" / "requirements"
+    requirements_dir = resolve_requirement_root(root)
     requirement_dir = resolve_requirement_reference(requirements_dir, current_name, config["language"])
     if not requirement_dir:
         raise SystemExit(f"Requirement does not exist: {current_name}")
@@ -3559,7 +3582,7 @@ def rename_change(root: Path, current_name: str, new_name: str, version_name: st
     req_dir = None
     if req_ref:
         req_dir = resolve_requirement_reference(
-            root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+            resolve_requirement_root(root), req_ref, config["language"]
         )
     if not req_dir:
         raise SystemExit("No active requirement. Cannot rename change without a current requirement.")
@@ -3777,9 +3800,195 @@ def _get_git_branch(root: Path) -> str:
         return ""
 
 
+# 噪声文件名白名单（模块级常量，便于扩展）
+# 用于 `resolve_requirement_root` / `resolve_archive_root` 判定"实质性非空"：
+# 若目录下仅存在这些噪声文件（而无实质 req/change/archive 内容），视为空。
+_REQUIREMENT_ROOT_NOISE_FILENAMES: frozenset[str] = frozenset({
+    ".DS_Store",
+    ".gitkeep",
+    "Thumbs.db",
+    ".keep",
+})
+
+
+def _has_substantive_content(p: Path) -> bool:
+    """目录存在且过滤噪声后仍有子节点。仅检查直接子节点、不递归。"""
+    if not p.exists() or not p.is_dir():
+        return False
+    try:
+        return any(
+            child.name not in _REQUIREMENT_ROOT_NOISE_FILENAMES
+            for child in p.iterdir()
+        )
+    except OSError:
+        return False
+
+
+def resolve_requirement_root(root: Path) -> Path:
+    """返回当前仓库 requirement 产出的根目录，按优先级降级：
+
+    1. ``artifacts/{branch}/requirements``（branch 由 ``_get_git_branch`` 解析，失败兜底 ``main``）
+    2. ``artifacts/requirements``（兼容未启用 branch 的过渡形态）
+    3. ``.workflow/flow/requirements``（legacy，仅老仓兼容；降级时 stderr 告警，
+       并提示用户运行 ``harness migrate requirements``）
+
+    选择策略：返回"目录存在且实质性非空（过滤 ``_REQUIREMENT_ROOT_NOISE_FILENAMES``
+    后仍有子节点）"的最高优先级路径；若全部不存在或全部仅含噪声文件，返回第 1 级
+    路径（让调用方负责创建）。
+
+    helper 不做 ``mkdir``，创建责任留给调用方。
+    """
+    branch = _get_git_branch(root) or "main"
+    primary = root / "artifacts" / branch / "requirements"
+    secondary = root / "artifacts" / "requirements"
+    legacy = root / ".workflow" / "flow" / "requirements"
+
+    if _has_substantive_content(primary):
+        return primary
+    if _has_substantive_content(secondary):
+        try:
+            display = secondary.relative_to(root)
+        except ValueError:
+            display = secondary
+        print(
+            f"[harness] warning: using legacy path {display}; "
+            f"run `harness migrate requirements` to consolidate.",
+            file=sys.stderr,
+        )
+        return secondary
+    if _has_substantive_content(legacy):
+        try:
+            display = legacy.relative_to(root)
+        except ValueError:
+            display = legacy
+        print(
+            f"[harness] warning: using legacy path {display}; "
+            f"run `harness migrate requirements` to consolidate.",
+            file=sys.stderr,
+        )
+        return legacy
+    return primary  # 新仓 / 空仓 / 仅噪声 → 落到新路径
+
+
+def resolve_archive_root(root: Path) -> Path:
+    """返回归档产出根目录。
+
+    1. ``artifacts/{branch}/archive``（新规）
+    2. ``.workflow/flow/archive``（legacy，降级时 stderr 告警）
+
+    若 legacy 路径有实质性内容则返回 legacy；否则默认返回新路径（让调用方创建）。
+    """
+    branch = _get_git_branch(root) or "main"
+    primary = root / "artifacts" / branch / "archive"
+    legacy = root / ".workflow" / "flow" / "archive"
+
+    if _has_substantive_content(primary):
+        return primary
+    if _has_substantive_content(legacy):
+        try:
+            display = legacy.relative_to(root)
+        except ValueError:
+            display = legacy
+        print(
+            f"[harness] warning: using legacy archive path {display}; "
+            f"run `harness migrate requirements` to consolidate.",
+            file=sys.stderr,
+        )
+        return legacy
+    return primary
+
+
+def migrate_requirements(root: Path, dry_run: bool = False) -> int:
+    """把 legacy 路径下的 requirement 目录搬到 ``artifacts/{branch}/requirements``。
+
+    扫描源（按优先级）：
+      1. ``root / ".workflow" / "flow" / "requirements"``
+      2. ``root / "artifacts" / "requirements"``
+    目标：
+      ``root / "artifacts" / {branch} / "requirements"``
+
+    行为：
+      - 源目录不存在或仅含噪声 → 跳过
+      - 目标已有同名目录 → 报错、不覆盖，计入冲突
+      - ``src == dst`` 的边界（幂等） → 跳过
+      - ``dry_run=True`` → 仅打印计划，rc=0（即使存在潜在冲突）
+      - 返回 rc：无冲突且完成 → 0；有冲突 → 1
+    """
+    branch = _get_git_branch(root) or "main"
+    dst_root = root / "artifacts" / branch / "requirements"
+    src_legacy = root / ".workflow" / "flow" / "requirements"
+    src_mid = root / "artifacts" / "requirements"
+
+    migrated: list[str] = []
+    conflicts: list[str] = []
+    skipped_idempotent: list[str] = []
+    dry_run_planned: list[str] = []
+
+    if not dry_run:
+        dst_root.mkdir(parents=True, exist_ok=True)
+
+    def _process_source(src_root: Path) -> None:
+        if not src_root.exists() or not src_root.is_dir():
+            return
+        # 若源整体为空或仅含噪声 → 跳过
+        if not _has_substantive_content(src_root):
+            return
+        for child in sorted(src_root.iterdir()):
+            if child.name in _REQUIREMENT_ROOT_NOISE_FILENAMES:
+                continue
+            if not child.is_dir():
+                continue
+            dst = dst_root / child.name
+            # src == dst 幂等边界（解析为同一物理目录）
+            try:
+                if child.resolve() == dst.resolve():
+                    skipped_idempotent.append(child.name)
+                    continue
+            except OSError:
+                pass
+            if dst.exists():
+                conflicts.append(child.name)
+                print(
+                    f"[migrate] conflict: {dst} already exists, skipped; "
+                    f"please manually reconcile `{child}` and `{dst}` "
+                    f"(rename or merge) before retrying.",
+                    file=sys.stderr,
+                )
+                continue
+            if dry_run:
+                dry_run_planned.append(child.name)
+                print(f"[migrate] (dry-run) {child} -> {dst}")
+                continue
+            print(f"[migrate] {child} -> {dst}")
+            shutil.move(str(child), str(dst))
+            migrated.append(child.name)
+
+    _process_source(src_legacy)
+    _process_source(src_mid)
+
+    if dry_run:
+        print(
+            f"[migrate] done (dry-run): {len(dry_run_planned)} planned, "
+            f"{len(conflicts)} conflict(s), {len(skipped_idempotent)} already-at-target"
+        )
+        return 0
+
+    total = len(migrated) + len(conflicts) + len(skipped_idempotent)
+    if total == 0:
+        print("[migrate] nothing to migrate")
+        return 0
+
+    print(
+        f"[migrate] done: {len(migrated)} migrated, "
+        f"{len(conflicts)} skipped (conflict), "
+        f"{len(skipped_idempotent)} already-at-target"
+    )
+    return 1 if conflicts else 0
+
+
 def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> int:
     runtime = load_requirement_runtime(root)
-    requirements_dir = root / ".workflow" / "flow" / "requirements"
+    requirements_dir = resolve_requirement_root(root)
     req_dir = resolve_requirement_reference(requirements_dir, requirement_name, "cn")
     if not req_dir:
         raise SystemExit(f"Requirement does not exist: {requirement_name}")
@@ -3788,7 +3997,7 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     if not folder:
         folder = _get_git_branch(root)
 
-    archive_base = root / ".workflow" / "flow" / "archive"
+    archive_base = resolve_archive_root(root)
     target_parent = archive_base / folder if folder else archive_base
     target_parent.mkdir(parents=True, exist_ok=True)
 
@@ -3894,7 +4103,7 @@ def validate_requirement(root: Path) -> int:
         print("No active requirement.")
         return 1
 
-    requirements_dir = root / ".workflow" / "flow" / "requirements"
+    requirements_dir = resolve_requirement_root(root)
     req_dir = resolve_requirement_reference(requirements_dir, req_id, "cn")
     if not req_dir:
         print(f"Requirement not found: {req_id}")
@@ -4145,8 +4354,23 @@ def exit_workflow(root: Path) -> int:
 
 
 def get_skill_template_root() -> Path:
-    """Get the skill template root directory."""
-    return Path(__file__).resolve().parent / "skills" / "harness"
+    """Get the skill template root directory.
+
+    Returns the full skill template at `assets/skill/`, which is the SAME
+    source used by `install_local_skills()` for codex/claude/qoder. This
+    keeps all four agents' `.{agent}/skills/harness/` trees structurally
+    symmetric (bugfix-5).
+
+    Agent-specific notes (from `skills/harness/agent/{agent}.md`) are
+    layered on top by `install_agent()` via `get_agent_notes_root()`.
+    """
+    return Path(str(SKILL_ROOT))
+
+
+def get_agent_notes_root() -> Path:
+    """Get the directory holding per-agent notes to layer on top of the
+    full skill template (bugfix-5)."""
+    return Path(__file__).resolve().parent / "skills" / "harness" / "agent"
 
 
 def get_agent_skill_path(root: Path, agent: str) -> Path:
@@ -4170,7 +4394,25 @@ def install_agent(root: Path, agent: str) -> int:
     Returns:
         0 on success, non-zero on failure
     """
-    ensure_harness_root(root)
+    # If .workflow/ is missing (e.g. a freshly `git init`-ed empty repo),
+    # transparently run `harness init` first so that `harness install` works
+    # as the single documented entry point (per README / SKILL.md). This fixes
+    # bugfix-3: previously install_agent() would hard-fail with
+    # "Harness workspace is missing" on an empty repo, contradicting the docs.
+    workflow_dir = root / ".workflow"
+    workflow_context_dir = workflow_dir / "context"
+    if not workflow_dir.exists() or not workflow_context_dir.exists():
+        print("No .workflow/ found, running harness init first...")
+        # Seed AGENTS.md for non-claude agents, CLAUDE.md for claude.
+        init_repo(
+            root,
+            write_agents=(agent in ("codex", "qoder", "kimi")),
+            write_claude=(agent == "claude"),
+        )
+        # Ensure config is in place for downstream helpers.
+        ensure_config(root)
+    else:
+        ensure_harness_root(root)
 
     template_root = get_skill_template_root()
     if not template_root.exists():
@@ -4180,6 +4422,46 @@ def install_agent(root: Path, agent: str) -> int:
     template_skill = template_root / "SKILL.md"
     target_skill = target_path / "SKILL.md"
 
+    # Build the merged "virtual" template: full skill tree + per-agent note
+    # layered on top (bugfix-5). `overlay_files` maps relative path → source
+    # file on disk. Files in the overlay win over the base template on any
+    # conflict, so agent-specific notes (e.g. `agent/kimi.md`) are always
+    # rendered.
+    overlay_files: dict[Path, Path] = {}
+    agent_notes_root = get_agent_notes_root()
+    agent_note = agent_notes_root / f"{agent}.md"
+    if agent_note.exists():
+        overlay_files[Path("agent") / f"{agent}.md"] = agent_note
+
+    def _iter_sources() -> list[tuple[Path, Path]]:
+        """Yield (relative_path, absolute_source) pairs for the merged template.
+
+        The base template contributes every file; overlays replace any
+        matching relative path. Transient artifacts (`__pycache__`,
+        `*.pyc`, `.DS_Store`) are excluded to keep the installed tree
+        deterministic.
+        """
+        seen: dict[Path, Path] = {}
+        for template_file in sorted(template_root.rglob("*")):
+            if not template_file.is_file():
+                continue
+            rel_path = template_file.relative_to(template_root)
+            parts = rel_path.parts
+            if "__pycache__" in parts:
+                continue
+            if template_file.suffix == ".pyc":
+                continue
+            if template_file.name == ".DS_Store":
+                continue
+            seen[rel_path] = template_file
+        # Overlay (agent-specific notes) on top
+        for rel_path, src in overlay_files.items():
+            seen[rel_path] = src
+        return sorted(seen.items(), key=lambda kv: str(kv[0]))
+
+    merged_sources = _iter_sources()
+    merged_rel_paths = {rel for rel, _ in merged_sources}
+
     # Check for existing skill files
     changes: list[dict[str, str]] = []
 
@@ -4188,20 +4470,24 @@ def install_agent(root: Path, agent: str) -> int:
         for existing_file in sorted(target_path.rglob("*")):
             if existing_file.is_file():
                 rel_path = existing_file.relative_to(target_path)
-                template_file = template_root / rel_path
-                if not template_file.exists():
+                if rel_path not in merged_rel_paths:
                     changes.append({"type": "delete", "path": str(rel_path)})
-                elif existing_file.read_text(encoding="utf-8") != template_file.read_text(encoding="utf-8"):
-                    changes.append({"type": "modify", "path": str(rel_path)})
+                else:
+                    src = dict(merged_sources)[rel_path]
+                    src_content = src.read_text(encoding="utf-8")
+                    # Apply the same template rendering used on write so that
+                    # already-rendered files don't appear dirty.
+                    src_rendered = src_content.replace("{AGENT_NAME}", agent).replace(
+                        "{SKILL_DIR}", str(target_path)
+                    )
+                    if existing_file.read_text(encoding="utf-8") != src_rendered:
+                        changes.append({"type": "modify", "path": str(rel_path)})
 
     # Check for new files
-    if template_root.exists():
-        for template_file in sorted(template_root.rglob("*")):
-            if template_file.is_file():
-                rel_path = template_file.relative_to(template_root)
-                target_file = target_path / rel_path
-                if not target_file.exists():
-                    changes.append({"type": "add", "path": str(rel_path)})
+    for rel_path, _src in merged_sources:
+        target_file = target_path / rel_path
+        if not target_file.exists():
+            changes.append({"type": "add", "path": str(rel_path)})
 
     # Show changes
     if changes:
@@ -4215,18 +4501,22 @@ def install_agent(root: Path, agent: str) -> int:
     # Create target directory
     target_path.mkdir(parents=True, exist_ok=True)
 
-    # Copy all template files
-    if template_root.exists():
-        for template_file in sorted(template_root.rglob("*")):
-            if template_file.is_file():
-                rel_path = template_file.relative_to(template_root)
-                target_file = target_path / rel_path
-                target_file.parent.mkdir(parents=True, exist_ok=True)
-                content = template_file.read_text(encoding="utf-8")
-                # Render template variables
-                content = content.replace("{AGENT_NAME}", agent)
-                content = content.replace("{SKILL_DIR}", str(target_path))
-                target_file.write_text(content, encoding="utf-8")
+    # Copy merged template files (base + agent overlay)
+    for rel_path, src in merged_sources:
+        target_file = target_path / rel_path
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        # Non-text files (e.g. compiled .pyc) would crash read_text; filter
+        # to extensions we know are text. Binary assets are not expected in
+        # the skill template, but guard anyway.
+        try:
+            content = src.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            shutil.copy2(src, target_file)
+            continue
+        # Render template variables
+        content = content.replace("{AGENT_NAME}", agent)
+        content = content.replace("{SKILL_DIR}", str(target_path))
+        target_file.write_text(content, encoding="utf-8")
 
     print(f"Installed harness skill to {target_path.relative_to(root)}")
 

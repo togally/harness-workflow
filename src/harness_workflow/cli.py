@@ -206,6 +206,22 @@ def build_parser() -> argparse.ArgumentParser:
     rename_parser.add_argument("new", help="New title or id.")
     rename_parser.add_argument("--root", default=".", help="Repository root.")
 
+    migrate_parser = subparsers.add_parser(
+        "migrate",
+        help="Migrate legacy artifact directories to the current layout.",
+    )
+    migrate_parser.add_argument(
+        "resource",
+        choices=["requirements"],
+        help="Migration target resource (currently only 'requirements').",
+    )
+    migrate_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the migration plan without moving any directory.",
+    )
+    migrate_parser.add_argument("--root", default=".", help="Repository root.")
+
     suggest_parser = subparsers.add_parser("suggest", help="Create, list, apply, or delete suggestions.")
     suggest_parser.add_argument("content", nargs="?", help="Suggestion content.")
     suggest_parser.add_argument("--root", default=".", help="Repository root.")
@@ -382,6 +398,11 @@ def main() -> int:
     if args.command == "rename":
         cmd_args = [args.kind, args.current, args.new]
         return _run_tool_script("harness_rename.py", cmd_args, root)
+    if args.command == "migrate":
+        cmd_args = [args.resource]
+        if args.dry_run:
+            cmd_args.append("--dry-run")
+        return _run_tool_script("harness_migrate.py", cmd_args, root)
     if args.command == "suggest":
         cmd_args = []
         if args.content:
