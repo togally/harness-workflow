@@ -1,5 +1,5 @@
-current_requirement: "req-26"
-stage: "executing"
+current_requirement: "bugfix-3"
+stage: "done"
 conversation_mode: "open"
 locked_requirement: ""
 locked_stage: ""
@@ -14,4 +14,3 @@ active_requirements:
   - bugfix-3
   - bugfix-4
   - bugfix-5
-  - req-26
