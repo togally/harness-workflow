@@ -1,0 +1,99 @@
+{"ts": "2026-04-14T00:53:44.483335+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-14T00:53:44.483504+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "done"}}
+{"ts": "2026-04-14T02:56:39.753257+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 0}}
+{"ts": "2026-04-14T02:56:39.753789+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-14T03:03:41.792093+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 0}}
+{"ts": "2026-04-14T03:03:41.792598+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-14T03:11:41.231698+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 0}}
+{"ts": "2026-04-14T03:11:41.232152+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-14T03:13:02.993207+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-14T03:13:02.993402+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-14T14:22:27.578358+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-14T14:22:27.578821+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "done"}}
+{"ts": "2026-04-15T06:55:49.254144+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-15T06:55:49.254426+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-15T06:55:52.322922+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-15T06:55:52.323043+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-15T06:55:52.643631+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-15T06:55:52.643760+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-15T07:02:03.914199+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:02:03.914353+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-15T07:03:07.412148+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:03:07.412391+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-15T07:04:07.399880+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:04:07.400004+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-15T07:09:38.545264+00:00", "event": "regression_created", "data": {"regression_id": "test-experience-generation"}}
+{"ts": "2026-04-15T07:10:19.908031+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:10:19.908168+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-15T07:10:20.246449+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:10:20.246569+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-15T07:10:20.557367+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:10:20.557478+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-15T07:17:34.727574+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:17:34.727716+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-15T07:17:35.046678+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:17:35.046789+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-15T07:17:35.357943+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:17:35.358064+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-15T07:36:16.079775+00:00", "event": "stage_skip", "data": {"from_stage": "done"}}
+{"ts": "2026-04-15T07:36:16.080090+00:00", "event": "ff", "data": {"from_stage": "done"}}
+{"ts": "2026-04-15T07:36:26.431309+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:36:26.431413+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-15T07:40:52.282880+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:40:52.283004+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-15T07:41:16.485361+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:41:16.485474+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-15T07:41:29.823111+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-15T07:41:29.823231+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-17T07:40:36.323832+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-17T07:40:36.324098+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-17T07:40:44.214458+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-17T07:40:44.214641+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-17T07:40:49.442004+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-17T07:40:49.442128+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-17T08:17:47.311959+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-17T08:17:47.312195+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-17T08:50:08.729144+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T08:50:08.729374+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-17T08:52:42.835239+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T08:52:42.835456+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-17T08:52:51.177747+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T08:52:51.177856+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-17T09:13:51.697907+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:13:51.698147+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-17T09:14:01.652561+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:14:01.652741+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-17T09:14:08.553374+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:14:08.553501+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-17T09:14:40.207400+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:14:40.207519+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-17T09:38:57.940038+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:38:57.940399+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-17T09:39:02.310867+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:39:02.311000+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-17T09:39:07.469476+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:39:07.469604+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-17T09:39:15.505804+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-17T09:39:15.505954+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-18T13:35:45.823638+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:35:45.823898+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-18T13:37:13.518183+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:37:13.518305+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-18T13:38:00.414875+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:38:00.414989+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-18T13:43:57.114696+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0}}
+{"ts": "2026-04-18T13:43:57.114920+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-18T14:08:23.240706+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0}}
+{"ts": "2026-04-18T14:08:23.240833+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-18T14:13:29.302397+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:14:19.395202+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0}}
+{"ts": "2026-04-18T14:14:19.395430+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-18T14:15:18.827037+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:15:28.624358+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:15:51.883781+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:16:02.016062+00:00", "event": "regression_created", "data": {"regression_id": "core-py"}}
+{"ts": "2026-04-18T14:37:17.346815+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0}}
+{"ts": "2026-04-18T14:37:17.347099+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-18T14:59:56.092847+00:00", "event": "regression_created", "data": {"regression_id": "harness-update-current-requirement"}}
+{"ts": "2026-04-18T15:09:40.081135+00:00", "event": "stage_skip", "data": {"from_stage": "requirement_review"}}
+{"ts": "2026-04-18T15:09:40.081378+00:00", "event": "ff", "data": {"from_stage": "requirement_review"}}
