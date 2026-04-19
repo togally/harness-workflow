@@ -1,0 +1,25 @@
+ratings:
+  agent:
+    score: 5.0
+    count: 3
+  bash:
+    score: 5.0
+    count: 1
+  claude-code-context:
+    score: 4.0
+    count: 1
+  edit:
+    score: 5.0
+    count: 3
+  find-skills:
+    score: 3.0
+    count: 1
+  git-commit:
+    score: 4.0
+    count: 2
+  grep:
+    score: 4.0
+    count: 1
+  read:
+    score: 5.0
+    count: 1

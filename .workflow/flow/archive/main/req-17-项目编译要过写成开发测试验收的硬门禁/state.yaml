@@ -1,0 +1,9 @@
+id: "req-17"
+title: "项目编译要过写成开发测试验收的硬门禁"
+stage: "done"
+status: "archived"
+created_at: "2026-04-15"
+started_at: "2026-04-15"
+completed_at: "2026-04-15"
+stage_timestamps: {"testing": "2026-04-15T07:17:34.727024+00:00", "acceptance": "2026-04-15T07:17:35.046284+00:00", "done": "2026-04-15T07:17:35.357450+00:00"}
+description: ""

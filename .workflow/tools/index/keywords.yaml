@@ -1,0 +1,70 @@
+tools:
+  - tool_id: "agent"
+    keywords: ["subagent", "agent", "派发任务", "独立视角", "测试", "验收", "诊断", "协调"]
+    catalog: "catalog/agent.md"
+    description: "启动 subagent 执行独立任务"
+
+  - tool_id: "bash"
+    keywords: ["bash", "执行命令", "运行", "运行脚本", "编译", "测试", "单元测试", "git", "mvn", "npm", "build"]
+    catalog: "catalog/bash.md"
+    description: "执行系统命令和脚本"
+
+  - tool_id: "claude-code-context"
+    keywords: ["compact", "clear", "上下文维护", "压缩", "压缩上下文", "清理", "清理上下文", "新开 agent", "handoff", "上下文过长", "太长"]
+    catalog: "catalog/claude-code-context.md"
+    description: "Claude Code 上下文维护命令（/compact、/clear、/new）"
+
+  - tool_id: "edit"
+    keywords: ["edit", "write", "编辑文件", "修改文件", "修改代码", "改代码", "代码", "替换内容", "创建文件", "新建文件"]
+    catalog: "catalog/edit.md"
+    description: "编辑或创建文件内容（Edit / Write）"
+
+  - tool_id: "find-skills"
+    keywords: ["skill", "skills", "skillhub", "查找技能", "发现工具", "扩展工具", "工具查询", "未命中"]
+    catalog: "catalog/find-skills.md"
+    description: "调用 find-skills skill 查询 skillhub 商店发现其他可用 skills"
+
+  - tool_id: "git-commit"
+    keywords: ["git", "commit", "提交代码", "保存变更", "push", "仓库"]
+    catalog: "catalog/git.md"
+    description: "将代码变更提交到 Git 仓库"
+
+  - tool_id: "grep"
+    keywords: ["grep", "glob", "搜索", "搜索内容", "查找", "查找代码", "内容匹配", "找文件", "文件模式", "函数", "定义"]
+    catalog: "catalog/grep.md"
+    description: "搜索文件内容（Grep）或按模式查找文件（Glob）"
+
+  - tool_id: "read"
+    keywords: ["read", "读取文件", "查看文件", "文件内容", "读取状态", "读取配置"]
+    catalog: "catalog/read.md"
+    description: "读取文件内容"
+
+  - tool_id: "write-bootstrap"
+    keywords: ["write-bootstrap", "bootstrap", "引导指令", "加载引导", "install-agent", "安装引导", "入口文件", "CLAUDE.md", "AGENTS.md"]
+    catalog: "catalog/write-bootstrap.md"
+    description: "将 harness-manager 引导指令写入 agent 入口文件（install_agent 流程最后一步）"
+
+  - tool_id: "harness-tool-search"
+    keywords: ["tool", "search", "搜索工具", "工具搜索", "tool-search", "关键词", "keywords", "索引"]
+    catalog: "catalog/harness-tool-search.md"
+    description: "在本地工具索引中搜索匹配的工具"
+
+  - tool_id: "harness-tool-rate"
+    keywords: ["tool", "rate", "评分", "工具评分", "tool-rate", "rating"]
+    catalog: "catalog/harness-tool-rate.md"
+    description: "为工具评分并更新累计平均值"
+
+  - tool_id: "harness-log-action"
+    keywords: ["log", "action", "日志", "操作日志", "action-log", "记录"]
+    catalog: "catalog/harness-log-action.md"
+    description: "将操作记录追加到 action-log.md"
+
+  - tool_id: "harness-export-feedback"
+    keywords: ["feedback", "反馈", "export", "导出", "feedback.jsonl", "汇总"]
+    catalog: "catalog/harness-export-feedback.md"
+    description: "从 feedback.jsonl 导出反馈汇总"
+
+  - tool_id: "harness-cycle-detector"
+    keywords: ["cycle", "detector", "循环检测", "subagent", "call-chain", "调用链"]
+    catalog: "catalog/harness-cycle-detector.md"
+    description: "检测 subagent 调用链中的循环依赖"

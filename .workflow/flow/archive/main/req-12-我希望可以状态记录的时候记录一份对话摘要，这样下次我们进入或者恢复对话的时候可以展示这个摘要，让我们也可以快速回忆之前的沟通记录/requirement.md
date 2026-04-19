@@ -1,0 +1,40 @@
+# Requirement
+
+## 1. Title
+
+对话摘要记录与恢复展示
+
+## 2. Goal
+
+在状态记录（session-memory）中保存一份对话摘要，使得下次进入或恢复对话时，系统可以展示这份摘要，帮助用户快速回忆之前的沟通记录。
+
+## 3. Scope
+
+**包含**：
+- 在 session-memory 中新增 "对话摘要" 区块
+- 在 done 阶段或会话结束时自动生成对话摘要
+- 下次 `harness enter` 或会话恢复时展示该摘要
+- 摘要内容涵盖本轮核心决策、已完成工作、待跟进事项
+
+**不包含**：
+- 完整的对话历史记录（只保留摘要，不保留逐轮消息）
+- 外部存储或数据库集成
+- 多会话并行时的摘要合并逻辑
+
+## 4. Acceptance Criteria
+
+- [ ] session-memory.md 中新增了 `## 对话摘要` 区块
+- [ ] 摘要由 AI 在阶段结束时自动写入
+- [ ] 用户下次进入 harness 会话时，系统自动读取并展示最近一次的对话摘要
+- [ ] 当无历史摘要时，系统给出友好提示而非报错
+
+## 5. Split Rules
+
+### chg-01 对话摘要写入逻辑
+- 在 `core.py` 或相关流程钩子中，实现 `save_session_summary(root, req_id, summary)`
+- 在 executing/testing/acceptance/done 阶段结束时调用，生成并写入摘要
+
+### chg-02 对话摘要读取与展示
+- 修改 `harness enter` 或会话恢复逻辑，读取最近的 session-memory 摘要
+- 在 CLI 输出或角色 briefing 中展示摘要内容
+- 更新相关文档
