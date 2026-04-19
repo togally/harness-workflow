@@ -54,10 +54,40 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
+## 对人文档输出（req-26）
+
+在完成 `regression/diagnosis.md` 并确定路由方向后，必须**为本次 regression**额外产出一份面向用户的精炼中文文档：
+
+- **文件名**：`回归简报.md`（固定，不得改名）
+- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/回归简报.md`
+  （如 regression 属于 bugfix，路径落在 `artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/regressions/{reg-id}-{slug}/`）
+- **粒度**：regression 级，每次 regression 一份
+- **上限**：≤ 1 页
+- **与 `diagnosis.md` 的关系**：对人文档不替代 `regression/diagnosis.md`，后者仍维持原路径作为详细诊断记录。
+
+### 最小字段模板（字段名与顺序不得变更）
+
+```markdown
+# 回归简报：{reg-id} {issue}
+
+## 问题
+- 一句话描述用户感知到的问题。
+
+## 根因
+- 一句话描述独立诊断后的根因。
+
+## 影响
+- 列受影响的需求 / 变更 / 命令。
+
+## 路由决策
+- 决定回到哪个 stage 继续（requirement_review / planning / executing / testing / acceptance / 确认无需回退）。
+```
+
 ## 退出条件
 - [ ] `regression/diagnosis.md` 已产出（问题描述/根因/路由决定）
 - [ ] 已明确：真实问题 或 误判
 - [ ] 路由方向已确定
+- [ ] 对人文档 `回归简报.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/`（或对应 bugfix 子树）下产出，字段完整
 
 ## ff 模式说明
 - ff 模式下，诊断师完成 `diagnosis.md` 并明确路由方向后，由主 agent 根据诊断结果自动决定下一步：

@@ -54,11 +54,43 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
+## 对人文档输出（req-26）
+
+在完成每个 change 的 `change.md` 与 `plan.md` 后，必须**为每个 change 单独**额外产出一份面向用户的精炼中文文档：
+
+- **文件名**：`变更简报.md`（固定，不得改名）
+- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/变更简报.md`
+- **粒度**：change 级，每个 change 一份
+- **上限**：≤ 1 页
+- **与 `change.md` / `plan.md` 的关系**：对人文档不替代这两份 agent 过程文档，两者仍维持在 `.workflow/flow/` 原路径。
+
+### 最小字段模板（字段名与顺序不得变更）
+
+```markdown
+# 变更简报：{chg-id} {title}
+
+## 变更名
+- 一句话自我介绍。
+
+## 解决什么问题
+- 关联上层 AC 编号 + 一句话问题描述。
+
+## 怎么做
+- 3-5 条实施要点（不是详细步骤，是决策摘要）。
+
+## 影响范围
+- 列涉及的主要文件 / 命令 / 用户路径。
+
+## 预期验证
+- 3-5 条用户可自行核对的断言。
+```
+
 ## 退出条件
 - [ ] 所有变更都有 `change.md`（目标、范围、验收）
 - [ ] 所有变更都有 `plan.md`（步骤、产物、依赖）
 - [ ] 执行顺序已明确
 - [ ] 用户已确认所有计划
+- [ ] 每个 change 都在 `artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/` 下产出对人文档 `变更简报.md`，字段完整
 
 ## ff 模式说明
 - ff 模式下，若 `change.md` + `plan.md` 已全部产出且执行顺序明确，subagent 可直接报告完成，由主 agent 自动推进到 `executing`

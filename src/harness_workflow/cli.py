@@ -200,8 +200,8 @@ def build_parser() -> argparse.ArgumentParser:
     archive_parser.add_argument("--root", default=".", help="Repository root.")
     archive_parser.add_argument("--folder", default="", help="Optional subfolder name within archive/.")
 
-    rename_parser = subparsers.add_parser("rename", help="Rename a requirement or change.")
-    rename_parser.add_argument("kind", choices=["requirement", "change"], help="Artifact kind.")
+    rename_parser = subparsers.add_parser("rename", help="Rename a requirement, change, or bugfix.")
+    rename_parser.add_argument("kind", choices=["requirement", "change", "bugfix"], help="Artifact kind.")
     rename_parser.add_argument("current", help="Current title or id.")
     rename_parser.add_argument("new", help="New title or id.")
     rename_parser.add_argument("--root", default=".", help="Repository root.")

@@ -54,12 +54,40 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
+## 对人文档输出（req-26）
+
+在完成 `requirement.md` 并获得用户确认后，必须**额外**产出一份面向用户的精炼中文文档：
+
+- **文件名**：`需求摘要.md`（固定，不得改名）
+- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`
+- **上限**：≤ 1 页（屏幕一屏内读完）
+- **与 `requirement.md` 的关系**：对人文档不替代 `requirement.md`，后者仍维持在 `.workflow/flow/requirements/` 原路径、原形态。
+
+### 最小字段模板（字段名与顺序不得变更）
+
+```markdown
+# 需求摘要：{req-id} {title}
+
+## 目标
+- 一句话描述本需求要解决的问题。
+
+## 范围
+- 3-5 条列出包含什么、不做什么。
+
+## 验收要点
+- 3-5 条引用 AC 编号，描述用户侧可观察的判定条件。
+
+## 风险
+- ≤ 2 条，聚焦最可能阻塞交付的点。
+```
+
 ## 退出条件
 `requirement.md` 包含以下所有内容：
 - [ ] 背景（为什么做）
 - [ ] 目标（做完后期望状态）
 - [ ] 范围（包含 + 不包含）
 - [ ] 验收标准（可量化的通过条件）
+- [ ] 对人文档 `需求摘要.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
 
 ## ff 模式说明
 - ff 模式下，`requirement.md` 包含背景、目标、范围、验收标准后，subagent 可直接报告完成，由主 agent 自动推进到 `planning`

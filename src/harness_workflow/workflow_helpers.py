@@ -28,6 +28,7 @@ from harness_workflow.backup import (
     read_platforms_config,
     sync_platforms_state,
 )
+from harness_workflow.slug import slugify_preserve_unicode
 
 PACKAGE_ROOT = files("harness_workflow")
 PACKAGE_FS_ROOT = Path(__file__).resolve().parent
@@ -2474,6 +2475,11 @@ def resolve_regression_reference(regressions_dir: Path, reference: str, language
     derived = regressions_dir / resolve_artifact_id(reference, language)
     if derived.exists():
         return derived
+    # Prefix match: "reg-07" matches "reg-07-issue-with-spaces" (req-26 / chg-01, AC-04 一致)
+    if regressions_dir.exists():
+        for child in sorted(regressions_dir.iterdir()):
+            if child.is_dir() and child.name.startswith(reference + "-"):
+                return child
     return None
 
 
@@ -2922,6 +2928,24 @@ def _next_suggestion_id(root: Path) -> str:
     return f"sug-{max_num + 1:02d}"
 
 
+def _next_regression_id(regressions_base: Path) -> str:
+    """Return the next available `reg-NN` id under a regressions base directory.
+
+    约定（req-26 / chg-01，覆盖 AC-04）：regression 产出目录必须以 `reg-{N:02d}-`
+    前缀开头，N 取 `regressions_base` 下已有 `reg-\\d+-...` 目录的最大值 +1。
+    若 base 尚不存在，直接从 1 开始。
+    """
+    max_num = 0
+    if regressions_base.exists():
+        for item in regressions_base.iterdir():
+            if not item.is_dir():
+                continue
+            m = re.match(r"reg-(\d+)", item.name)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+    return f"reg-{max_num + 1:02d}"
+
+
 def extract_suggestions_from_done_report(root: Path, req_id: str) -> list[str]:
     """Extract improvement suggestions from done-report.md and create suggestion files."""
     done_report = root / ".workflow" / "state" / "sessions" / req_id / "done-report.md"
@@ -3367,7 +3391,11 @@ def create_change(
         raise SystemExit("No active requirement. Run `harness requirement <title>` first.")
 
     chg_num_id = change_id.strip() if change_id else _next_chg_id(req_dir)
-    dir_name = f"{chg_num_id}-{change_title}"
+    # req-26 / chg-02（合并 B）：`harness change` 生成的目录名必须走统一
+    # slugify 清洗，与 regression 命令簇（chg-01）共用 `slugify_preserve_unicode`。
+    # 保留 `chg-NN-` 前缀，空格 / 中文冒号等标点一律折叠为 `-`，保持 CJK。
+    slug_part = slugify_preserve_unicode(change_title) or "change"
+    dir_name = f"{chg_num_id}-{slug_part}"
     change_dir = req_dir / "changes" / dir_name
     created: list[str] = []
     skipped: list[str] = []
@@ -3388,10 +3416,21 @@ def create_change(
 
 
 def create_regression(root: Path, name: str | None, regression_id: str | None = None, title: str | None = None) -> int:
+    """Create a regression workspace.
+
+    命名约定（req-26 / chg-01，覆盖 AC-04）：
+    - 产出目录名统一形如 ``{reg-NN}-{slug(title)}``；其中：
+        * ``reg-NN`` 由 ``_next_regression_id`` 在当前 ``regressions_base`` 下分配；
+        * ``slug(title)`` 使用 ``slugify_preserve_unicode`` —— 英文 kebab-case、
+          中文等非 ASCII 字母保留，空格 / 标点 / 非法路径字符折叠为 ``-``。
+    - ``runtime["current_regression"]`` 仅写 ``reg-NN``（纯 id，便于 ``--confirm`` /
+      ``--testing`` 等后续动作引用），目录解析走 ``resolve_regression_reference``
+      的前缀匹配。
+    """
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
     repo_name = root.name
-    regression_title, resolved_id = resolve_title_and_id(name, regression_id, title, config["language"])
+    regression_title, _legacy_resolved_id = resolve_title_and_id(name, regression_id, title, config["language"])
 
     req_ref = str(runtime.get("current_requirement", "")).strip()
     req_dir = None
@@ -3400,10 +3439,21 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
             resolve_requirement_root(root), req_ref, config["language"]
         )
     regressions_base = (req_dir / "regressions") if req_dir else (resolve_requirement_root(root).parent / "regressions")
-    regression_dir = regressions_base / resolved_id
+
+    # 分配 reg-NN 前缀（若调用方显式传入 regression_id 且已是 reg-\d+ 形式则沿用，否则按顺序分配）
+    if regression_id and re.match(r"^reg-\d+$", regression_id.strip()):
+        reg_num_id = regression_id.strip()
+    else:
+        reg_num_id = _next_regression_id(regressions_base)
+
+    slug_part = slugify_preserve_unicode(regression_title) or "regression"
+    dir_name = f"{reg_num_id}-{slug_part}"
+    regression_dir = regressions_base / dir_name
     created: list[str] = []
     skipped: list[str] = []
-    replacements = {"ID": resolved_id, "TITLE": regression_title}
+    # 模板里的 {{ID}} 统一填充为纯 reg-NN（与 runtime.current_regression 一致，
+    # 便于后续命令通过 id 反查目录）。
+    replacements = {"ID": reg_num_id, "TITLE": regression_title}
 
     write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
@@ -3411,9 +3461,9 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
     write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
 
-    runtime["current_regression"] = resolved_id
+    runtime["current_regression"] = reg_num_id
     save_requirement_runtime(root, runtime)
-    record_feedback_event(root, "regression_created", {"regression_id": resolved_id})
+    record_feedback_event(root, "regression_created", {"regression_id": reg_num_id, "dir_name": dir_name})
 
     print(f"Regression workspace: {regression_dir}")
     for path in created:
@@ -3482,6 +3532,51 @@ def _refresh_experience_index(root: Path) -> None:
         print(f"Refreshed experience index: {index_file.relative_to(root)}")
 
 
+def _locate_regression_dir(root: Path, regression_id: str, language: str) -> Path | None:
+    """根据 regression id 在当前仓库定位产出目录。
+
+    查找优先级：
+    1. ``artifacts/{branch}/requirements/{current_requirement}/regressions/`（若 runtime
+       有 current_requirement）；
+    2. ``artifacts/{branch}/regressions/``（无 requirement 时的兜底）；
+    3. ``.workflow/flow/regressions/``（legacy 路径）。
+    """
+    runtime = load_requirement_runtime(root)
+    candidates: list[Path] = []
+    req_ref = str(runtime.get("current_requirement", "")).strip()
+    if req_ref:
+        req_dir = resolve_requirement_reference(resolve_requirement_root(root), req_ref, language)
+        if req_dir is not None:
+            candidates.append(req_dir / "regressions")
+    candidates.append(resolve_requirement_root(root).parent / "regressions")
+    candidates.append(root / ".workflow" / "flow" / "regressions")
+    for base in candidates:
+        found = resolve_regression_reference(base, regression_id, language)
+        if found is not None:
+            return found
+    return None
+
+
+def _update_regression_meta_status(root: Path, regression_id: str, status: str) -> None:
+    """更新 regression 产出目录下 ``meta.yaml`` 的 ``status`` 字段（若目录存在）。
+
+    对 ``--confirm`` 语义友好：即使找不到 meta.yaml 也静默跳过，不影响主流程。
+    """
+    try:
+        config = ensure_config(root)
+    except SystemExit:
+        return
+    reg_dir = _locate_regression_dir(root, regression_id, config["language"])
+    if reg_dir is None:
+        return
+    meta_path = reg_dir / "meta.yaml"
+    if not meta_path.exists():
+        return
+    meta = load_item_meta(meta_path)
+    meta["status"] = status
+    save_item_meta(meta_path, meta)
+
+
 def regression_action(
     root: Path,
     *,
@@ -3515,10 +3610,14 @@ def regression_action(
         return 0
 
     if confirm:
+        # req-26 / chg-01 / AC-01：--confirm 只做"确认问题真实"这一动作，
+        # 不得清空 runtime.current_regression，也不得删除 regression 产出目录；
+        # 后续 --testing / --change / --requirement 仍能继续消费该 regression。
         _ensure_regression_experience(root, regression_id)
-        runtime["current_regression"] = ""
+        _update_regression_meta_status(root, regression_id, "confirmed")
+        # 注意：不修改 runtime["current_regression"]。
         save_requirement_runtime(root, runtime)
-        print(f"Regression {regression_id} confirmed.")
+        print(f"Regression {regression_id} confirmed. State preserved for subsequent --testing / --change / --requirement.")
         print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return 0
 
@@ -3538,6 +3637,7 @@ def regression_action(
 
     if to_testing:
         _ensure_regression_experience(root, regression_id)
+        _update_regression_meta_status(root, regression_id, "testing")
         runtime["current_regression"] = ""
         runtime["stage"] = "testing"
         save_requirement_runtime(root, runtime)
@@ -3548,34 +3648,136 @@ def regression_action(
     return 0
 
 
+def _extract_id_prefix(dir_name: str, pattern: str) -> str:
+    """从目录名中抽取 `{id}-` 前缀（如 `req-26-uav-split` → `req-26`）。
+
+    pattern 形如 ``r"^(req-\\d+)"`` / ``r"^(chg-\\d+)"`` / ``r"^(bugfix-\\d+)"``。
+    未匹配时返回空串，由调用方兜底。
+    """
+    match = re.match(pattern, dir_name)
+    return match.group(1) if match else ""
+
+
+def _state_yaml_for_requirement(root: Path, dir_basename: str) -> Path | None:
+    """查找 `.workflow/state/requirements/` 下与某 requirement 目录名同名的 yaml。
+
+    先尝试直接 `{dir_basename}.yaml`；若不存在，则按 `{id}-` 前缀前缀匹配
+    第一个命中文件（兼容历史上 state yaml 文件名与产出目录名不完全一致
+    的场景）。
+    """
+    state_dir = root / ".workflow" / "state" / "requirements"
+    if not state_dir.exists():
+        return None
+    direct = state_dir / f"{dir_basename}.yaml"
+    if direct.exists():
+        return direct
+    id_prefix = _extract_id_prefix(dir_basename, r"^(req-\d+)")
+    if id_prefix:
+        for child in sorted(state_dir.iterdir()):
+            if child.is_file() and child.suffix == ".yaml" and child.stem.startswith(id_prefix + "-"):
+                return child
+    return None
+
+
+def _state_yaml_for_bugfix(root: Path, dir_basename: str) -> Path | None:
+    """查找 `.workflow/state/bugfixes/` 下与某 bugfix 目录同名的 yaml。"""
+    state_dir = root / ".workflow" / "state" / "bugfixes"
+    if not state_dir.exists():
+        return None
+    direct = state_dir / f"{dir_basename}.yaml"
+    if direct.exists():
+        return direct
+    id_prefix = _extract_id_prefix(dir_basename, r"^(bugfix-\d+)")
+    if id_prefix:
+        for child in sorted(state_dir.iterdir()):
+            if child.is_file() and child.suffix == ".yaml" and child.stem.startswith(id_prefix + "-"):
+                return child
+    return None
+
+
 def rename_requirement(root: Path, current_name: str, new_name: str, version_name: str = "") -> int:
+    """Rename a requirement, preserving the `{id}-` prefix and syncing state yaml.
+
+    req-26 / chg-02（AC-02）：
+    - 目标目录名形如 ``{old_id}-{slug(new_title)}``，`{id}` 不得改变；
+    - ``.workflow/state/requirements/{id}-{slug}.yaml`` 同步改名并更新 ``title`` 字段；
+    - ``.workflow/state/runtime.yaml`` 的 ``current_requirement`` / ``active_requirements``
+      存的是 id，本操作不改 id，因此保持原值——但为了一致性（防止潜在脏字段），
+      统一走一次 ``save_requirement_runtime`` 重写。
+    """
     config = ensure_config(root)
     requirements_dir = resolve_requirement_root(root)
     requirement_dir = resolve_requirement_reference(requirements_dir, current_name, config["language"])
     if not requirement_dir:
         raise SystemExit(f"Requirement does not exist: {current_name}")
 
+    old_dir_name = requirement_dir.name
     meta_path = requirement_dir / "meta.yaml"
     item_meta = load_item_meta(meta_path) if meta_path.exists() else {}
-    old_id = item_meta.get("id", requirement_dir.name) or requirement_dir.name
+    # 解析 old_id：优先 meta.yaml，其次目录名前缀。
+    old_id = item_meta.get("id", "") or _extract_id_prefix(old_dir_name, r"^(req-\d+)")
+    if not old_id:
+        # 兜底：若目录名完全不符合 `req-N[-...]` 模式，则直接用目录名作为 id。
+        old_id = old_dir_name
     old_title = item_meta.get("title", old_id) or old_id
-    new_title, new_id = resolve_title_and_id(new_name, None, None, config["language"])
-    target_dir = requirements_dir / new_id
-    if target_dir.exists():
-        raise SystemExit(f"Target requirement already exists: {new_id}")
 
-    shutil.move(str(requirement_dir), str(target_dir))
-    if meta_path.exists():
-        item_meta["id"] = new_id
+    new_title = (new_name or "").strip()
+    if not new_title:
+        raise SystemExit("A new requirement title is required.")
+    new_slug = slugify_preserve_unicode(new_title) or new_title
+    new_dir_name = f"{old_id}-{new_slug}"
+    target_dir = requirements_dir / new_dir_name
+    if target_dir.exists() and target_dir != requirement_dir:
+        raise SystemExit(f"Target requirement already exists: {new_dir_name}")
+
+    # 1) 目录重命名（保持 id 前缀不变）。
+    if target_dir != requirement_dir:
+        shutil.move(str(requirement_dir), str(target_dir))
+
+    # 2) meta.yaml：id 保持不变，仅更新 title。
+    new_meta_path = target_dir / "meta.yaml"
+    if new_meta_path.exists():
+        item_meta["id"] = old_id
         item_meta["title"] = new_title
-        save_item_meta(target_dir / "meta.yaml", item_meta)
-    replace_in_file(target_dir / "requirement.md", {old_title: new_title, old_id: new_id})
+        save_item_meta(new_meta_path, item_meta)
+    replace_in_file(target_dir / "requirement.md", {old_title: new_title})
 
-    print(f"Requirement renamed: {old_id} -> {new_id}")
+    # 3) 同步 state yaml：文件名改为 `{id}-{new_slug}.yaml`；更新内部 title 字段。
+    old_state_path = _state_yaml_for_requirement(root, old_dir_name)
+    new_state_path = root / ".workflow" / "state" / "requirements" / f"{new_dir_name}.yaml"
+    if old_state_path is not None and old_state_path.exists():
+        payload = load_simple_yaml(old_state_path)
+        if not isinstance(payload, dict):
+            payload = {}
+        # 保留原有字段顺序（id/title/stage/status/...）
+        payload["id"] = old_id
+        payload["title"] = new_title
+        new_state_path.parent.mkdir(parents=True, exist_ok=True)
+        save_simple_yaml(
+            new_state_path,
+            payload,
+            ordered_keys=["id", "title", "stage", "status", "created_at", "started_at", "completed_at", "stage_timestamps", "description"],
+        )
+        if old_state_path != new_state_path:
+            try:
+                old_state_path.unlink()
+            except OSError:
+                pass
+
+    # 4) 同步 runtime.yaml：id 不变，仅作一次重写以保证持久化一致性。
+    runtime = load_requirement_runtime(root)
+    save_requirement_runtime(root, runtime)
+
+    print(f"Requirement renamed: {old_dir_name} -> {new_dir_name}")
     return 0
 
 
 def rename_change(root: Path, current_name: str, new_name: str, version_name: str = "") -> int:
+    """Rename a change, preserving the `{chg-NN}-` prefix.
+
+    req-26 / chg-02（AC-02）：保持 ``chg-NN`` id 不变；标题走
+    ``slugify_preserve_unicode``；不动 state yaml（change 无独立 state yaml）。
+    """
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
     req_ref = str(runtime.get("current_requirement", "")).strip()
@@ -3592,23 +3794,101 @@ def rename_change(root: Path, current_name: str, new_name: str, version_name: st
     if not change_dir:
         raise SystemExit(f"Change does not exist: {current_name}")
 
+    old_dir_name = change_dir.name
     meta_path = change_dir / "meta.yaml"
     item_meta = load_item_meta(meta_path) if meta_path.exists() else {}
-    old_id = item_meta.get("id", change_dir.name) or change_dir.name
+    old_id = item_meta.get("id", "") or _extract_id_prefix(old_dir_name, r"^(chg-\d+)")
+    if not old_id:
+        old_id = old_dir_name
     old_title = item_meta.get("title", old_id) or old_id
-    new_title, new_id = resolve_title_and_id(new_name, None, None, config["language"])
-    target_dir = changes_dir / new_id
-    if target_dir.exists():
-        raise SystemExit(f"Target change already exists: {new_id}")
 
-    shutil.move(str(change_dir), str(target_dir))
-    if meta_path.exists():
-        item_meta["id"] = new_id
+    new_title = (new_name or "").strip()
+    if not new_title:
+        raise SystemExit("A new change title is required.")
+    new_slug = slugify_preserve_unicode(new_title) or new_title
+    new_dir_name = f"{old_id}-{new_slug}"
+    target_dir = changes_dir / new_dir_name
+    if target_dir.exists() and target_dir != change_dir:
+        raise SystemExit(f"Target change already exists: {new_dir_name}")
+
+    if target_dir != change_dir:
+        shutil.move(str(change_dir), str(target_dir))
+    new_meta_path = target_dir / "meta.yaml"
+    if new_meta_path.exists():
+        item_meta["id"] = old_id
         item_meta["title"] = new_title
-        save_item_meta(target_dir / "meta.yaml", item_meta)
-    replace_in_file(target_dir / "change.md", {old_title: new_title, old_id: new_id})
+        save_item_meta(new_meta_path, item_meta)
+    replace_in_file(target_dir / "change.md", {old_title: new_title})
 
-    print(f"Change renamed: {old_id} -> {new_id}")
+    print(f"Change renamed: {old_dir_name} -> {new_dir_name}")
+    return 0
+
+
+def rename_bugfix(root: Path, current_name: str, new_name: str, version_name: str = "") -> int:
+    """Rename a bugfix, preserving the `{bugfix-N}-` prefix and syncing state yaml.
+
+    req-26 / chg-02（AC-02 延伸）：与 rename_requirement 对称。
+    """
+    config = ensure_config(root)
+    branch = _get_git_branch(root) or "main"
+    bugfix_root = root / "artifacts" / branch / "bugfixes"
+    if not bugfix_root.exists():
+        bugfix_root = root / "artifacts" / "bugfixes"
+    bugfix_dir = resolve_requirement_reference(bugfix_root, current_name, config["language"])
+    if not bugfix_dir:
+        raise SystemExit(f"Bugfix does not exist: {current_name}")
+
+    old_dir_name = bugfix_dir.name
+    meta_path = bugfix_dir / "meta.yaml"
+    item_meta = load_item_meta(meta_path) if meta_path.exists() else {}
+    old_id = item_meta.get("id", "") or _extract_id_prefix(old_dir_name, r"^(bugfix-\d+)")
+    if not old_id:
+        old_id = old_dir_name
+    old_title = item_meta.get("title", old_id) or old_id
+
+    new_title = (new_name or "").strip()
+    if not new_title:
+        raise SystemExit("A new bugfix title is required.")
+    new_slug = slugify_preserve_unicode(new_title) or new_title
+    new_dir_name = f"{old_id}-{new_slug}"
+    target_dir = bugfix_root / new_dir_name
+    if target_dir.exists() and target_dir != bugfix_dir:
+        raise SystemExit(f"Target bugfix already exists: {new_dir_name}")
+
+    if target_dir != bugfix_dir:
+        shutil.move(str(bugfix_dir), str(target_dir))
+    new_meta_path = target_dir / "meta.yaml"
+    if new_meta_path.exists():
+        item_meta["id"] = old_id
+        item_meta["title"] = new_title
+        save_item_meta(new_meta_path, item_meta)
+    replace_in_file(target_dir / "bugfix.md", {old_title: new_title})
+
+    # 同步 state yaml
+    old_state_path = _state_yaml_for_bugfix(root, old_dir_name)
+    new_state_path = root / ".workflow" / "state" / "bugfixes" / f"{new_dir_name}.yaml"
+    if old_state_path is not None and old_state_path.exists():
+        payload = load_simple_yaml(old_state_path)
+        if not isinstance(payload, dict):
+            payload = {}
+        payload["id"] = old_id
+        payload["title"] = new_title
+        new_state_path.parent.mkdir(parents=True, exist_ok=True)
+        save_simple_yaml(
+            new_state_path,
+            payload,
+            ordered_keys=["id", "title", "stage", "status", "created_at", "started_at", "completed_at", "stage_timestamps", "description"],
+        )
+        if old_state_path != new_state_path:
+            try:
+                old_state_path.unlink()
+            except OSError:
+                pass
+
+    runtime = load_requirement_runtime(root)
+    save_requirement_runtime(root, runtime)
+
+    print(f"Bugfix renamed: {old_dir_name} -> {new_dir_name}")
     return 0
 
 
@@ -3710,6 +3990,72 @@ def generate_requirement_artifact(root: Path, archive_target: Path, req_id: str,
 def _get_req_id(state: dict[str, object]) -> str:
     """Get requirement id from state, preferring 'id' over legacy 'req_id'."""
     return str(state.get("id", state.get("req_id", ""))).strip()
+
+
+def _sync_stage_to_state_yaml(
+    root: Path,
+    operation_type: str,
+    operation_target: str,
+    new_stage: str,
+) -> Path | None:
+    """Sync `.workflow/state/{requirements,bugfixes}/{id}.yaml` 的 stage / status。
+
+    req-26 / chg-03（AC-03）双写 helper：
+    - 根据 ``operation_type``（requirement/bugfix/suggestion）选择 state 目录；
+    - ``operation_target`` 为 id（如 ``req-26`` / ``bugfix-3``），按"直命中 id 字段
+      或文件名 stem 前缀匹配 `{id}-`" 两种策略定位 state yaml；
+    - 写回 ``stage``；若 ``new_stage == "done"`` 则同步 ``status = "done"`` 与
+      ``completed_at``；若文件里存在/可初始化 ``stage_timestamps`` 则打一条时间戳。
+
+    返回实际写入的文件路径（未命中任何 state yaml 则返回 ``None``，由调用方决定
+    是否打日志，不抛异常，保持与旧 loop 一致的"best-effort"语义）。
+
+    风格对齐 ``rename_bugfix`` / ``_state_yaml_for_requirement`` 的前缀匹配写法。
+    """
+    if not operation_target or not new_stage:
+        return None
+    sub = "bugfixes" if operation_type == "bugfix" else "requirements"
+    state_dir = root / ".workflow" / "state" / sub
+    if not state_dir.exists():
+        return None
+
+    target_path: Path | None = None
+    target_state: dict[str, object] | None = None
+    for state_file in sorted(state_dir.rglob("*.yaml")):
+        state = load_simple_yaml(state_file)
+        if not isinstance(state, dict):
+            continue
+        state_id = _get_req_id(state)
+        stem = state_file.stem
+        # 主匹配：id 严格相等，或文件名 stem 以 `{id}-` 开头（兼容 `{id}-{slug}.yaml`）。
+        if (
+            (state_id and state_id == operation_target)
+            or stem == operation_target
+            or stem.startswith(operation_target + "-")
+        ):
+            target_path = state_file
+            target_state = state
+            break
+
+    if target_path is None or target_state is None:
+        return None
+
+    target_state["stage"] = new_stage
+    if new_stage == "done":
+        target_state["status"] = "done"
+        target_state["completed_at"] = date.today().isoformat()
+
+    # 若 state yaml 有 stage_timestamps 字段（或为空 dict），顺手打一条时间戳；
+    # 文件里完全不存在该字段时，不主动创建，避免 schema 漂移。
+    if "stage_timestamps" in target_state:
+        existing = target_state.get("stage_timestamps")
+        if not isinstance(existing, dict):
+            existing = {}
+        existing[new_stage] = datetime.now(timezone.utc).isoformat()
+        target_state["stage_timestamps"] = existing
+
+    save_simple_yaml(target_path, target_state)
+    return target_path
 
 
 def _check_plan_completion(plan_path: Path) -> tuple[bool, list[str]]:
@@ -3997,8 +4343,30 @@ def archive_requirement(root: Path, requirement_name: str, folder: str = "") -> 
     if not folder:
         folder = _get_git_branch(root)
 
+    # req-26 / chg-04 AC-05：修复归档路径双层 branch。
+    # ``resolve_archive_root`` 的 primary 分支（``artifacts/{branch}/archive``）已经
+    # 把 branch 段烙在路径里；若调用方再拼一次 ``folder=branch``，就会产生
+    # ``artifacts/main/archive/main/req-xx`` 的双层 branch。
+    # 修复策略：若 archive_base 的直接父目录已是当前 branch（primary 形态），
+    # 则跳过这一层拼接；legacy 形态（``.workflow/flow/archive``）不含 branch，
+    # 照旧拼一层 folder。历史已存在的双层 branch 目录保持不动（AC-05 Excluded）。
     archive_base = resolve_archive_root(root)
-    target_parent = archive_base / folder if folder else archive_base
+    current_branch = _get_git_branch(root) or "main"
+
+    def _archive_base_already_has_branch(base: Path, branch: str) -> bool:
+        # primary 形态：``<root>/artifacts/{branch}/archive``，base.parent.name == branch
+        if not branch:
+            return False
+        try:
+            return base.parent.name == branch and base.name == "archive"
+        except Exception:
+            return False
+
+    if folder and _archive_base_already_has_branch(archive_base, current_branch) and folder == current_branch:
+        # primary：base 已经含 branch，折叠一层避免双拼
+        target_parent = archive_base
+    else:
+        target_parent = archive_base / folder if folder else archive_base
     target_parent.mkdir(parents=True, exist_ok=True)
 
     target = target_parent / req_dir.name
@@ -4224,23 +4592,15 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     runtime["stage"] = next_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
 
+    # req-26 / chg-03（AC-03）：state yaml 双写同步。
+    # 旧实现只在 runtime.yaml 提供 `operation_target` 时才写回；真实现场（runtime.yaml
+    # 仅有 `current_requirement`、无 `operation_target`）会完全跳过写回，导致
+    # requirement 的 state yaml 始终停留在 requirement_review，与 runtime 不一致。
+    # 这里回退顺序：operation_target → current_requirement。保证 stage 推进必写。
     operation_target = str(runtime.get("operation_target", "")).strip()
-    if operation_target:
-        state_dir = root / ".workflow" / "state" / ("bugfixes" if operation_type == "bugfix" else "requirements")
-        if state_dir.exists():
-            for state_file in sorted(state_dir.rglob("*.yaml")):
-                state = load_simple_yaml(state_file)
-                state_id = _get_req_id(state)
-                if state_id == operation_target or state_file.stem == operation_target or (state_id and state_id in operation_target) or (operation_target and operation_target in state_file.stem):
-                    state["stage"] = next_stage
-                    if next_stage == "done":
-                        state["status"] = "done"
-                        state["completed_at"] = date.today().isoformat()
-                    if "stage_timestamps" not in state:
-                        state["stage_timestamps"] = {}
-                    state["stage_timestamps"][next_stage] = datetime.now(timezone.utc).isoformat()
-                    save_simple_yaml(state_file, state)
-                    break
+    if not operation_target:
+        operation_target = str(runtime.get("current_requirement", "")).strip()
+    _sync_stage_to_state_yaml(root, operation_type, operation_target, next_stage)
 
     save_requirement_runtime(root, runtime)
 
@@ -4285,16 +4645,10 @@ def workflow_fast_forward(root: Path) -> int:
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
     runtime["ff_mode"] = False  # ff 单次生效
 
-    if operation_target:
-        state_dir = root / ".workflow" / "state" / ("bugfixes" if operation_type == "bugfix" else "requirements")
-        if state_dir.exists():
-            for state_file in sorted(state_dir.rglob("*.yaml")):
-                state = load_simple_yaml(state_file)
-                state_id = _get_req_id(state)
-                if state_id == operation_target or state_file.stem == operation_target or (state_id and state_id in operation_target) or (operation_target and operation_target in state_file.stem):
-                    state["stage"] = target_stage
-                    save_simple_yaml(state_file, state)
-                    break
+    # req-26 / chg-03（AC-03）：ff 也复用同一 helper，target 回退 current_requirement。
+    if not operation_target:
+        operation_target = str(runtime.get("current_requirement", "")).strip()
+    _sync_stage_to_state_yaml(root, operation_type, operation_target, target_stage)
 
     save_requirement_runtime(root, runtime)
     record_feedback_event(root, "stage_skip", {"from_stage": from_stage})

@@ -1,8 +1,9 @@
-current_requirement: bugfix-1
-stage: done
-conversation_mode: open
+current_requirement: "req-26"
+stage: "executing"
+conversation_mode: "open"
 locked_requirement: ""
 locked_stage: ""
+current_regression: ""
 ff_mode: false
 ff_stage_history:
   - regression
@@ -10,4 +11,7 @@ ff_stage_history:
   - testing
   - acceptance
 active_requirements:
-  - req-27
+  - bugfix-3
+  - bugfix-4
+  - bugfix-5
+  - req-26

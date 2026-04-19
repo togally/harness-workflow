@@ -102,6 +102,52 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
   - `constraints/risk.md`：风险扫描规则（before-task 必须执行）
   - `constraints/recovery.md`：失败恢复路径（遇到失败时加载）
 
+## 对人文档输出契约（req-26 / sug-06）
+
+所有 stage 执行角色**在完成自身业务后**，除既有 agent 过程产物（requirement.md / change.md / plan.md / session-memory.md / regression/diagnosis.md 等）外，**必须额外按本契约产出一份面向用户的精炼中文文档**（下称"对人文档"），使用户仅读该文档即可掌握当前 stage 的关键结论。
+
+### 契约 1：双轨不迁移
+
+- `.workflow/flow/`、`.workflow/state/` 下现存的所有 agent 过程文档（requirement.md / change.md / plan.md / session-memory.md / regression/diagnosis.md / required-inputs.md / done-report.md 等）维持原路径，不得移动、删除、重写。
+- 对人文档是**新增**输出，不是对现存文档的替换。
+
+### 契约 2：路径同构
+
+每个 stage 角色新产出的对人文档必须落到 `artifacts/{branch}/...` 下，与制品树同构：
+
+- 需求级：`artifacts/{branch}/requirements/{req-id}-{slug}/`
+- 变更级：`artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/`
+- Bugfix 级：`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/`
+- Regression 级：`artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/`
+  （如 regression 属于 bugfix，路径相应落在 bugfix 子树下）
+
+### 契约 3：中文命名 + 阶段粒度
+
+| 阶段 | 文件名 | 粒度 | 产出角色 |
+|------|-------|------|---------|
+| requirement_review | 需求摘要.md | req | 需求分析师 |
+| planning | 变更简报.md | change | 架构师 |
+| executing | 实施说明.md | change | 开发者 |
+| testing | 测试结论.md | req | 测试工程师 |
+| acceptance | 验收摘要.md | req | 验收官 |
+| regression | 回归简报.md | regression | 诊断师 |
+| done | 交付总结.md | req | 主 agent（done） |
+
+（命名本身不得变更；planning 阶段可在不偏离契约 1/2 的前提下微调表述措辞。）
+
+### 契约 4：硬门禁
+
+- 每个 stage 角色的"退出条件"清单中**必须**包含一条："对人文档 `{文件名}.md` 已产出且字段完整"。
+- 每份对人文档必须 ≤ 1 页（屏幕一屏内读完），字段按各角色文件中的最小模板执行（字段名与字段顺序不得变更）。
+- 禁止把对人文档写到 `.workflow/flow/` 或其他位置；禁止用 agent 过程文档（如 session-memory）替代对人文档。
+
+### 契约 5：反例核对
+
+实施后必须能在 diff 中逐条证明：
+
+- 未触碰 `.workflow/flow/` 下现存文档；
+- 未触碰 `artifacts/bugfixes/bugfix-2/`、`artifacts/main/bugfixes/bugfix-{3,4,5}/` 下历史脏数据。
+
 ## 流转规则（按需）
 
 - 如需判断 stage 推进条件或归档规则，读取 `.workflow/flow/stages.md`
