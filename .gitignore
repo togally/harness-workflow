@@ -16,3 +16,9 @@ build/
 .worktrees/
 /docs/
 /.workflow/
+/.idea/
+/.kimi/
+/.workflow/
+/docs/
+/artifacts/
+/docs/
