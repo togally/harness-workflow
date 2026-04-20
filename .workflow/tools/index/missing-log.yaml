@@ -1,2 +1,12 @@
 # 记录本地索引和 skill hub 均未命中的查询，用于后续优化索引
-queries: []
+queries:
+  - at: "2026-04-20"
+    role: "testing"
+    intent: "pytest fixture tmp_path yaml 读写"
+    context: "bugfix-3 补齐 update 幂等性回归用例；项目既有 unittest+tempfile 约定已足够，回退使用 stdlib"
+    result: "not_found"
+  - at: "2026-04-20"
+    role: "executing"
+    intent: "python AST 编辑 / dict 读写 / hash 计算"
+    context: "bugfix-3 修 workflow_helpers.py 的 _sync_requirement_workflow_managed_files adopt-as-managed 分支 + LEGACY_CLEANUP_TARGETS 移除；实际只需 Edit 字符串替换 + Read 验证，回退标准 Edit/Read/Grep"
+    result: "not_found"

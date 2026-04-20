@@ -78,7 +78,9 @@ LEGACY_CLEANUP_TARGETS = [
     Path(".workflow") / "context" / "hooks",
     Path(".workflow") / "context" / "rules",
     Path(".workflow") / "context" / "mcp-registry.yaml",
-    Path(".workflow") / "context" / "experience" / "index.md",
+    # bugfix-3 根因 B：`.workflow/context/experience/index.md` 是 `_refresh_experience_index`
+    # 每次 update 都会活跃再生成的产物，列入 legacy 会触发"搬家 → 重建 → 下次再搬家"循环，
+    # `_unique_backup_destination` 产生 index.md-2/-3/... 递增副本堆积。已移除。
     Path(".workflow") / "context" / "experience" / "business",
     Path(".workflow") / "context" / "experience" / "architecture",
     Path(".workflow") / "context" / "experience" / "debug",
@@ -2580,6 +2582,19 @@ def _sync_requirement_workflow_managed_files(
             if force_managed and managed_state.get(relative) != current_hash:
                 label = "would overwrite modified" if check else "overwrote modified"
             actions.append(f"{label} {relative}")
+            if not check:
+                path.write_text(content, encoding="utf-8")
+                refreshed_state[relative] = desired_hash
+            continue
+        # bugfix-3 根因 A：adopt-as-managed 分支。
+        # 目标文件存在但 `managed-files.json` 从未登记该文件的 hash（`relative not in managed_state`），
+        # 视为"漏登记"（典型成因：老项目在 scaffold_v2 演进前 install，scaffold 新增/改动了该文件，
+        # 但目标项目从未 install/update 过新模板，managed-files.json 缺项）。
+        # 既然没有历史 hash 记录作为"用户改过"的证据，默认信任 scaffold 模板覆盖并补录 hash；
+        # 保护用户自定义文件的语义由下方兜底 `skipped modified` 承担
+        # （已登记但 hash 不匹配 = 用户真改过）。
+        if relative not in managed_state:
+            actions.append(f"{'would adopt' if check else 'adopted'} {relative}")
             if not check:
                 path.write_text(content, encoding="utf-8")
                 refreshed_state[relative] = desired_hash
