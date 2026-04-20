@@ -151,6 +151,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite managed files even if they were modified locally.",
     )
     update_parser.add_argument("--scan", action="store_true", help="Scan project characteristics for skill adaptation.")
+    # bugfix-3（新）问题 1：单 agent 作用域 + 全平台 escape hatch
+    update_parser.add_argument(
+        "--agent",
+        choices=["claude", "codex", "qoder", "kimi"],
+        help="Override active agent for this update only (does not persist).",
+    )
+    update_parser.add_argument(
+        "--all-platforms",
+        action="store_true",
+        help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
+    )
 
     language_parser = subparsers.add_parser("language", help="Switch the repository language profile.")
     language_parser.add_argument("language", help="Language profile: english or cn.")
@@ -334,6 +345,10 @@ def main() -> int:
             cmd_args.append("--force-managed")
         if args.scan:
             cmd_args.append("--scan")
+        if getattr(args, "agent", None):
+            cmd_args.extend(["--agent", args.agent])
+        if getattr(args, "all_platforms", False):
+            cmd_args.append("--all-platforms")
         return _run_tool_script("harness_update.py", cmd_args, root)
     if args.command == "language":
         return _run_tool_script("harness_language.py", [args.language], root)

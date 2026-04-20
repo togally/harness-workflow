@@ -180,3 +180,5 @@
 {"ts": "2026-04-20T09:09:48.851116+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-20T09:20:38.159020+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 649.309373}}
 {"ts": "2026-04-20T09:20:38.159314+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-20T13:00:24.314329+00:00", "event": "stage_skip", "data": {"from_stage": "regression"}}
+{"ts": "2026-04-20T13:00:24.314644+00:00", "event": "ff", "data": {"from_stage": "regression"}}

@@ -415,7 +415,10 @@ class HarnessCliTest(unittest.TestCase):
         qoder_rule.unlink()
         context_index.unlink()
 
-        check = self.run_cli("update", "--root", str(self.repo), "--check")
+        # bugfix-3（新）：install --agent qoder 会把 active_agent=qoder 写到 platforms.yaml。
+        # 默认 update 只刷新 .qoder/*，所以这里用 --all-platforms escape hatch 恢复旧的全平台刷新行为，
+        # 以便该用例继续验证 .claude/.codex/.qoder 三处都能 missing → refresh。
+        check = self.run_cli("update", "--root", str(self.repo), "--check", "--all-platforms")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
         self.assertIn("would refresh .qoder/skills/harness", check.stdout)
         self.assertIn("missing .qoder/commands/harness-requirement.md", check.stdout)
@@ -424,7 +427,7 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
         self.assertIn("missing .workflow/context/index.md", check.stdout)
 
-        result = self.run_cli("update", "--root", str(self.repo))
+        result = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertTrue(qoder_command.exists())
         self.assertTrue(claude_command.exists())
@@ -671,14 +674,16 @@ class HarnessCliTest(unittest.TestCase):
         codex_skill.write_text("tampered codex skill\n", encoding="utf-8")
         claude_skill.write_text("tampered claude skill\n", encoding="utf-8")
 
-        check = self.run_cli("update", "--root", str(self.repo), "--check")
+        # bugfix-3（新）：install --agent claude 已把 active_agent=claude 写到 platforms.yaml。
+        # 本用例要同时验证 .codex 和 .claude 的刷新，用 --all-platforms escape hatch 保留原意图。
+        check = self.run_cli("update", "--root", str(self.repo), "--check", "--all-platforms")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
         self.assertIn("would refresh .codex/skills/harness", check.stdout)
         self.assertIn("would refresh .claude/skills/harness", check.stdout)
         self.assertIn("missing .workflow/context/roles/acceptance.md", check.stdout)
         self.assertFalse(acceptance_role.exists())
 
-        result = self.run_cli("update", "--root", str(self.repo))
+        result = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertTrue(acceptance_role.exists())
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))

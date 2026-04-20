@@ -534,7 +534,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 **功能**: 导出反馈事件摘要。
 
 **执行流程**:
-1. 读取 `.harness/feedback.jsonl`
+1. 读取 `.workflow/state/feedback/feedback.jsonl`
 2. 生成反馈摘要
 3. 显示或保存摘要
 4. 若指定 `--reset`，清空反馈日志

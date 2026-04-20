@@ -5,7 +5,7 @@
 
 ## 用途
 
-从 `.harness/feedback.jsonl` 导出反馈汇总，生成 `harness-feedback.json` 文件。
+从 `.workflow/state/feedback/feedback.jsonl` 导出反馈汇总，生成 `harness-feedback.json` 文件。
 
 ## 适用场景
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export feedback event summary from .harness/feedback.jsonl."""
+"""Export feedback event summary from .workflow/state/feedback/feedback.jsonl."""
 
 from __future__ import annotations
 
@@ -17,7 +17,8 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    log_path = root / ".harness" / "feedback.jsonl"
+    # bugfix-3（新）问题 2：feedback.jsonl 落层归位到 .workflow/state/feedback/
+    log_path = root / ".workflow" / "state" / "feedback" / "feedback.jsonl"
 
     events: list[dict[str, object]] = []
     if log_path.exists():

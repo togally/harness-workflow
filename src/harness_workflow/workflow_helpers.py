@@ -133,8 +133,13 @@ LANGUAGE_SPECS = {
     },
 }
 
-FEEDBACK_DIR = Path(".harness")
+# bugfix-3（新）问题 2：feedback.jsonl 从 .harness/ 迁到四层 state 归位。
+# 所有 record_feedback_event 调用均走此常量，迁移由 update_repo 一次性处理。
+FEEDBACK_DIR = Path(".workflow") / "state" / "feedback"
 FEEDBACK_LOG = FEEDBACK_DIR / "feedback.jsonl"
+# 旧位置保留常量便于 update_repo 做一次性迁移（写入路径已由 FEEDBACK_DIR 管辖）
+LEGACY_FEEDBACK_DIR = Path(".harness")
+LEGACY_FEEDBACK_LOG = LEGACY_FEEDBACK_DIR / "feedback.jsonl"
 
 
 ITEM_META_ORDER = [
@@ -1986,7 +1991,68 @@ def _copy_tree(source: Path, target: Path) -> None:
         shutil.copy2(path, destination)
 
 
-def _project_skill_targets(root: Path) -> list[Path]:
+# bugfix-3（新）问题 1：active_agent 持久化到 platforms.yaml，与 enabled[] 解耦。
+# install_agent 使用的 agent 词表是 {"claude","codex","qoder","kimi"}；
+# 而 platforms.yaml.enabled[] 用的是 {"cc","codex","qoder","kimi"}（cc 对应 claude）。
+# active_agent 字段统一采用 install_agent 词表（"claude"），读取时按需映射。
+_AGENT_TO_PLATFORM_KEY = {
+    "claude": "cc",
+    "codex": "codex",
+    "qoder": "qoder",
+    "kimi": "kimi",
+}
+_AGENT_TO_SKILL_DIR = {
+    "claude": ".claude",
+    "codex": ".codex",
+    "qoder": ".qoder",
+    "kimi": ".kimi",
+}
+
+
+def read_active_agent(root: Path) -> str | None:
+    """Read platforms.yaml.active_agent; return None if missing (compat mode)."""
+    from harness_workflow.backup import read_platforms_config
+    config = read_platforms_config(str(root))
+    value = config.get("active_agent")
+    if isinstance(value, str) and value in _AGENT_TO_PLATFORM_KEY:
+        return value
+    return None
+
+
+def write_active_agent(root: Path, agent: str) -> None:
+    """Persist active_agent to platforms.yaml, preserving enabled/disabled fields."""
+    if agent not in _AGENT_TO_PLATFORM_KEY:
+        raise ValueError(f"Unknown agent: {agent!r}")
+    from datetime import date as _date  # local import to avoid cycles
+    config_path = root / ".workflow" / "state" / "platforms.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: dict[str, object] = {}
+    if config_path.exists():
+        try:
+            existing = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        except Exception:  # noqa: BLE001
+            existing = {}
+    if "enabled" not in existing:
+        existing["enabled"] = ["codex", "qoder", "cc", "kimi"]
+    if "disabled" not in existing:
+        existing["disabled"] = []
+    existing["active_agent"] = agent
+    existing["last_updated"] = str(_date.today())
+    config_path.write_text(
+        yaml.dump(existing, default_flow_style=False, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+def _project_skill_targets(root: Path, active_agent: str | None = None) -> list[Path]:
+    """Compute skill install targets.
+
+    bugfix-3（新）问题 1：当 active_agent 提供时，只返回该 agent 的 skill 路径；
+    否则回退到按 platforms.yaml.enabled[] 的旧行为（兼容旧仓）。
+    """
+    if active_agent and active_agent in _AGENT_TO_SKILL_DIR:
+        return [root / _AGENT_TO_SKILL_DIR[active_agent] / "skills" / "harness"]
+
     from harness_workflow.backup import read_platforms_config
     config = read_platforms_config(str(root))
     enabled = config.get("enabled", [])
@@ -2117,7 +2183,19 @@ def _experience_stub(title: str, path: str, language: str) -> str:
     )
 
 
-def _managed_file_contents(root: Path, language: str, include_agents: bool, include_claude: bool) -> dict[str, str]:
+def _managed_file_contents(
+    root: Path,
+    language: str,
+    include_agents: bool,
+    include_claude: bool,
+    active_agent: str | None = None,
+) -> dict[str, str]:
+    """Build the managed-file map.
+
+    bugfix-3（新）问题 1：当 active_agent 被指定时，仅为该 agent 写入
+    `.{agent}/commands/*` + `.{agent}/skills/*`，其它 agent 的 commands/skills 不再下发。
+    `active_agent is None` 时保持旧的全量行为（兼容旧仓 + force_all_platforms escape hatch）。
+    """
     repo_name = root.name
     managed = _scaffold_v2_file_contents(
         root,
@@ -2125,17 +2203,29 @@ def _managed_file_contents(root: Path, language: str, include_agents: bool, incl
         include_claude=include_claude,
         language=language,
     )
-    managed[".qoder/rules/harness-workflow.md"] = render_template("qoder-rule.md.tmpl", repo_name, language)
+    # qoder/rules/harness-workflow.md 与 agent 无关（qoder 仅在 force_all_platforms 或 qoder 为 active 时需要）
+    if active_agent is None or active_agent == "qoder":
+        managed[".qoder/rules/harness-workflow.md"] = render_template("qoder-rule.md.tmpl", repo_name, language)
+
     for command in COMMAND_DEFINITIONS:
         markdown = render_agent_command(command["name"], command["cli"], command["hint"], language)
-        managed[f".qoder/commands/{command['name']}.md"] = markdown
-        managed[f".claude/commands/{command['name']}.md"] = markdown
-        managed[f".codex/skills/{command['name']}/SKILL.md"] = render_codex_command_skill(
-            command["name"], command["cli"], language
-        )
-        managed[f".kimi/skills/{command['name']}/SKILL.md"] = render_kimi_command_skill(
-            command["name"], command["cli"], language
-        )
+        codex_skill = render_codex_command_skill(command["name"], command["cli"], language)
+        kimi_skill = render_kimi_command_skill(command["name"], command["cli"], language)
+
+        if active_agent is None:
+            # 兼容模式：全 agent 全量写入（等同旧行为）
+            managed[f".qoder/commands/{command['name']}.md"] = markdown
+            managed[f".claude/commands/{command['name']}.md"] = markdown
+            managed[f".codex/skills/{command['name']}/SKILL.md"] = codex_skill
+            managed[f".kimi/skills/{command['name']}/SKILL.md"] = kimi_skill
+        elif active_agent == "claude":
+            managed[f".claude/commands/{command['name']}.md"] = markdown
+        elif active_agent == "qoder":
+            managed[f".qoder/commands/{command['name']}.md"] = markdown
+        elif active_agent == "codex":
+            managed[f".codex/skills/{command['name']}/SKILL.md"] = codex_skill
+        elif active_agent == "kimi":
+            managed[f".kimi/skills/{command['name']}/SKILL.md"] = kimi_skill
     return managed
 
 
@@ -2152,9 +2242,18 @@ def _refresh_managed_state(
     return state
 
 
-def install_local_skills(root: Path, force: bool = False) -> list[Path]:
+def install_local_skills(
+    root: Path,
+    force: bool = False,
+    active_agent: str | None = None,
+) -> list[Path]:
+    """Install the harness skill tree to selected agent target(s).
+
+    bugfix-3（新）问题 1：`active_agent` 指定时仅向该 agent 的 `.{agent}/skills/harness` 写入；
+    未指定时回退 `_project_skill_targets(root)` 旧行为（兼容 `--all-platforms` escape hatch）。
+    """
     installed: list[Path] = []
-    for target in _project_skill_targets(root):
+    for target in _project_skill_targets(root, active_agent=active_agent):
         if target.exists():
             if force:
                 shutil.rmtree(target)
@@ -2292,7 +2391,7 @@ def ensure_workflow_state(root: Path) -> tuple[dict[str, str], dict[str, object]
 
 
 def record_feedback_event(root: Path, event_type: str, data: dict[str, object]) -> None:
-    """Append a single feedback event to .harness/feedback.jsonl. Never raises."""
+    """Append a single feedback event to .workflow/state/feedback/feedback.jsonl. Never raises."""
     try:
         feedback_dir = root / FEEDBACK_DIR
         feedback_dir.mkdir(parents=True, exist_ok=True)
@@ -2547,6 +2646,7 @@ def _sync_requirement_workflow_managed_files(
     include_claude: bool,
     check: bool,
     force_managed: bool,
+    active_agent: str | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     config = ensure_config(root)
     language = config["language"]
@@ -2558,7 +2658,13 @@ def _sync_requirement_workflow_managed_files(
         else:
             directory.mkdir(parents=True, exist_ok=True)
 
-    managed_contents = _managed_file_contents(root, language=language, include_agents=include_agents, include_claude=include_claude)
+    managed_contents = _managed_file_contents(
+        root,
+        language=language,
+        include_agents=include_agents,
+        include_claude=include_claude,
+        active_agent=active_agent,
+    )
     managed_state = _load_managed_state(root)
     refreshed_state = dict(managed_state)
     for relative, content in managed_contents.items():
@@ -2866,33 +2972,86 @@ def _migrate_state_files(root: Path) -> list[str]:
     return actions
 
 
-def update_repo(root: Path, check: bool = False, force_managed: bool = False) -> int:
+def update_repo(
+    root: Path,
+    check: bool = False,
+    force_managed: bool = False,
+    force_all_platforms: bool = False,
+    agent_override: str | None = None,
+) -> int:
+    """Refresh harness-managed files.
+
+    bugfix-3（新）改造：
+    - 读 `platforms.yaml.active_agent`，仅刷新当前 agent 的 skill/commands。
+    - `agent_override`（CLI `--agent X`，一次性覆盖）优先于 active_agent。
+    - `force_all_platforms=True`（CLI `--all-platforms` escape hatch）恢复旧的全 agent 刷新行为。
+    - 一次性迁移 `.harness/feedback.jsonl → .workflow/state/feedback/feedback.jsonl`。
+    - 缺 active_agent 时一行 warning 走兼容模式。
+    """
     actions: list[str] = []
     if not check:
         if _migrate_workflow_dir(root):
             actions.append("migrated .workflow/ → .workflow/")
         _ensure_workflow_dir_gitignore(root)
+
+    # bugfix-3（新）问题 2：一次性迁移 .harness/feedback.jsonl → .workflow/state/feedback/
+    if not check:
+        old_feedback = root / LEGACY_FEEDBACK_LOG
+        new_feedback = root / FEEDBACK_LOG
+        if old_feedback.exists() and not new_feedback.exists():
+            new_feedback.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(old_feedback), str(new_feedback))
+            # 若 .harness/ 空目录则 rmdir（保留历史数据 + 清理脏路径）
+            legacy_dir = old_feedback.parent
+            if legacy_dir.exists() and not any(legacy_dir.iterdir()):
+                legacy_dir.rmdir()
+            actions.append("migrated .harness/feedback.jsonl -> .workflow/state/feedback/feedback.jsonl")
+
     migration_actions = migrate_legacy_docs_to_workflow(root) if not check else []
     if migration_actions:
         print("Migrated legacy docs/ → .workflow/:")
         for action in migration_actions:
             print(f"- {action}")
         print("")
-    if check:
-        actions.append("would refresh .codex/skills/harness")
-        actions.append("would refresh .claude/skills/harness")
-        actions.append("would refresh .qoder/skills/harness")
+
+    # bugfix-3（新）问题 1：决定本次刷新的作用域
+    # 优先级：agent_override（一次性 --agent X）> active_agent（持久化字段）> 兼容模式
+    effective_agent: str | None = None
+    if force_all_platforms:
+        effective_agent = None  # 显式 escape hatch，走旧的全 agent 行为
+    elif agent_override:
+        effective_agent = agent_override
     else:
-        install_local_skills(root, force=True)
-        actions.append("refreshed .codex/skills/harness")
-        actions.append("refreshed .claude/skills/harness")
-        actions.append("refreshed .qoder/skills/harness")
+        active = read_active_agent(root)
+        if active is None:
+            # 旧仓兼容：保留 enabled[] 旧行为并打一行 warning
+            print("[harness update] active agent not set; refreshing enabled set (compat mode)")
+            effective_agent = None
+        else:
+            effective_agent = active
+
+    if check:
+        if effective_agent:
+            actions.append(f"would refresh .{_AGENT_TO_SKILL_DIR[effective_agent][1:]}/skills/harness")
+        else:
+            actions.append("would refresh .codex/skills/harness")
+            actions.append("would refresh .claude/skills/harness")
+            actions.append("would refresh .qoder/skills/harness")
+    else:
+        installed = install_local_skills(root, force=True, active_agent=effective_agent)
+        for target in installed:
+            try:
+                rel = target.relative_to(root).as_posix()
+            except ValueError:
+                rel = str(target)
+            actions.append(f"refreshed {rel}")
     _, sync_actions = _sync_requirement_workflow_managed_files(
         root,
         include_agents=True,
         include_claude=True,
         check=check,
         force_managed=force_managed,
+        active_agent=effective_agent,
     )
     actions.extend(sync_actions)
     actions.extend(cleanup_legacy_workflow_artifacts(root, check))
@@ -5277,6 +5436,13 @@ def install_agent(root: Path, agent: str) -> int:
                 print(f"Warning: could not find runtime.yaml marker in {entry_file.name}")
         else:
             print(f"Bootstrap already present in {entry_file.name}")
+
+    # bugfix-3（新）问题 1：持久化当前选定 agent，供后续 update_repo 感知作用域。
+    try:
+        write_active_agent(root, agent)
+    except Exception as exc:  # noqa: BLE001
+        # 持久化失败不应中断 install（已完成的 skill 安装有效），打印警告即可
+        print(f"Warning: failed to persist active_agent={agent} to platforms.yaml: {exc}")
 
     return 0
 
