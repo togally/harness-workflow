@@ -2180,6 +2180,22 @@ def slugify(value: str) -> str:
     return slug
 
 
+def _path_slug(title: str, max_len: int = 60) -> str:
+    """bugfix-3：为 create_requirement / create_bugfix 生成路径安全的 slug。
+
+    约束：
+    - 走共享 ``slugify_preserve_unicode``，过滤 `/` 等非法路径字符；
+    - 长度上限 ``max_len``（默认 60），截断后再 ``strip('-')``；
+    - 全部字符被过滤 / 空输入 → 返回空串，由调用方回退到 id-only。
+    """
+    if not title:
+        return ""
+    slug = slugify_preserve_unicode(title)
+    if not slug:
+        return ""
+    return slug[:max_len].strip("-")
+
+
 def resolve_artifact_id(title: str, language: str) -> str:
     title = title.strip()
     if normalize_language(language) == "cn":
@@ -3098,13 +3114,21 @@ def apply_suggestion(root: Path, suggest_id: str) -> int:
 
     state = load_simple_yaml(target)
     body = target.read_text(encoding="utf-8").split("---", 2)[-1].strip()
-    title = body.splitlines()[0].strip() if body else suggest_id
+    # bugfix-3：截断首行到 60 字符作为 title 候选（slug 清洗仍下沉给 create_requirement
+    # 执行，这里只保证 create_requirement 拿到的 raw title 不会过长撑爆路径）。
+    first_line = body.splitlines()[0].strip() if body else ""
+    title = first_line[:60].strip() or suggest_id
 
     result = create_requirement(root, title)
     if result == 0:
-        text = target.read_text(encoding="utf-8")
+        # bugfix-3：成功后将源 sug 文件 move 到 archive/ 并翻转 frontmatter status。
+        archive_dir = suggestions_dir / "archive"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        archive_path = archive_dir / target.name
+        target.replace(archive_path)
+        text = archive_path.read_text(encoding="utf-8")
         updated = text.replace("status: pending", "status: applied")
-        target.write_text(updated, encoding="utf-8")
+        archive_path.write_text(updated, encoding="utf-8")
         print(f"Applied suggestion {suggest_id} to requirement.")
     return result
 
@@ -3272,7 +3296,10 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
         raise SystemExit("A requirement title is required.")
 
     req_num_id = requirement_id.strip() if requirement_id else _next_req_id(root)
-    dir_name = f"{req_num_id}-{requirement_title}"
+    # bugfix-3：title 经 slugify + 长度上限清洗后再拼 dir_name，避免 `/` 被 Path
+    # 拆成多级嵌套或超长 title 撑破文件系统。state yaml 的 title 字段保留原文。
+    slug_part = _path_slug(requirement_title)
+    dir_name = f"{req_num_id}-{slug_part}" if slug_part else req_num_id
     branch = _get_git_branch(root) or "main"
     requirement_dir = root / "artifacts" / branch / "requirements" / dir_name
     created: list[str] = []
@@ -3334,7 +3361,9 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
         raise SystemExit("A bugfix title is required.")
 
     bfx_num_id = bugfix_id.strip() if bugfix_id else _next_bugfix_id(root)
-    dir_name = f"{bfx_num_id}-{bugfix_title}"
+    # bugfix-3：与 create_requirement 同源的 slug 清洗 + 长度截断。
+    slug_part = _path_slug(bugfix_title)
+    dir_name = f"{bfx_num_id}-{slug_part}" if slug_part else bfx_num_id
     branch = _get_git_branch(root) or "main"
     bugfix_dir = root / "artifacts" / branch / "bugfixes" / dir_name
     created: list[str] = []

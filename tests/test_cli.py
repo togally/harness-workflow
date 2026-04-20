@@ -1049,14 +1049,15 @@ class HarnessCliTest(unittest.TestCase):
 
         # req-26 path-isomorphism: bugfix workspace lives under artifacts/{branch}/...
         # instead of the legacy `.workflow/flow/bugfixes/...` location.
-        bugfix_dir = self.repo / "artifacts" / "main" / "bugfixes" / "bugfix-1-Login form validation fails"
+        # bugfix-3：title 走 _path_slug 清洗，英文 title 被 kebab-case 化。
+        bugfix_dir = self.repo / "artifacts" / "main" / "bugfixes" / "bugfix-1-login-form-validation-fails"
         self.assertTrue((bugfix_dir / "bugfix.md").exists())
         self.assertTrue((bugfix_dir / "session-memory.md").exists())
         self.assertTrue((bugfix_dir / "regression" / "diagnosis.md").exists())
         self.assertTrue((bugfix_dir / "regression" / "required-inputs.md").exists())
         self.assertTrue((bugfix_dir / "test-evidence.md").exists())
 
-        state_file = self.repo / ".workflow" / "state" / "bugfixes" / "bugfix-1-Login form validation fails.yaml"
+        state_file = self.repo / ".workflow" / "state" / "bugfixes" / "bugfix-1-login-form-validation-fails.yaml"
         self.assertTrue(state_file.exists())
         state_text = state_file.read_text(encoding="utf-8")
         self.assertIn('stage: "regression"', state_text)

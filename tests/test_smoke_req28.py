@@ -302,8 +302,11 @@ class SuggestCliSmokeTest(unittest.TestCase):
             rc = apply_suggestion(self.root, "sug-60")
         self.assertEqual(rc, 0)
         self.assertTrue(create_mock.called)
-        self.assertTrue(fm_path.exists(), "apply 不删 sug，仅翻转 status")
-        text = fm_path.read_text(encoding="utf-8")
+        # bugfix-3：apply 成功后源 sug 被 move 到 archive/（sug-06 归档惯例对齐）。
+        self.assertFalse(fm_path.exists(), "apply 成功后源路径不应再存在")
+        archived = sug_dir / "archive" / "sug-60-apply-demo.md"
+        self.assertTrue(archived.exists(), "apply 成功后 sug 应被搬到 archive/")
+        text = archived.read_text(encoding="utf-8")
         self.assertIn("status: applied", text, "apply 应把 status: pending → applied")
 
     def test_suggest_numbering_monotonic_across_archive(self) -> None:

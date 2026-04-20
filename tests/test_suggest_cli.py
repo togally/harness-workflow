@@ -121,7 +121,8 @@ class SuggestCLITest(unittest.TestCase):
     def test_apply_by_short_id_works_without_frontmatter(self) -> None:
         """无 YAML frontmatter 的 sug，`apply_suggestion('sug-88')` 必须能应用。
 
-        apply 成功的判据：返回值为 0，且 sug 文件依然存在（仅被翻转 status）。
+        apply 成功的判据：返回值为 0，且 sug 文件被搬到 `archive/`（bugfix-3
+        起成功 apply 后必须归档源文件，不再留在 suggestions/ 根下）。
         """
         from harness_workflow.workflow_helpers import apply_suggestion
 
@@ -141,7 +142,16 @@ class SuggestCLITest(unittest.TestCase):
 
         self.assertEqual(rc, 0, "apply_suggestion 应返回 0（filename fallback 生效）")
         self.assertTrue(create_mock.called, "apply 成功时应调用 create_requirement")
-        self.assertTrue(sug_path.exists(), "apply 后 sug 文件应依然存在")
+        # bugfix-3：apply 成功后源 sug 文件应被 move 到 archive/，源路径不再存在
+        self.assertFalse(
+            sug_path.exists(),
+            "apply 成功后原 sug 应被归档（bugfix-3 行为）",
+        )
+        archived = sug_dir / "archive" / "sug-88-apply-demo.md"
+        self.assertTrue(
+            archived.exists(),
+            f"归档后的 sug 文件应存在于 {archived}",
+        )
 
     # ---------- Assertion (c): create numbering monotonic across archive ----------
     def test_create_suggestion_numbering_monotonic_across_archive(self) -> None:

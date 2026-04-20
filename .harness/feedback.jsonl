@@ -166,3 +166,12 @@
 {"ts": "2026-04-19T17:16:01.992902+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-19T17:16:02.449301+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0.460264}}
 {"ts": "2026-04-19T17:16:02.449446+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-20T02:08:05.243863+00:00", "event": "regression_created", "data": {"regression_id": "reg-01", "dir_name": "reg-01-suggest-apply-slug-未截断未清洗-req-30-目录被拆分"}}
+{"ts": "2026-04-20T03:27:44.363249+00:00", "event": "stage_duration", "data": {"stage": "regression", "duration_seconds": 36701.91721}}
+{"ts": "2026-04-20T03:27:44.363656+00:00", "event": "stage_advance", "data": {"from_stage": "regression", "to_stage": "executing"}}
+{"ts": "2026-04-20T03:47:11.307414+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 1166.945882}}
+{"ts": "2026-04-20T03:47:11.307695+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-20T06:08:19.530035+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 8468.224258}}
+{"ts": "2026-04-20T06:08:19.530400+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-20T06:37:57.438051+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 1777.90933}}
+{"ts": "2026-04-20T06:37:57.438344+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
