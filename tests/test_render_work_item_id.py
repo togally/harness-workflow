@@ -7,6 +7,9 @@
 - 空 id：返回 ``"(none)"``
 - sug 文件读 frontmatter title
 - `workflow_status` 集成 smoke：stdout 打印带 title
+
+req-31（批量建议合集（20条））/ chg-05（legacy yaml strip 兜底）/ Step 1（sug-23）新增：
+- legacy yaml 脏数据 title（前后空格 / 包围引号）→ render 时自动 strip。
 """
 
 from __future__ import annotations
@@ -214,3 +217,60 @@ class TestWorkflowStatusPrintsTitle:
         output = buf.getvalue()
 
         assert "current_requirement: (none)" in output
+
+
+class TestRenderWorkItemIdLegacyYamlStrip:
+    """req-31（批量建议合集（20条））/ chg-05（legacy yaml strip 兜底）/ Step 1（sug-23）：
+    legacy yaml 脏数据（title 前后空格 / 包围引号）render 时 strip 兜底。
+    """
+
+    def test_render_strips_leading_trailing_whitespace_from_runtime(self, tmp_path: Path) -> None:
+        """runtime 缓存内 title 前后有空格 → render 结果不含空格。"""
+        _init_repo(tmp_path)
+        runtime = dict(DEFAULT_STATE_RUNTIME)
+        runtime["current_requirement"] = "req-77"
+        runtime["current_requirement_title"] = "  dirty title  "
+        rendered = render_work_item_id("req-77", runtime=runtime, root=tmp_path)
+        assert rendered == "req-77（dirty title）"
+
+    def test_render_strips_single_quotes_from_state(self, tmp_path: Path) -> None:
+        """state yaml 内 title 被外层单引号包围 → render 结果去掉外层单引号。"""
+        _init_repo(tmp_path)
+        state_file = tmp_path / ".workflow" / "state" / "requirements" / "req-78-x.yaml"
+        # 故意写入脏数据形式（title 值包含外层单引号）
+        state_file.write_text(
+            "\n".join([
+                'id: "req-78"',
+                "title: \"'批量建议合集'\"",
+                'stage: "executing"',
+                "",
+            ]),
+            encoding="utf-8",
+        )
+        rendered = render_work_item_id("req-78", runtime=None, root=tmp_path)
+        assert rendered == "req-78（批量建议合集）"
+
+    def test_render_strips_double_quotes(self, tmp_path: Path) -> None:
+        _init_repo(tmp_path)
+        runtime = dict(DEFAULT_STATE_RUNTIME)
+        runtime["current_requirement"] = "req-79"
+        runtime["current_requirement_title"] = '"foo"'
+        rendered = render_work_item_id("req-79", runtime=runtime, root=tmp_path)
+        assert rendered == "req-79（foo）"
+
+    def test_render_handles_nested_quotes_and_spaces(self, tmp_path: Path) -> None:
+        _init_repo(tmp_path)
+        runtime = dict(DEFAULT_STATE_RUNTIME)
+        runtime["current_requirement"] = "req-80"
+        runtime["current_requirement_title"] = ' "批量建议合集" '
+        rendered = render_work_item_id("req-80", runtime=runtime, root=tmp_path)
+        assert rendered == "req-80（批量建议合集）"
+
+    def test_render_preserves_internal_quotes(self, tmp_path: Path) -> None:
+        """内部（非首尾）单引号不被误去，避免误改合法字符。"""
+        _init_repo(tmp_path)
+        runtime = dict(DEFAULT_STATE_RUNTIME)
+        runtime["current_requirement"] = "req-81"
+        runtime["current_requirement_title"] = "foo's bar"
+        rendered = render_work_item_id("req-81", runtime=runtime, root=tmp_path)
+        assert rendered == "req-81（foo's bar）"

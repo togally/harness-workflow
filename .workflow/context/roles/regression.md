@@ -93,6 +93,7 @@
 - [ ] 已明确：真实问题 或 误判
 - [ ] 路由方向已确定
 - [ ] 对人文档 `回归简报.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/`（或对应 bugfix 子树）下产出，字段完整
+- [ ] 已执行 `harness validate --contract regression` 得绿（sug-10：《回归简报.md》契约 3 / 4 字段自检 — req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug））
 
 ## ff 模式说明
 - ff 模式下，诊断师完成 `diagnosis.md` 并明确路由方向后，由主 agent 根据诊断结果自动决定下一步：

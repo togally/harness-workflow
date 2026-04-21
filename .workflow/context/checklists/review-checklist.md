@@ -144,3 +144,9 @@
 - [ ] 改进建议已提取并转存到 `.workflow/flow/suggestions/`（中）
 - [ ] 经验文件已按阶段验证更新（中）
 - [ ] `artifacts/requirements/` 制品仓库无遗漏（高）
+
+### 契约 7 校验（req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ sug-26）
+
+- [ ] 已执行 `harness validate --contract 7` 或 `harness status --lint`，返回 0（高）
+- [ ] 本次新增 / 修改的对人文档（requirement.md / change.md / plan.md / session-memory.md / 各 `*.md` 对人文档）首次引用 `req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*` 均带 title（形如 `req-31（批量建议合集（20条））`）（高）
+- [ ] 若命中历史 legacy 裸 id，已判定为"只对本次提交之后引用生效"的 fallback，不强制回补（中）

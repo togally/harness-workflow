@@ -176,7 +176,13 @@ def _advance_to_stage_before_acceptance(root: Path) -> tuple[str, str]:
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
     runtime["ff_mode"] = False
 
-    _sync_stage_to_state_yaml(root, operation_type, operation_target, target_stage)
+    # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 4（sug-21）：
+    # ff --auto 跳过式推进时，对 sequence 中从 current_idx（含）到 target_idx 的
+    # 每个中间 stage 都显式调 _sync_stage_to_state_yaml，保证 bugfix ff 全程
+    # stage_timestamps 字段无缺漏。若 current_idx 未定位到（== -1），仅写入 target。
+    start = max(0, current_idx) if current_idx >= 0 else target_idx
+    for idx in range(start, target_idx + 1):
+        _sync_stage_to_state_yaml(root, operation_type, operation_target, sequence[idx])
     save_requirement_runtime(root, runtime)
     return from_stage, target_stage
 

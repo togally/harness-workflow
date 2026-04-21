@@ -1,9 +1,9 @@
 operation_type: "requirement"
 operation_target: "req-31"
-current_requirement: "req-31"
-current_requirement_title: "批量建议合集（20条）"
-stage: "executing"
-stage_entered_at: "2026-04-21T08:09:40.132783+00:00"
+current_requirement: ""
+current_requirement_title: ""
+stage: "done"
+stage_entered_at: "2026-04-21T09:27:07.513278+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -22,5 +22,4 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements:
-  - req-31
+active_requirements: []

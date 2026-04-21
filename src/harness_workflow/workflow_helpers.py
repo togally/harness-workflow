@@ -506,6 +506,12 @@ def render_work_item_id(
             # 3. sug 特殊分支
             title = _resolve_title_for_suggestion(root, ident)
 
+    # req-31（批量建议合集（20条））/ chg-05（legacy yaml strip 兜底）/ Step 1（sug-23）：
+    # legacy yaml 脏数据 title（前后空格 + 包围 ``'`` / ``"``）render 时 strip 兜底，
+    # 保证对人输出干净。``.strip(...)`` 只处理首尾字符，内部合法字符（如 ``foo's bar``
+    # 的单引号）不受影响。
+    if title:
+        title = title.strip().strip("'\"").strip()
     if title:
         return f"{ident}（{title}）"
     return f"{ident} (no title)"
@@ -2234,6 +2240,91 @@ def _managed_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _write_with_hash_guard(path: Path, content: str) -> bool:
+    """req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 1（sug-13）：
+    写入前读旧内容计算 sha256，写入后核对读回内容 hash 是否等于期望；
+    若不匹配（疑似并发覆盖）则回滚并打印 stderr WARNING。
+
+    返回：
+      - ``True``：写入并验证通过
+      - ``False``：二次校验不匹配，已回滚到旧内容
+
+    设计注记：
+      - 本 helper 非真正进程级锁；作为 read-after-write 校验机制，用于检测
+        **多生成器刷新同一共享文件** 时的覆盖风险（``update_repo`` 单线程调用）。
+      - 调用方负责 ``path.parent`` 的 ``mkdir``（避免反复创建）。
+    """
+    old_content = path.read_text(encoding="utf-8") if path.exists() else ""
+    path.write_text(content, encoding="utf-8")
+    written = path.read_text(encoding="utf-8")
+    expected_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    written_hash = hashlib.sha256(written.encode("utf-8")).hexdigest()
+    if written_hash != expected_hash:
+        print(
+            f"[update_repo] WARNING: hash mismatch at {path}; rolling back",
+            file=sys.stderr,
+        )
+        path.write_text(old_content, encoding="utf-8")
+        return False
+    return True
+
+
+# req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 2（sug-14）：
+# "用户自建同路径文件" 判据的模板 hash 白名单。
+# 判据策略：``relative → {sha256(历史模板版本内容)}``。
+# 为避免维护成本，白名单条目在运行时"按需填充"——当前只保留空集合结构，具体
+# hash 由 ``_is_user_authored`` 通过 ``_managed_file_contents`` 反向校验当前生成结果
+# 与历史版本一致性（上层 ``_sync_requirement_workflow_managed_files`` 的 ``current ==
+# content`` 分支已处理"内容一致"情形；本白名单用于标记"用户自定义的脏数据"）。
+#
+# 未来扩展：若需要显式保留历史模板 hash（跨版本兼容），在此字典追加条目。
+_HARNESS_TEMPLATE_HASHES: dict[str, set[str]] = {
+    # "CLAUDE.md": {"<hash_v1>", "<hash_v2>"},
+    # 目前按"内容不等 + 未登记"即判为 user-authored；此处为前瞻性预留。
+}
+
+
+# 用户自建判据仅保护 **用户可见 / 可能自定义** 的根级文件；``.workflow/`` 下的
+# scaffold 文件属于 harness 内部模板，未登记 hash 的情形一律 adopt（bugfix-3 根因 A
+# 已覆盖）。
+_USER_AUTHORED_SENSITIVE_FILES: set[str] = {
+    "CLAUDE.md",
+    "AGENTS.md",
+    "SKILL.md",
+}
+
+
+def _is_user_authored(path: Path, relative: str, template_content: str) -> bool:
+    """req-31 / chg-03 / Step 2（sug-14）：判断 ``path`` 是否为用户自建文件。
+
+    判定策略：
+      1. 仅对 ``_USER_AUTHORED_SENSITIVE_FILES`` 中的根级文件（CLAUDE.md /
+         AGENTS.md / SKILL.md 等用户可见文件）启用保护；其它 ``.workflow/`` 下的
+         scaffold 文件一律走 adopt 路径（保留 bugfix-3 根因 A 的行为）。
+      2. 若 ``_HARNESS_TEMPLATE_HASHES[relative]`` 非空且当前文件 hash 在白名单中
+         → 视为 harness 历史模板原件 → 返回 False（可被覆盖）。
+      3. 否则：若当前文件 hash 等于即将写入的 template_content hash
+         → 视为内容一致的巧合命中（正常 adopt）→ 返回 False。
+      4. 其它：视为用户自定义内容 → 返回 True。
+
+    仅在 ``path`` 存在时被调用；不存在时由上层走 ``created`` 分支。
+    """
+    # 仅对 "用户可见的根级文件" 启用保护；``.workflow/`` 下的 scaffold 一律 adopt
+    if relative not in _USER_AUTHORED_SENSITIVE_FILES:
+        return False
+    try:
+        current = path.read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return False
+    current_hash = _managed_hash(current)
+    whitelist = _HARNESS_TEMPLATE_HASHES.get(relative, set())
+    if current_hash in whitelist:
+        return False
+    if current_hash == _managed_hash(template_content):
+        return False
+    return True
+
+
 def _matches_platform_pattern(file_path: str, pattern: str) -> bool:
     """Check if file path matches a platform pattern.
 
@@ -2841,7 +2932,10 @@ def _sync_requirement_workflow_managed_files(
             actions.append(f"{'missing' if check else 'created'} {relative}")
             if not check:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(content, encoding="utf-8")
+                # req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/
+                # Step 1（sug-13）：共享 managed 文件统一走 _write_with_hash_guard
+                # 检测并发覆盖。
+                _write_with_hash_guard(path, content)
                 refreshed_state[relative] = desired_hash
             continue
         current = path.read_text(encoding="utf-8")
@@ -2856,7 +2950,7 @@ def _sync_requirement_workflow_managed_files(
                 label = "would overwrite modified" if check else "overwrote modified"
             actions.append(f"{label} {relative}")
             if not check:
-                path.write_text(content, encoding="utf-8")
+                _write_with_hash_guard(path, content)
                 refreshed_state[relative] = desired_hash
             continue
         # bugfix-3 根因 A：adopt-as-managed 分支。
@@ -2867,9 +2961,22 @@ def _sync_requirement_workflow_managed_files(
         # 保护用户自定义文件的语义由下方兜底 `skipped modified` 承担
         # （已登记但 hash 不匹配 = 用户真改过）。
         if relative not in managed_state:
+            # req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/
+            # Step 2（sug-14）：adopt-as-managed 判据收紧——目标文件存在且 hash 不在
+            # harness 默认模板白名单中 → 判为 user-authored，默认跳过 + stderr 提示；
+            # 显式 ``force_managed=True``（CLI ``--force-managed``）才强制覆盖。
+            if _is_user_authored(path, relative, content) and not force_managed:
+                actions.append(f"skipped user-authored {relative}")
+                if not check:
+                    print(
+                        f"[update_repo] skipping user-authored file {relative}; "
+                        f"pass --force-managed (--adopt-as-managed) to force.",
+                        file=sys.stderr,
+                    )
+                continue
             actions.append(f"{'would adopt' if check else 'adopted'} {relative}")
             if not check:
-                path.write_text(content, encoding="utf-8")
+                _write_with_hash_guard(path, content)
                 refreshed_state[relative] = desired_hash
             continue
         actions.append(f"skipped modified {relative}")
@@ -3173,6 +3280,19 @@ def update_repo(
             if legacy_dir.exists() and not any(legacy_dir.iterdir()):
                 legacy_dir.rmdir()
             actions.append("migrated .harness/feedback.jsonl -> .workflow/state/feedback/feedback.jsonl")
+            # req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/ Step 3（sug-20）：
+            # 迁移会产生 git 变更，stderr 提示用户 commit 本次迁移；CI / 非交互环境
+            # 可忽略（不阻塞）。
+            print(
+                "[update_repo] NOTE: migrated .harness/feedback.jsonl -> "
+                ".workflow/state/feedback/feedback.jsonl",
+                file=sys.stderr,
+            )
+            print(
+                "[update_repo] NOTE: run `git status -s .workflow/state/feedback/ .harness/` "
+                "and commit the migration.",
+                file=sys.stderr,
+            )
 
     migration_actions = migrate_legacy_docs_to_workflow(root) if not check else []
     if migration_actions:
@@ -3255,12 +3375,20 @@ def _next_req_id(root: Path) -> str:
       - ``.workflow/state/requirements``（runtime state 产出）
       - ``.workflow/flow/requirements``（legacy 路径）
       - ``resolve_requirement_root(root)``（当前 requirement 根，新/过渡路径）
+      - ``artifacts/{branch}/archive/requirements``（归档，primary 形态）
+      - ``.workflow/flow/archive/main``（归档，legacy 扁平形态）
+
+    req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 4（sug-19）：
+    扩展扫描归档树，避免新建 req id 与已归档 id 冲突。
     """
     max_num = 0
+    branch = _get_git_branch(root) or "main"
     scan_dirs = [
         root / ".workflow" / "state" / "requirements",
         root / ".workflow" / "flow" / "requirements",
         resolve_requirement_root(root),
+        root / "artifacts" / branch / "archive" / "requirements",
+        root / ".workflow" / "flow" / "archive" / "main",
     ]
     seen: set[Path] = set()
     for d in scan_dirs:
@@ -3281,12 +3409,20 @@ def _next_req_id(root: Path) -> str:
 
 
 def _next_bugfix_id(root: Path) -> str:
-    """Return the next available bugfix-N id."""
+    """Return the next available bugfix-N id.
+
+    req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 4（sug-19）：
+    扩展扫描归档树，避免新建 bugfix id 与已归档 id 冲突。
+    """
     max_num = 0
+    branch = _get_git_branch(root) or "main"
     for d in [
         root / "artifacts" / "bugfixes",
+        root / "artifacts" / branch / "bugfixes",
         root / ".workflow" / "state" / "bugfixes",
         root / ".workflow" / "flow" / "bugfixes",
+        root / "artifacts" / branch / "archive" / "bugfixes",
+        root / ".workflow" / "flow" / "archive" / "main",
     ]:
         if not d.exists():
             continue
@@ -4156,6 +4292,14 @@ def regression_action(
         runtime["current_regression_title"] = ""  # req-30 / chg-01
         runtime["stage"] = "testing"
         save_requirement_runtime(root, runtime)
+        # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 3（sug-16 + sug-21）：
+        # regression --testing 子路径显式触发 _sync_stage_to_state_yaml，消除
+        # "stage_timestamps.testing 在回退到 testing 时被跳过"的盲区。
+        operation_type = str(runtime.get("operation_type", "")).strip()
+        operation_target = str(runtime.get("operation_target", "")).strip()
+        if not operation_target:
+            operation_target = str(runtime.get("current_requirement", "")).strip()
+        _sync_stage_to_state_yaml(root, operation_type or "requirement", operation_target, "testing")
         print(f"Regression {regression_id} confirmed as bug. Stage rolled back to testing.")
         print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return 0
@@ -4560,9 +4704,11 @@ def _sync_stage_to_state_yaml(
         target_state["status"] = "done"
         target_state["completed_at"] = date.today().isoformat()
 
-    # 若 state yaml 有 stage_timestamps 字段（或为空 dict），顺手打一条时间戳；
-    # 文件里完全不存在该字段时，不主动创建，避免 schema 漂移。
-    if "stage_timestamps" in target_state:
+    # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 2（sug-16 + sug-21）：
+    # 对白名单内的 stage，**总是初始化** stage_timestamps 并写入时间戳，消除
+    # "state yaml 无 stage_timestamps 字段时 sync 静默跳过"的盲区。白名单限定
+    # 避免 apply / suggestion_review 等辅助 stage 引入 schema 漂移。
+    if new_stage in _STAGE_TIMESTAMP_WHITELIST:
         existing = target_state.get("stage_timestamps")
         if not isinstance(existing, dict):
             existing = {}
@@ -4571,6 +4717,22 @@ def _sync_stage_to_state_yaml(
 
     save_simple_yaml(target_path, target_state)
     return target_path
+
+
+# req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 2 白名单：
+# 仅对主流程 stage 写入时间戳，避免 apply / suggestion_review 等辅助 stage 触发 schema 漂移。
+_STAGE_TIMESTAMP_WHITELIST = frozenset({
+    "requirement_review",
+    "plan_review",
+    "ready_for_execution",
+    "planning",
+    "executing",
+    "testing",
+    "acceptance",
+    "regression",
+    "done",
+    "archive",
+})
 
 
 def _check_plan_completion(plan_path: Path) -> tuple[bool, list[str]]:
@@ -4824,6 +4986,44 @@ def resolve_bugfix_root(root: Path) -> Path:
     return primary
 
 
+def _write_archive_meta(
+    archive_dir: Path,
+    work_item_id: str,
+    title: str,
+    origin_stage: str = "done",
+) -> None:
+    """req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/ Step 1（sug-22）：
+    归档目录落盘 ``_meta.yaml``，字段含 ``id`` / ``title`` / ``archived_at`` /
+    ``origin_stage``。
+
+    幂等保护：若 ``_meta.yaml`` 已存在且含 ``archived_at``，保留原时间戳；仅更新
+    ``title`` / ``origin_stage``（避免重复归档刷掉首次归档时间）。
+
+    ``archive_dir`` 必须已存在（由调用方保证）；不存在时静默跳过（兜底，避免崩溃）。
+    """
+    if not archive_dir.exists():
+        return
+    meta_path = archive_dir / "_meta.yaml"
+    payload: dict[str, object] = {
+        "id": work_item_id,
+        "title": title or "",
+        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "origin_stage": origin_stage,
+    }
+    if meta_path.exists():
+        try:
+            existing = load_simple_yaml(meta_path)
+        except Exception:  # noqa: BLE001
+            existing = {}
+        if isinstance(existing, dict) and existing.get("archived_at"):
+            payload["archived_at"] = existing["archived_at"]
+    save_simple_yaml(
+        meta_path,
+        payload,
+        ordered_keys=["id", "title", "archived_at", "origin_stage"],
+    )
+
+
 def migrate_requirements(root: Path, dry_run: bool = False) -> int:
     """把 legacy 路径下的 requirement 目录搬到 ``artifacts/{branch}/requirements``。
 
@@ -4982,6 +5182,33 @@ def migrate_archive(root: Path, dry_run: bool = False) -> int:
         for kind in ("requirements", "bugfixes"):
             _collect_from_kind_root(legacy_root / kind, kind)
 
+        # 形态 3：req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/
+        # Step 2（sug-08）新增——``<branch>/<dir>`` 扁平格式（历史 req-01..26 早期、
+        # bugfix 早期归档直接挂在 ``.workflow/flow/archive/<branch>/`` 下，无
+        # ``requirements/`` / ``bugfixes/`` 中间层）。按 id 前缀分流到
+        # ``artifacts/<branch>/archive/{requirements,bugfixes}/<dir>``。
+        # 跳过形态 1 / 2 已覆盖的分流子目录，避免重复枚举。
+        for branch_dir in sorted(legacy_root.iterdir()):
+            if branch_dir.name in _REQUIREMENT_ROOT_NOISE_FILENAMES:
+                continue
+            if not branch_dir.is_dir():
+                continue
+            if branch_dir.name in ("requirements", "bugfixes"):
+                continue  # 形态 2
+            for child in sorted(branch_dir.iterdir()):
+                if child.name in _REQUIREMENT_ROOT_NOISE_FILENAMES:
+                    continue
+                if not child.is_dir():
+                    continue
+                if child.name in ("requirements", "bugfixes"):
+                    continue  # 形态 1 已枚举
+                m = re.match(r"^(req|bugfix)-\d+(?:-|$)", child.name)
+                if not m:
+                    continue  # 非 id 目录跳过（保留原位）
+                kind = "requirements" if m.group(1) == "req" else "bugfixes"
+                dst = dst_root / kind / child.name
+                pairs.append((child, dst))
+
         return pairs
 
     pairs = _plan_pairs()
@@ -5016,6 +5243,14 @@ def migrate_archive(root: Path, dry_run: bool = False) -> int:
         print(f"[migrate] {src} -> {dst}")
         shutil.move(str(src), str(dst))
         migrated.append(label)
+        # req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/ Step 2（sug-08+sug-22）：
+        # 扁平归档迁移后落盘 _meta.yaml（origin_stage="legacy-migrated"）。
+        m = re.match(r"^(req|bugfix)-(\d+)(?:-(.+))?$", dst.name)
+        if m:
+            work_item_id = f"{m.group(1)}-{m.group(2)}"
+            # title 优先从 state yaml 查；查不到 fallback 到目录名 slug 段
+            title = _resolve_title_for_id(root, work_item_id) or (m.group(3) or "")
+            _write_archive_meta(dst, work_item_id, title, origin_stage="legacy-migrated")
 
     if dry_run:
         print(
@@ -5157,6 +5392,14 @@ def archive_requirement(
     target = target_parent / req_dir.name
     shutil.move(str(req_dir), str(target))
 
+    # req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/ Step 1+5（sug-22）：
+    # 归档目录落盘 _meta.yaml（origin_stage="done"，因为走的是正常归档路径）。
+    m_archive = re.match(r"^(req|bugfix)-(\d+)(?:-(.+))?$", target.name)
+    if m_archive:
+        archive_work_item_id = f"{m_archive.group(1)}-{m_archive.group(2)}"
+        archive_title = _resolve_title_for_id(root, archive_work_item_id) or (m_archive.group(3) or "")
+        _write_archive_meta(target, archive_work_item_id, archive_title, origin_stage="done")
+
     # Update state/{sub}/*.yaml and migrate to archive
     req_state_dir = root / ".workflow" / "state" / state_subdir
     archived_req_id = ""
@@ -5183,6 +5426,10 @@ def archive_requirement(
         runtime["current_requirement"] = new_current
         # req-30 / chg-01：id 切换时同步刷新 *_title 缓存。
         runtime["current_requirement_title"] = _resolve_title_for_id(root, new_current) if new_current else ""
+    # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 1（sug-27）：
+    # 归档成功后 ff_mode 强制关闭；req-31 AC-自证依赖本行确保本 req 完成后
+    # runtime.yaml.ff_mode == false。
+    _reset_ff_mode_after_done_archive(runtime, "archive")
     save_requirement_runtime(root, runtime)
 
     # Migrate state/sessions/{id}/ to archive directory（仅 requirement 分支保留 sessions 迁移）
@@ -5357,6 +5604,95 @@ def workflow_status(root: Path) -> int:
     return 0
 
 
+def workflow_status_lint(root: Path) -> int:
+    """``harness status --lint`` — 契约 7 扫描入口。
+
+    req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 3
+    （覆盖 sug-25 `harness status --lint` 自动化契约 7 校验）。
+
+    扫描范围由 ``validate_contract.collect_lint_paths`` 统一提供，默认排除
+    ``artifacts/{branch}/archive/``。发现违规即非零退出，stdout 按
+    ``<file>:<line>: contract-7 bare id <id> — <excerpt>`` 打印便于定位。
+    """
+    from harness_workflow.validate_contract import (
+        check_contract_7,
+        collect_lint_paths,
+    )
+
+    paths = collect_lint_paths(root)
+    violations = check_contract_7(root, paths)
+    for v in violations:
+        try:
+            rel = v.file.relative_to(root)
+        except ValueError:
+            rel = v.file
+        print(f"{rel}:{v.line}: contract-7 bare id {v.work_item_id} — {v.excerpt}")
+    if violations:
+        print(f"[status --lint] contract-7 violations: {len(violations)}")
+        return 1
+    print("[status --lint] contract-7 check passed (0 violations).")
+    return 0
+
+
+# req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）
+_STAGE_TO_ROLE: dict[str, str] = {
+    "requirement_review": "requirement-review（需求分析师）",
+    "changes_review": "planning（架构师）",
+    "plan_review": "planning（架构师）",
+    "ready_for_execution": "executing（开发者）",
+    "executing": "executing（开发者）",
+    "testing": "testing（测试工程师）",
+    "acceptance": "acceptance（验收官）",
+    "regression": "regression（诊断师）",
+    "done": "done（主 agent）",
+}
+
+_NO_BRIEFING_STAGES = frozenset({"done", "archive", "completed", "ready_for_execution"})
+
+
+def _build_subagent_briefing(new_stage: str, req_id: str, req_title: str) -> str:
+    """构造 subagent briefing 文本（固定 JSON fence）。
+
+    req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）：
+    供主 agent 在 `harness next --execute` 后直接复制使用；格式稳定，便于解析。
+    """
+    role = _STAGE_TO_ROLE.get(new_stage, new_stage)
+    req_title_safe = req_title or "(no title)"
+    lines = [
+        "```subagent-briefing",
+        "{",
+        f'  "role": "{role}",',
+        f'  "stage": "{new_stage}",',
+        f'  "requirement_id": "{req_id}",',
+        f'  "requirement_title": "{req_title_safe}",',
+        '  "context_chain": [',
+        f'    {{"level": 0, "agent": "main", "stage": "{new_stage}"}}',
+        "  ]",
+        "}",
+        "```",
+    ]
+    return "\n".join(lines)
+
+
+# req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 1（sug-27）
+_FF_RESET_TERMINAL_STAGES = frozenset({"done", "archive", "completed"})
+
+
+def _reset_ff_mode_after_done_archive(runtime: dict, new_stage: str) -> dict:
+    """当 stage 翻到终局（done / archive / completed）时强制关 ``ff_mode``。
+
+    req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 1（sug-27
+    `ff_mode` 在 done / archive 后应自动关闭）。统一入口，替代历史上散落在
+    `workflow_next` / `archive_requirement` / `workflow_ff_auto` 的手工重置逻辑；
+    req-31 AC-自证依赖本 helper 确保本 req 完成后 runtime.yaml.ff_mode == false。
+
+    入参 ``runtime`` 为 dict 的引用，返回同一个引用（in-place 修改）以便链式调用。
+    """
+    if (new_stage or "").strip() in _FF_RESET_TERMINAL_STAGES and runtime.get("ff_mode"):
+        runtime["ff_mode"] = False
+    return runtime
+
+
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
     current_stage = str(runtime.get("stage", "")).strip()
@@ -5386,6 +5722,10 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     prev_entered_at = str(runtime.get("stage_entered_at", ""))
     runtime["stage"] = next_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
+
+    # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 1（sug-27）：
+    # 翻到终局 stage（done / archive / completed）时自动关 ff_mode，避免手工残留。
+    _reset_ff_mode_after_done_archive(runtime, next_stage)
 
     # req-26 / chg-03（AC-03）：state yaml 双写同步。
     # 旧实现只在 runtime.yaml 提供 `operation_target` 时才写回；真实现场（runtime.yaml
@@ -5419,6 +5759,15 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         "to_stage": next_stage,
     })
     print(f"Workflow advanced to {next_stage}")
+
+    # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）：
+    # --execute 派发 subagent briefing 供主 agent 直接消费，不仅翻 stage 字段。
+    if execute and next_stage not in _NO_BRIEFING_STAGES:
+        req_title = str(runtime.get("current_requirement_title", "")).strip()
+        if not req_title and operation_target:
+            req_title = _resolve_title_for_id(root, operation_target) or ""
+        briefing = _build_subagent_briefing(next_stage, operation_target or "", req_title)
+        print(briefing)
     return 0
 
 

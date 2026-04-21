@@ -143,6 +143,7 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 - 每个 stage 角色的"退出条件"清单中**必须**包含一条："对人文档 `{文件名}.md` 已产出且字段完整"。
 - 每份对人文档必须 ≤ 1 页（屏幕一屏内读完），字段按各角色文件中的最小模板执行（字段名与字段顺序不得变更）。
 - 禁止把对人文档写到 `.workflow/flow/` 或其他位置；禁止用 agent 过程文档（如 session-memory）替代对人文档。
+- **req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ sug-15 升格条款**：每个 stage 角色在其 SOP 交接步骤之前、产出对人文档落盘后，**必须**执行 `harness validate --contract all`（或 `harness status --lint` 对当前 artifacts 子树扫描）；若输出违规则阻塞 stage 推进，返回开发者 / 架构师修正。该自检同时覆盖契约 3 / 4 / 6 / 7，regression 阶段额外执行 `harness validate --contract regression`（sug-10）。
 
 ### 契约 5：反例核对
 

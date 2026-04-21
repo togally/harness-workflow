@@ -651,3 +651,23 @@ src/harness_workflow/
 ### 建议
 {基于检测结果的适配建议}
 ```
+
+## 契约 7（id + title 硬门禁）—— req-31（批量建议合集（20条）) / chg-01（契约自动化 + apply-all bug）/ sug-26 扩展
+
+> 本节把 `stage-role.md` 契约 7 扩展到辅助角色 **harness-manager**：
+> 所有 harness-manager 在跨 agent 的 briefing / 命令解析 stdout / subagent 派发说明中，对工作项 id 的**首次引用**必须带 title。
+
+### 规则
+
+- **首次引用带 title**：本文件、命令解析 stdout、subagent briefing 首次提到 `req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*` 时，必须形如 `{id}（{title}）`，例如 `req-31（批量建议合集（20条））` / `chg-01（契约自动化 + apply-all bug）` / `sug-26（辅助角色（harness-manager / tools-manager / reviewer）契约 7 扩展）`。
+- **同上下文后续简写**：同一段 briefing 同一 id 后续引用可简写为纯 id。
+- **示范输出**：`harness status` / `harness next` / `harness ff` / `harness suggest --list` 的 stdout 已由 `render_work_item_id` helper 统一带 title；harness-manager 可直接复制 CLI 输出作为文档样本。
+
+### 自检命令
+
+- 产出 briefing 或命令解析结果后，推荐调 `harness validate --contract 7` / `harness status --lint` 自检；命中违规直接阻塞 stage 推进。
+
+### fallback
+
+- 若 title 尚未定（极少数新建瞬间）允许首次引用写 `{id}（pending-title）`；后续 done 阶段统一纠正。
+- 本约定对本次提交之后新增 / 修改的引用生效；历史脏数据仅在明确补位任务时处理。

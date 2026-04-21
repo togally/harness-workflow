@@ -18,6 +18,31 @@ def _get_tools_dir() -> Path:
     return Path(harness_workflow.__file__).parent / "tools"
 
 
+# req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 3（sug-17）：
+# CLI 对 cwd 敏感——从任意子目录跑 `harness status` 也能定位到仓库根。
+_MAX_LOCATE_DEPTH = 20
+
+
+def _auto_locate_repo_root(start: Path) -> Path:
+    """从 ``start`` 向上最多 ``_MAX_LOCATE_DEPTH`` 层查找 ``.workflow/`` 目录。
+
+    - 命中 → 返回含 ``.workflow/`` 的目录（即 harness repo root）。
+    - 上溯到 mount point / filesystem root 仍未命中 → ``raise SystemExit`` with
+      actionable message（建议用户 ``harness install`` 或 ``cd`` 到仓库根）。
+    """
+    current = start.resolve()
+    for _ in range(_MAX_LOCATE_DEPTH):
+        if (current / ".workflow").is_dir():
+            return current
+        if current.parent == current:
+            break
+        current = current.parent
+    raise SystemExit(
+        f"[harness] Not a harness repository (no .workflow/ found from {start} upward). "
+        f"Run `harness install` first or cd to the repo root."
+    )
+
+
 def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> list[str]:
     """
     交互式平台多选
@@ -176,6 +201,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     status_parser = subparsers.add_parser("status", help="Show the current workflow runtime state.")
     status_parser.add_argument("--root", default=".", help="Repository root.")
+    # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 3：
+    # --lint 触发契约 7 全量扫描（sug-25）。
+    status_parser.add_argument(
+        "--lint",
+        action="store_true",
+        help="Scan contract-7 violations (bare work-item ids) under artifacts/ + sessions/.",
+    )
 
     validate_parser = subparsers.add_parser("validate", help="Validate the current requirement's artifacts.")
     validate_parser.add_argument("--root", default=".", help="Repository root.")
@@ -195,6 +227,15 @@ def build_parser() -> argparse.ArgumentParser:
         dest="bugfix",
         default=None,
         help="Target bugfix id for --human-docs (e.g. bugfix-3). Mutually exclusive with --requirement.",
+    )
+    # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 2：
+    # --contract {all,7,regression} 自动化契约 1-7 校验（sug-10 / sug-15 / sug-25）。
+    validate_parser.add_argument(
+        "--contract",
+        dest="contract",
+        default=None,
+        choices=["all", "7", "regression"],
+        help="Run contract automation check (sug-10/sug-15/sug-25). Default scans contract-7 across all artifacts.",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
@@ -326,7 +367,20 @@ def _run_tool_script(script_name: str, args: list[str], root: Path) -> int:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    root = Path(args.root).resolve()
+    # req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 3（sug-17）：
+    # 默认 ``--root="."`` 时触发 auto-locate（从 cwd 上溯找 ``.workflow/``）；
+    # 用户显式传 ``--root <path>`` 则跳过 auto-locate。
+    # 对 ``install`` / ``init`` 两类 bootstrap 命令仍按显式 root 处理，避免首次安装
+    # 在无 .workflow 的目录下因 auto-locate 失败而卡壳。
+    raw_root = getattr(args, "root", ".")
+    if raw_root == "." and args.command not in ("install", "init"):
+        try:
+            root = _auto_locate_repo_root(Path.cwd())
+        except SystemExit:
+            # 降级回退：子命令自己处理不存在 .workflow/ 的情形（如 status 的 stderr 提示）
+            root = Path(raw_root).resolve()
+    else:
+        root = Path(raw_root).resolve()
 
     if args.command == "install":
         if args.agent:
@@ -386,6 +440,11 @@ def main() -> int:
     if args.command == "exit":
         return _run_tool_script("harness_exit.py", [], root)
     if args.command == "status":
+        # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 3：
+        # --lint 直接走 in-process helper，避免 subprocess 丢 stdout。
+        if getattr(args, "lint", False):
+            from harness_workflow.workflow_helpers import workflow_status_lint
+            return workflow_status_lint(root)
         return _run_tool_script("harness_status.py", [], root)
     if args.command == "validate":
         if getattr(args, "human_docs", False):
@@ -396,6 +455,11 @@ def main() -> int:
             from harness_workflow.validate_human_docs import run_cli as _run_human_docs_cli
             target = args.requirement or args.bugfix  # None → 回退 current_requirement
             return _run_human_docs_cli(root, target)
+        # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 2：
+        # --contract {all,7,regression} 契约自动化校验（sug-10 / sug-15 / sug-25）。
+        if getattr(args, "contract", None):
+            from harness_workflow.validate_contract import run_contract_cli
+            return run_contract_cli(root, contract=args.contract)
         return _run_tool_script("harness_validate.py", [], root)
     if args.command == "next":
         cmd_args = []
