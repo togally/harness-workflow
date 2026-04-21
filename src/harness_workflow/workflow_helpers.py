@@ -3374,8 +3374,12 @@ def extract_suggestions_from_done_report(root: Path, req_id: str) -> list[str]:
 
     created: list[str] = []
     for suggestion in suggestions:
+        # chg-01 Step 1.2：create_suggestion 要求 title 必填——从正文首行
+        # 截断到 60 字符作为 title（与 apply_suggestion 取 title 的策略一致）。
+        first_line = suggestion.splitlines()[0].strip() if suggestion else ""
+        fallback_title = first_line[:60].strip() or "done-report suggestion"
         try:
-            create_suggestion(root, suggestion)
+            create_suggestion(root, suggestion, title=fallback_title)
             created.append(suggestion[:40])
         except SystemExit:
             pass
@@ -3385,19 +3389,57 @@ def extract_suggestions_from_done_report(root: Path, req_id: str) -> list[str]:
     return created
 
 
-def create_suggestion(root: Path, content: str, title: str | None = None) -> int:
+_VALID_SUGGEST_PRIORITIES = ("high", "medium", "low")
+
+
+def create_suggestion(
+    root: Path,
+    content: str,
+    title: str | None = None,
+    priority: str = "medium",
+) -> int:
+    """创建 sug 文件，frontmatter 按契约 6（req-28 / chg-01）的五字段约定落盘。
+
+    req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）Step 1.2：
+
+    - ``title`` 必填（契约 6 要求 `title` 字段齐全，不允许 fallback）；
+    - ``priority`` 白名单：``high`` / ``medium`` / ``low``，默认 ``medium``；
+    - frontmatter 固定写入五字段：``id`` / ``title`` / ``status`` /
+      ``created_at`` / ``priority``；``title`` 用 ``json.dumps(..., ensure_ascii=False)``
+      避免引号 / Unicode 噪声。
+    """
     ensure_harness_root(root)
     suggestion_content = content.strip()
     if not suggestion_content:
         raise SystemExit("Suggestion content is required.")
 
+    if not title or not str(title).strip():
+        raise SystemExit("Suggestion title is required (契约 6).")
+    title_text = str(title).strip()
+
+    if priority not in _VALID_SUGGEST_PRIORITIES:
+        raise SystemExit(
+            f"Invalid suggestion priority: {priority!r} (must be one of {_VALID_SUGGEST_PRIORITIES})."
+        )
+
     suggest_id = _next_suggestion_id(root)
-    slug = slugify(title or suggestion_content) or "suggestion"
+    slug = slugify(title_text or suggestion_content) or "suggestion"
     suggestions_dir = root / ".workflow" / "flow" / "suggestions"
     suggestions_dir.mkdir(parents=True, exist_ok=True)
     suggest_path = suggestions_dir / f"{suggest_id}-{slug}.md"
 
-    frontmatter = f"---\nid: {suggest_id}\ncreated_at: {json.dumps(date.today().isoformat(), ensure_ascii=False)}\nstatus: pending\n---\n\n{suggestion_content}\n"
+    created_at = date.today().isoformat()
+    title_literal = json.dumps(title_text, ensure_ascii=False)
+    frontmatter = (
+        "---\n"
+        f"id: {suggest_id}\n"
+        f"title: {title_literal}\n"
+        "status: pending\n"
+        f"created_at: {created_at}\n"
+        f"priority: {priority}\n"
+        "---\n\n"
+        f"{suggestion_content}\n"
+    )
     suggest_path.write_text(frontmatter, encoding="utf-8")
 
     print(f"Created suggestion: {suggest_path.relative_to(root)}")
@@ -3600,17 +3642,50 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
 
     req_id = str(load_requirement_runtime(root).get("current_requirement", "")).strip()
 
-    # 向生成的 requirement.md 追加被合并的 suggest 清单
-    if req_id:
-        req_dir = resolve_requirement_root(root) / f"{req_id}-{title}"
-        req_md = req_dir / "requirement.md"
-        if req_md.exists():
-            lines = ["\n## 合并建议清单\n"]
-            for _, suggest_id, suggest_title in pending:
-                lines.append(f"- {suggest_id}: {suggest_title}")
-            lines.append("")
-            req_md.write_text(req_md.read_text(encoding="utf-8") + "\n".join(lines), encoding="utf-8")
+    # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）Step 1.1：
+    # 1) 路径拼接必须走 `_path_slug` 清洗，与 `create_requirement` 同源；
+    #    未清洗的 title 含 `/` / `（）` / 空格 / 引号等时 req_dir 解析 miss → 清单追加静默跳过。
+    # 2) 原子顺序：先 tmp.write_text → tmp.replace(req_md) 原子 rename 成功，
+    #    才进入 unlink 循环；任一步失败必须打印 stderr 并返回非零、不 unlink。
+    if not req_id:
+        print("[apply_all] ERROR: current_requirement 为空，无法定位 req_dir，终止前保留所有 body", file=sys.stderr)
+        return 1
 
+    slug_part = _path_slug(title)
+    req_dir = resolve_requirement_root(root) / (f"{req_id}-{slug_part}" if slug_part else req_id)
+    req_md = req_dir / "requirement.md"
+    if not req_md.exists():
+        print(
+            f"[apply_all] ERROR: req_md missing at {req_md}; aborting before unlink",
+            file=sys.stderr,
+        )
+        return 1
+
+    lines = ["\n## 合并建议清单\n"]
+    for _, suggest_id, suggest_title in pending:
+        lines.append(f"- {suggest_id}: {suggest_title}")
+    lines.append("")
+
+    try:
+        new_text = req_md.read_text(encoding="utf-8") + "\n".join(lines)
+        tmp = req_md.with_suffix(".md.tmp")
+        tmp.write_text(new_text, encoding="utf-8")
+        tmp.replace(req_md)  # 原子 rename
+    except OSError as exc:
+        print(
+            f"[apply_all] ERROR: append failed ({exc}); leaving bodies intact",
+            file=sys.stderr,
+        )
+        # 清理可能残留的 tmp
+        tmp_candidate = req_md.with_suffix(".md.tmp")
+        if tmp_candidate.exists():
+            try:
+                tmp_candidate.unlink()
+            except OSError:
+                pass
+        return 1
+
+    # 清单落盘成功才允许 unlink sug body
     deleted: list[str] = []
     failed_delete: list[str] = []
     for path, suggest_id, _ in pending:

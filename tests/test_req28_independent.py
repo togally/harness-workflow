@@ -298,7 +298,12 @@ class SuggestNumberingMonotonicAcrossMixedHistoryTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        rc = create_suggestion(self.root, "req-28 独立测试 跨源取全集最大")
+        # req-31 / chg-01 Step 1.2：create_suggestion 现在要求 title 必填（契约 6）。
+        rc = create_suggestion(
+            self.root,
+            "req-28 独立测试 跨源取全集最大",
+            title="req-28 独立测试 跨源取全集最大",
+        )
         self.assertEqual(rc, 0)
 
         new_files = sorted(

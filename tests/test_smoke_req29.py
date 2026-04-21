@@ -497,28 +497,45 @@ class HumanDocsChecklistTest(unittest.TestCase):
       实施说明.md 落地后达标）。
     """
 
-    REQ_DIR = (
-        REPO_ROOT
-        / "artifacts"
-        / "main"
-        / "requirements"
-        / "req-29-批量建议合集（2条）"
-    )
+    REQ_DIR_NAME = "req-29-批量建议合集（2条）"
+
+    @staticmethod
+    def _resolve_req29_dir() -> Path:
+        """Runtime-resolve req-29（批量建议合集 2 条）目录：active 优先、archive 兜底。
+
+        契约 7 自证：req-29 归档后原 `artifacts/main/requirements/` 路径失效，本测试必须
+        同时探测 active 与 `archive/requirements/` 两条路径以保持幂等性。
+        """
+        active = (
+            REPO_ROOT / "artifacts" / "main" / "requirements" / HumanDocsChecklistTest.REQ_DIR_NAME
+        )
+        if active.exists():
+            return active
+        archived = (
+            REPO_ROOT
+            / "artifacts"
+            / "main"
+            / "archive"
+            / "requirements"
+            / HumanDocsChecklistTest.REQ_DIR_NAME
+        )
+        if archived.exists():
+            return archived
+        raise AssertionError(
+            f"req-29 dir not found in active or archive: {active} | {archived}"
+        )
 
     def test_human_docs_checklist_for_req29(self) -> None:
-        self.assertTrue(
-            self.REQ_DIR.exists(),
-            f"req-29 artifacts 目录必须存在：{self.REQ_DIR}",
-        )
+        req_dir = self._resolve_req29_dir()
 
         # 需求级对人文档
         self.assertTrue(
-            (self.REQ_DIR / "需求摘要.md").exists(),
+            (req_dir / "需求摘要.md").exists(),
             "req-29 根目录应存在《需求摘要.md》",
         )
 
         # 枚举 changes/ 子目录（chg-01 ~ chg-05）
-        changes_root = self.REQ_DIR / "changes"
+        changes_root = req_dir / "changes"
         self.assertTrue(changes_root.is_dir(), f"缺少 {changes_root}")
         change_dirs = sorted(p for p in changes_root.iterdir() if p.is_dir())
         self.assertEqual(

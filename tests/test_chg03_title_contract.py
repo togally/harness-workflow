@@ -19,6 +19,26 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _resolve_req_dir(branch: str, req_dir_name: str) -> Path:
+    """Resolve a requirement artifacts directory, falling back to archive if already archived.
+
+    契约 7 自证：本 helper 首次引用 req-30（slug 沟通可读性增强：全链路透出 title）的归档路径
+    探测逻辑；在 req-30 归档后，`artifacts/{branch}/requirements/{slug}/` 会迁移到
+    `artifacts/{branch}/archive/requirements/{slug}/`，测试必须两路都查以避免 404。
+    """
+    active = REPO_ROOT / "artifacts" / branch / "requirements" / req_dir_name
+    if active.exists():
+        return active
+    archived = (
+        REPO_ROOT / "artifacts" / branch / "archive" / "requirements" / req_dir_name
+    )
+    if archived.exists():
+        return archived
+    raise AssertionError(
+        f"req dir not found in either active or archive: {active} | {archived}"
+    )
+
+
 class TestStageRoleContract7:
     """契约 7：id + title 硬门禁章节必须存在于 stage-role.md。"""
 
@@ -100,7 +120,12 @@ class TestReq30SelfCertification:
     策略处理，不追溯。这与 AC-08 / stage-role 契约 7 的 fallback 段一致。
     """
 
-    REQ_30_DIR = REPO_ROOT / "artifacts" / "main" / "requirements" / "req-30-slug沟通可读性增强-全链路透出title"
+    REQ_30_DIR_NAME = "req-30-slug沟通可读性增强-全链路透出title"
+
+    @property
+    def REQ_30_DIR(self) -> Path:
+        """Runtime-resolved req-30（slug 沟通可读性增强：全链路透出 title）目录，active 优先、archive 兜底。"""
+        return _resolve_req_dir("main", self.REQ_30_DIR_NAME)
 
     def test_req_30_implementation_docs_first_reference_has_title(self) -> None:
         """扫描 executing 阶段新产出的 `实施说明.md`：首次引用 req-30 必须带 title（契约 7）。
@@ -111,8 +136,8 @@ class TestReq30SelfCertification:
         - `# 实施说明：{req-id} {title}` 模板首行（配合模板自带 title）。
         否则视为违规（裸 id 首次出现）。
         """
-        assert self.REQ_30_DIR.exists(), f"req-30 artifacts 目录缺失：{self.REQ_30_DIR}"
-        impl_docs = list(self.REQ_30_DIR.rglob("实施说明.md"))
+        req_dir = self.REQ_30_DIR
+        impl_docs = list(req_dir.rglob("实施说明.md"))
         assert impl_docs, "req-30 目录下未找到任何 `实施说明.md`（executing 阶段应已产出）"
 
         any_req30 = re.compile(r"req-30")
@@ -144,8 +169,8 @@ class TestReq30SelfCertification:
 
     def test_req_30_implementation_docs_exist_for_each_completed_change(self) -> None:
         """chg-01 / chg-02 / chg-03 的实施说明.md 应已产出（AC-10 自证样本）。"""
-        assert self.REQ_30_DIR.exists()
-        changes_dir = self.REQ_30_DIR / "changes"
+        req_dir = self.REQ_30_DIR
+        changes_dir = req_dir / "changes"
         expected = [
             "chg-01-state-schema-title冗余字段",
             "chg-02-cli-render-work-item-id-helper",

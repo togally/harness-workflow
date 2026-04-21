@@ -271,7 +271,13 @@ def build_parser() -> argparse.ArgumentParser:
     suggest_parser = subparsers.add_parser("suggest", help="Create, list, apply, or delete suggestions.")
     suggest_parser.add_argument("content", nargs="?", help="Suggestion content.")
     suggest_parser.add_argument("--root", default=".", help="Repository root.")
-    suggest_parser.add_argument("--title", help="Optional title for the suggestion (used in filename).")
+    suggest_parser.add_argument("--title", help="Title for the suggestion（契约 6 要求必填）。")
+    suggest_parser.add_argument(
+        "--priority",
+        default="medium",
+        choices=["high", "medium", "low"],
+        help="Priority level (high/medium/low), default medium（契约 6）。",
+    )
     suggest_parser.add_argument("--list", action="store_true", help="List all pending suggestions.")
     suggest_parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
     suggest_parser.add_argument("--apply-all", action="store_true", help="将所有 pending suggest 打包为单一需求并创建.")
@@ -487,6 +493,8 @@ def main() -> int:
             cmd_args.append(args.content)
         if args.title:
             cmd_args.extend(["--title", args.title])
+        if args.priority and args.priority != "medium":
+            cmd_args.extend(["--priority", args.priority])
         if args.list:
             cmd_args.append("--list")
         if args.apply_id:

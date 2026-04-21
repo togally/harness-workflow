@@ -178,7 +178,12 @@ class SuggestCLITest(unittest.TestCase):
             f"前置：suggestions/ 当前目录应为空，实际 {current_files}",
         )
 
-        rc = create_suggestion(self.root, "跨 archive 单调递增回归样本")
+        # req-31 / chg-01 Step 1.2：create_suggestion 现在要求 title 必填（契约 6）。
+        rc = create_suggestion(
+            self.root,
+            "跨 archive 单调递增回归样本",
+            title="跨 archive 单调递增回归样本",
+        )
         self.assertEqual(rc, 0)
 
         new_files = sorted(sug_dir.glob("sug-*.md"))

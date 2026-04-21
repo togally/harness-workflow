@@ -24,7 +24,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Create, list, apply, or delete suggestions.")
     parser.add_argument("content", nargs="?", help="Suggestion content.")
     parser.add_argument("--root", default=".", help="Repository root.")
-    parser.add_argument("--title", help="Optional title for the suggestion (used in filename).")
+    parser.add_argument("--title", help="Title for the suggestion（契约 6 要求必填）。")
+    parser.add_argument(
+        "--priority",
+        default="medium",
+        choices=["high", "medium", "low"],
+        help="Priority level (high/medium/low), default medium（契约 6）。",
+    )
     parser.add_argument("--list", action="store_true", help="List all pending suggestions.")
     parser.add_argument("--apply", dest="apply_id", help="Apply a suggestion by id and create a requirement.")
     parser.add_argument("--apply-all", action="store_true", help="将所有 pending suggest 打包为单一需求并创建.")
@@ -46,7 +52,12 @@ def main() -> int:
     if args.archive_id:
         return archive_suggestion(root, args.archive_id)
 
-    return create_suggestion(root, args.content or "", title=args.title)
+    return create_suggestion(
+        root,
+        args.content or "",
+        title=args.title,
+        priority=args.priority,
+    )
 
 
 if __name__ == "__main__":
