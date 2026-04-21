@@ -41,4 +41,4 @@ req-29 同时合并 sug-01（产品级 feature：ff --auto 自主推进）与 su
 
 ### 来源
 
-req-29 — sug-01（ff --auto）+ sug-08（archive 判据）合集，5 个 change 并行 + 最后 smoke 收尾
+req-29（批量建议合集 2 条）— sug-01（ff --auto）+ sug-08（archive 判据）合集，5 个 change 并行 + 最后 smoke 收尾

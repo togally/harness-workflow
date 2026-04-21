@@ -69,6 +69,11 @@
 
 ### 最小字段模板（字段名与顺序不得变更）
 
+> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{chg-id}` 与 `{title}` 均不可省略；`实施说明.md` 正文首次提到 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`。
+>
+> 向 testing 交接时的汇报示例：
+> - "chg-02（CLI 渲染 — render_work_item_id helper）已按 plan 6 Step 全部 ✅；新增单测 12 条 `tests/test_render_work_item_id.py` 全绿，全量 pytest 零回归，交 testing 独立复核。"
+
 ```markdown
 # 实施说明：{chg-id} {title}
 

@@ -67,6 +67,11 @@
 
 ### 最小字段模板（字段名与顺序不得变更）
 
+> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{reg-id}` 与 `{issue}` 不可省略；"影响"段首次引用父需求 / 关联 chg / 关联 bugfix 时形如 `{id}（{title}）`。
+>
+> 向主 agent 汇报示例：
+> - "reg-02（CLI stdout 缺 title 导致跨 agent 沟通摩擦）已诊断为真实问题，根因 render 层缺失，路由到 executing 执行 req-30（slug 沟通可读性增强：全链路透出 title）的 chg-02（CLI 渲染 — render_work_item_id helper）。"
+
 ```markdown
 # 回归简报：{reg-id} {issue}
 

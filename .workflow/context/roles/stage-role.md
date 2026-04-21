@@ -169,6 +169,33 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 - 无 frontmatter 的历史 sug 不做回填，`harness suggest --apply / --delete / --archive` 通过 filename fallback（`sug-NN` 前缀匹配）兼容处理。
 - 新增 sug 一律按本契约写入；未遵守的视为违反硬门禁，由 done 阶段和 reviewer 拦截。
 
+### 契约 7：id + title 硬门禁（req-30（slug 沟通可读性增强：全链路透出 title））
+
+> **并列生效**：本契约与契约 1-6 并列生效，不覆盖既有约束；仅对工作项 **id 引用格式**做强制约束。
+
+所有 stage 角色在产出"对人 / 跨 agent 文档"时，对工作项 id（`req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*`）的引用必须遵守以下硬门禁，违反视为契约 7 违反：
+
+#### 规则
+
+- **首次出现必须带 title**：在每一个对人文档、session-memory 新写入段、done-report、subagent briefing、action-log 新写入行、`experience/index.md` 来源列的**首次引用点**，工作项 id 必须形如 `{id}（{title}）`（全角括号 `（）`）。
+- **同上下文后续可简写**：同一文档同一上下文的后续引用可简写回纯 id，不必重复 title。
+- **裸 id = 违规**：首次引用点单独的 `req-29` / `chg-02` / `sug-05` / `bugfix-3` 视为契约 7 硬门禁违反。
+
+#### 校验方式
+
+- done 阶段六层回顾：`grep -nE "(req|chg|sug|bugfix|reg)-[0-9]+" artifacts/{branch}/requirements/{req-id}-{slug}/ --include=*.md -r`，对每个命中文件的首次命中行核对是否含"（...）"或行内已有 title 字段；未通过视为硬门禁违反。
+- CLI 行为配合：`harness status` / `harness next` / `harness ff` / `harness suggest --list` 的 stdout 已由 `render_work_item_id` helper 统一带 title（req-30 chg-02 落地），agent 可直接复制 CLI 输出作为文档样本。
+
+#### fallback
+
+- **pending-title 占位**：若 title 在新建瞬间暂未定（极少数场景），允许首次引用写 `{id}（pending-title）`；但 done 阶段必须修正为正式 title，pending 残留同样视为违规。
+- **legacy 引用**：本契约只对**本次提交之后**的新增 / 修改引用生效；历史文档内的裸 id 不被本契约追溯（仅 reviewer 按需补）。
+
+#### 参考实现与自证样本
+
+- 实现：`src/harness_workflow/workflow_helpers.py::render_work_item_id`（runtime 缓存 → state fallback → sug frontmatter → `(no title)` 降级）。
+- 自证：req-30（slug 沟通可读性增强：全链路透出 title）自身的 `requirement.md` / 各 `change.md` / `plan.md` / `实施说明.md` / `变更简报.md` 首次引用工作项 id 时均带完整 title，作为新约定示范样本。
+
 ## 流转规则（按需）
 
 - 如需判断 stage 推进条件或归档规则，读取 `.workflow/flow/stages.md`

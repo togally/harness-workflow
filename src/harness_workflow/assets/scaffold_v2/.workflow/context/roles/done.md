@@ -101,6 +101,10 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 
 ### 最小字段模板（字段名与顺序不得变更）
 
+> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{req-id}` 与 `{title}` 不可省略；"交付了什么"/"后续建议"中首次引用 chg / sug / bugfix 时形如 `{id}（{title}）`。
+>
+> done 阶段六层回顾 id+title 校验：`grep -nE "(req|chg|sug|bugfix|reg)-[0-9]+" artifacts/{branch}/requirements/{req-id}-{slug}/ --include=*.md -r`，核对每个命中文件首次命中行是否含 `（...）` 括号。未通过视为契约 7 违反。
+
 ```markdown
 # 交付总结：{req-id} {title}
 
@@ -124,6 +128,7 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 - [ ] `done-report.md` 中的改进建议已提取（如有）
 - [ ] **经验沉淀已强制验证**（sug-06: experience/ 目录相关文件已确认包含本轮教训）
 - [ ] 对人文档 `交付总结.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：本需求产出文档首次引用工作项 id 时均带 title（grep 校验通过）
 
 ## ff 模式说明
 

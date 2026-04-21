@@ -1,16 +1,25 @@
-operation_type: "bugfix"
-operation_target: "bugfix-3"
+operation_type: "requirement"
+operation_target: "req-30"
 current_requirement: ""
+current_requirement_title: ""
 stage: "done"
-stage_entered_at: "2026-04-20T13:57:20.867999+00:00"
+stage_entered_at: "2026-04-21T04:34:56.513163+00:00"
 conversation_mode: "open"
 locked_requirement: ""
+locked_requirement_title: ""
 locked_stage: ""
 current_regression: ""
+current_regression_title: ""
 ff_mode: false
 ff_stage_history:
   - regression
   - planning
   - testing
   - acceptance
+  - requirement_review
+  - planning
+  - executing
+  - testing
+  - acceptance
+  - done
 active_requirements: []

@@ -119,6 +119,31 @@ regression
 - 等待 subagent 返回结果
 - subagent 返回后，核对其退出条件是否满足
 
+#### Subagent briefing 模板（req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7 硬门禁）
+
+> 所有 subagent 的 briefing 必须**同时提供 id 与 title**，subagent 接收后无需二次打开 state yaml 查 title（场景 4：跨 agent 交接）。
+
+```yaml
+# 标准 briefing 字段
+current_requirement: req-30
+current_requirement_title: "slug 沟通可读性增强：全链路透出 title"
+current_regression: ""
+current_regression_title: ""
+stage: executing
+context_chain:
+  - level: 0
+    agent: "主 agent / harness-manager"
+    current_stage: "executing"
+  - level: 1
+    agent: "Subagent-L1 开发者"
+    task: "按 req-30（slug 沟通可读性增强：全链路透出 title）的 plan.md 执行 chg-01 → chg-02 → chg-03 → chg-04"
+```
+
+**briefing 正文必须包含**：
+- "本次任务目标：{id}（{title}）的 XXX 工作"（例如："req-30（slug 沟通可读性增强：全链路透出 title）的 chg-02（CLI 渲染 — render_work_item_id helper）执行"）
+- 首次引用其他工作项（chg / sug / bugfix / reg）时同样带 title
+- 后续上下文可简写回 id
+
 ### Step 5: 监控上下文与异常
 - 定期检查上下文负载（消息数、文件读取数、时长）
 - 达到阈值时主动协调维护动作（`/compact`、新开 agent）

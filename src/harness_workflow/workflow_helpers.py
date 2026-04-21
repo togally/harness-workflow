@@ -58,11 +58,17 @@ DEFAULT_STATE_RUNTIME = {
     "operation_type": "requirement",  # requirement | bugfix | suggestion
     "operation_target": "",           # 当前操作目标
     "current_requirement": "",        # 兼容字段：用于 requirement 类型
+    # req-30（slug 沟通可读性增强：全链路透出 title）/ chg-01：
+    # 对 id 字段旁冗余 *_title 缓存，subagent 读一次 runtime 即可拿到 id + title，
+    # 无需二次打开 state/requirements/*.yaml。state yaml 为权威源，runtime 为缓存。
+    "current_requirement_title": "",
     "stage": "",
     "conversation_mode": "open",
     "locked_requirement": "",
+    "locked_requirement_title": "",
     "locked_stage": "",
     "current_regression": "",
+    "current_regression_title": "",
     "ff_mode": False,
     "ff_stage_history": [],
     "active_requirements": [],
@@ -367,6 +373,158 @@ def load_requirement_runtime(root: Path) -> dict[str, object]:
     return payload
 
 
+def _resolve_title_for_id(root: Path, work_item_id: str) -> str:
+    """req-30（slug 沟通可读性增强：全链路透出 title）/ chg-01：id → title 单一数据源。
+
+    按 id 前缀分流到对应 state yaml 目录，返回其 ``title`` 字段：
+
+    - ``req-*`` → ``.workflow/state/requirements/*.yaml``
+    - ``bugfix-*`` → ``.workflow/state/bugfixes/*.yaml``
+    - ``reg-*`` / 其他前缀：无独立 state yaml，返回空串（由上层 render helper 兜底）
+    - 空 id：返回空串
+
+    找不到文件、文件读异常：一律 **返回空串，不抛异常**（null-safe），保证 CLI
+    渲染链路永不因 title 查找失败崩溃（AC-04 降级）。
+    """
+    if not work_item_id:
+        return ""
+    ident = work_item_id.strip()
+    if not ident:
+        return ""
+    if ident.startswith("req-"):
+        state_dir = root / ".workflow" / "state" / "requirements"
+    elif ident.startswith("bugfix-"):
+        state_dir = root / ".workflow" / "state" / "bugfixes"
+    else:
+        # reg-* / sug-* / 其他前缀：无独立 state yaml，返回空串
+        return ""
+    if not state_dir.exists():
+        return ""
+    try:
+        for state_file in sorted(state_dir.glob("*.yaml")):
+            try:
+                payload = load_simple_yaml(state_file)
+            except Exception:  # noqa: BLE001
+                continue
+            if _get_req_id(payload) == ident:
+                return str(payload.get("title", "")).strip()
+    except Exception:  # noqa: BLE001
+        return ""
+    return ""
+
+
+def _resolve_title_for_suggestion(root: Path, sug_id: str) -> str:
+    """req-30 / chg-02：为 sug-NN 查 title，多级 fallback。
+
+    顺序：
+    1. `.workflow/flow/suggestions/sug-NN*.md` 的 frontmatter.title
+    2. body 首行（前 40 字符截断，去首尾空白）
+    3. `.workflow/flow/suggestions/archive/` 下同名文件，重复 1-2
+    4. 均无 → 返回空串（由 render helper 兜底为 `(no title)`）
+    """
+    if not sug_id or not sug_id.startswith("sug-"):
+        return ""
+    candidate_dirs = [
+        root / ".workflow" / "flow" / "suggestions",
+        root / ".workflow" / "flow" / "suggestions" / "archive",
+    ]
+    for base in candidate_dirs:
+        if not base.exists():
+            continue
+        for path in sorted(base.glob("sug-*.md")):
+            stem = path.stem
+            if stem == sug_id or stem.startswith(sug_id + "-"):
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except Exception:  # noqa: BLE001
+                    continue
+                # 尝试 frontmatter.title
+                try:
+                    state = load_simple_yaml(path)
+                    title = str(state.get("title", "")).strip()
+                except Exception:  # noqa: BLE001
+                    title = ""
+                if title:
+                    return title
+                # 降级读 body 首行
+                parts = text.split("---", 2)
+                body = parts[-1] if len(parts) >= 3 else text
+                body = body.strip()
+                if body:
+                    first_line = body.splitlines()[0].strip()
+                    if first_line:
+                        return first_line[:40]
+                return ""
+    return ""
+
+
+def render_work_item_id(
+    work_item_id: str,
+    *,
+    runtime: dict[str, object] | None = None,
+    root: Path | None = None,
+) -> str:
+    """req-30 / chg-02：CLI 渲染层唯一 id→显示字符串转换入口。
+
+    查找顺序（AC-03 / AC-04）：
+    1. `runtime` 缓存：按 id 前缀匹配对应 `*_title` 字段（req → `current_requirement_title`
+       / `locked_requirement_title`；reg → `current_regression_title`）。
+    2. `root` 下 state fallback：`_resolve_title_for_id(root, id)`。
+    3. `sug-*` 特殊分支：`_resolve_title_for_suggestion`（读 frontmatter / body 首行）。
+    4. 都拿不到 → 返回 ``{id} (no title)`` 降级字符串，永不抛错。
+
+    空 id → 返回 ``"(none)"``（与 `workflow_status` 旧行为兼容）。
+    """
+    if not work_item_id:
+        return "(none)"
+    ident = work_item_id.strip()
+    if not ident:
+        return "(none)"
+
+    title = ""
+
+    # 1. runtime 缓存
+    if runtime:
+        if ident.startswith("req-") or ident.startswith("bugfix-"):
+            # current / locked 均可能命中；优先当前
+            current_id = str(runtime.get("current_requirement", "")).strip()
+            locked_id = str(runtime.get("locked_requirement", "")).strip()
+            if ident == current_id:
+                title = str(runtime.get("current_requirement_title", "")).strip()
+            elif ident == locked_id:
+                title = str(runtime.get("locked_requirement_title", "")).strip()
+        elif ident.startswith("reg-"):
+            current_reg = str(runtime.get("current_regression", "")).strip()
+            if ident == current_reg:
+                title = str(runtime.get("current_regression_title", "")).strip()
+
+    # 2. state fallback（req / bugfix）
+    if not title and root is not None:
+        if ident.startswith("req-") or ident.startswith("bugfix-"):
+            title = _resolve_title_for_id(root, ident)
+        elif ident.startswith("sug-"):
+            # 3. sug 特殊分支
+            title = _resolve_title_for_suggestion(root, ident)
+
+    if title:
+        return f"{ident}（{title}）"
+    return f"{ident} (no title)"
+
+
+def _render_id_list(
+    ids: list[str] | list[object],
+    *,
+    runtime: dict[str, object] | None = None,
+    root: Path | None = None,
+) -> str:
+    """req-30 / chg-02：批量渲染版本，用于 `active_requirements` 等 list。"""
+    if not ids:
+        return "(none)"
+    return ", ".join(
+        render_work_item_id(str(item), runtime=runtime, root=root) for item in ids
+    )
+
+
 def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
     payload = dict(DEFAULT_STATE_RUNTIME)
     payload.update(runtime)
@@ -374,6 +532,7 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
     # 以及 stage_entered_at，否则 save_simple_yaml 会按白名单裁剪字段，导致
     # `create_bugfix` 写入的 operation_type 在第一次 save→load 往返后丢失，
     # 进而触发 `workflow_next` 走错 sequence → `Unknown stage: regression`。
+    # req-30 / chg-01：*_title 字段紧邻对应 id 字段，保持字段顺序稳定可读。
     save_simple_yaml(
         root / STATE_RUNTIME_PATH,
         payload,
@@ -381,12 +540,15 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
             "operation_type",
             "operation_target",
             "current_requirement",
+            "current_requirement_title",
             "stage",
             "stage_entered_at",
             "conversation_mode",
             "locked_requirement",
+            "locked_requirement_title",
             "locked_stage",
             "current_regression",
+            "current_regression_title",
             "ff_mode",
             "ff_stage_history",
             "active_requirements",
@@ -2410,6 +2572,10 @@ def set_regression_mode(runtime: dict[str, object], regression_id: str = "") -> 
     payload = dict(runtime)
     payload["mode"] = "regression" if regression_id else "normal"
     payload["current_regression"] = regression_id
+    # req-30 / chg-01：id 清空时 title 同步清空（*_title 由写入侧在落盘前的 save 调用点
+    # 按需重新 resolve；set_regression_mode 本身无 root，保守清空即可）。
+    if not regression_id:
+        payload["current_regression_title"] = ""
     return payload
 
 
@@ -2422,6 +2588,7 @@ def set_conversation_mode(
     payload["conversation_mode"] = conversation_mode
     if conversation_mode != "harness":
         payload["locked_requirement"] = ""
+        payload["locked_requirement_title"] = ""
         payload["locked_stage"] = ""
     return payload
 
@@ -3257,7 +3424,10 @@ def list_suggestions(root: Path) -> int:
         status = str(state.get("status", "pending")).strip()
         body = path.read_text(encoding="utf-8").split("---", 2)[-1].strip().replace("\n", " ")
         summary = body[:60] + "..." if len(body) > 60 else body
-        print(f"  {sid} [{status}] ({created}) {summary}")
+        # req-30 / chg-02（AC-03）：sug-NN 行同时附带 title（frontmatter 或 body 首行），
+        # 无 title 时降级为 `{id} (no title)`，不阻断命令。
+        rendered_sid = render_work_item_id(sid, runtime=None, root=root)
+        print(f"  {rendered_sid} [{status}] ({created}) {summary}")
     return 0
 
 
@@ -3514,6 +3684,8 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     runtime["operation_type"] = "requirement"
     runtime["operation_target"] = req_num_id
     runtime["current_requirement"] = req_num_id
+    # req-30 / chg-01：写 id 时同步写 *_title（state yaml 已在前面写入，此处 resolve 必中）。
+    runtime["current_requirement_title"] = _resolve_title_for_id(root, req_num_id)
     runtime["stage"] = "requirement_review"
     runtime["active_requirements"] = active_reqs
     save_requirement_runtime(root, runtime)
@@ -3601,6 +3773,8 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
     runtime["operation_type"] = "bugfix"
     runtime["operation_target"] = bfx_num_id
     runtime["current_requirement"] = bfx_num_id  # 兼容字段
+    # req-30 / chg-01：bugfix id 也走 current_requirement_title 同步（兼容字段语义）。
+    runtime["current_requirement_title"] = _resolve_title_for_id(root, bfx_num_id)
     runtime["stage"] = "regression"
     runtime["active_requirements"] = active_reqs
     save_requirement_runtime(root, runtime)
@@ -3721,6 +3895,8 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
 
     runtime["current_regression"] = reg_num_id
+    # req-30 / chg-01：reg-* 无独立 state yaml，title 取传入的 regression_title 作为缓存值。
+    runtime["current_regression_title"] = regression_title or ""
     save_requirement_runtime(root, runtime)
     record_feedback_event(root, "regression_created", {"regression_id": reg_num_id, "dir_name": dir_name})
 
@@ -3863,6 +4039,8 @@ def regression_action(
     if cancel or reject:
         _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
+        # req-30 / chg-01：id 清空时同步清 *_title 缓存。
+        runtime["current_regression_title"] = ""
         save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} {'cancelled' if cancel else 'rejected'}.")
         print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
@@ -3883,6 +4061,7 @@ def regression_action(
     if change_title:
         _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
+        runtime["current_regression_title"] = ""  # req-30 / chg-01
         save_requirement_runtime(root, runtime)
         print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return create_change(root, change_title)
@@ -3890,6 +4069,7 @@ def regression_action(
     if requirement_title:
         _ensure_regression_experience(root, regression_id)
         runtime["current_regression"] = ""
+        runtime["current_regression_title"] = ""  # req-30 / chg-01
         save_requirement_runtime(root, runtime)
         print("Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.")
         return create_requirement(root, requirement_title)
@@ -3898,6 +4078,7 @@ def regression_action(
         _ensure_regression_experience(root, regression_id)
         _update_regression_meta_status(root, regression_id, "testing")
         runtime["current_regression"] = ""
+        runtime["current_regression_title"] = ""  # req-30 / chg-01
         runtime["stage"] = "testing"
         save_requirement_runtime(root, runtime)
         print(f"Regression {regression_id} confirmed as bug. Stage rolled back to testing.")
@@ -4923,7 +5104,10 @@ def archive_requirement(
     # req-28 / chg-03：归档 bugfix 不应意外切走 current_requirement（如主 req-28）。
     # 仅当 current_requirement 精确等于被归档 id（或目录名中含之）时才清空/重定向。
     if current_req == archived_req_id or (archived_req_id and current_req == raw_ref):
-        runtime["current_requirement"] = active_reqs[0] if active_reqs else ""
+        new_current = active_reqs[0] if active_reqs else ""
+        runtime["current_requirement"] = new_current
+        # req-30 / chg-01：id 切换时同步刷新 *_title 缓存。
+        runtime["current_requirement_title"] = _resolve_title_for_id(root, new_current) if new_current else ""
     save_requirement_runtime(root, runtime)
 
     # Migrate state/sessions/{id}/ to archive directory（仅 requirement 分支保留 sessions 迁移）
@@ -5061,16 +5245,18 @@ def workflow_status(root: Path) -> int:
     runtime = load_requirement_runtime(root)
     current_requirement = str(runtime.get("current_requirement", "")).strip()
     locked_requirement = str(runtime.get("locked_requirement", "")).strip()
+    current_regression = str(runtime.get("current_regression", "")).strip()
     effective_requirement = locked_requirement or current_requirement
-    print(f"current_requirement: {current_requirement or '(none)'}")
+    # req-30 / chg-02（AC-03）：CLI stdout 打印 id 时同行附带 title。
+    print(f"current_requirement: {render_work_item_id(current_requirement, runtime=runtime, root=root)}")
     print(f"stage: {str(runtime.get('stage', '')).strip() or '(none)'}")
     print(f"conversation_mode: {runtime.get('conversation_mode', 'open')}")
-    print(f"locked_requirement: {locked_requirement or '(none)'}")
+    print(f"locked_requirement: {render_work_item_id(locked_requirement, runtime=runtime, root=root)}")
     print(f"locked_stage: {str(runtime.get('locked_stage', '')).strip() or '(none)'}")
-    print(f"current_regression: {str(runtime.get('current_regression', '')).strip() or '(none)'}")
+    print(f"current_regression: {render_work_item_id(current_regression, runtime=runtime, root=root)}")
     active_requirements = runtime.get("active_requirements", [])
     if isinstance(active_requirements, list):
-        rendered_active = ", ".join(str(item) for item in active_requirements) or "(none)"
+        rendered_active = _render_id_list(active_requirements, runtime=runtime, root=root)
         print(f"active_requirements: {rendered_active}")
     if effective_requirement:
         requirements_dir = root / ".workflow" / "state" / "requirements"
@@ -5187,7 +5373,13 @@ def workflow_fast_forward(root: Path) -> int:
     save_requirement_runtime(root, runtime)
     record_feedback_event(root, "stage_skip", {"from_stage": from_stage})
     record_feedback_event(root, "ff", {"from_stage": from_stage})
-    print(f"Workflow advanced to {target_stage}")
+    # req-30 / chg-02（AC-03）：ff 主循环打印 stage 切换信息时附带当前工作项 title，
+    # 方便跨 agent 协作读 stdout 即知目标。
+    if operation_target:
+        rendered_target = render_work_item_id(operation_target, runtime=runtime, root=root)
+        print(f"Workflow advanced to {target_stage} for {rendered_target}")
+    else:
+        print(f"Workflow advanced to {target_stage}")
     return 0
 
 
@@ -5195,6 +5387,9 @@ def enter_workflow(root: Path, req_id: str = "") -> int:
     runtime = load_requirement_runtime(root)
     if req_id:
         runtime["current_requirement"] = req_id
+        # req-30 / chg-01：id 变更时同步 *_title 缓存，subagent 进入 harness 模式后读 runtime
+        # 即可拿到 title（场景 4：briefing 无需二次查文件）。
+        runtime["current_requirement_title"] = _resolve_title_for_id(root, req_id)
     runtime = set_conversation_mode(runtime, conversation_mode="harness")
     save_requirement_runtime(root, runtime)
     print("Entered harness mode.")

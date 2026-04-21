@@ -78,6 +78,11 @@
 
 ### 最小字段模板（字段名与顺序不得变更）
 
+> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{req-id}` 与 `{title}` 均不可省略；正文首次提到本需求、其 chg 或 bugfix 时形如 `{id}（{title}）`。
+>
+> 向主 agent 汇报示例：
+> - "req-30（slug 沟通可读性增强：全链路透出 title）全 4 个 change 测试结论：175 passed / 0 failed / 36 skipped，零回归。"
+
 ```markdown
 # 测试结论：{req-id} {title}
 

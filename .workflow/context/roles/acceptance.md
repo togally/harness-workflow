@@ -68,6 +68,11 @@
 
 ### 最小字段模板（字段名与顺序不得变更）
 
+> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{req-id}` 与 `{title}` 不可省略；AC 核对表与"未达项处理建议"中首次引用 chg / sug / bugfix 时形如 `{id}（{title}）`。
+>
+> 向主 agent 汇报示例：
+> - "req-30（slug 沟通可读性增强：全链路透出 title）验收结论：AC-01~AC-10 全通过；建议直接进入 done；未达项：无。"
+
 ```markdown
 # 验收摘要：{req-id} {title}
 
