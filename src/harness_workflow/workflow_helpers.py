@@ -2980,6 +2980,17 @@ def _sync_requirement_workflow_managed_files(
                 refreshed_state[relative] = desired_hash
             continue
         actions.append(f"skipped modified {relative}")
+        # req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/
+        # testing 收口 / P2-01：managed_state 已登记但 hash 变化 → 文件被用户手改。
+        # 仅 stdout `skipped modified` 对 CI/脚本不可见；补 stderr 以与 line ~2968 的
+        # user-authored 分支语义对齐（两者均为"保护用户编辑不被覆盖"）。文案区分：
+        # 此处为 user-modified（既有登记 + 改动），line ~2968 为 user-authored（新建）。
+        if not check:
+            print(
+                f"[update_repo] skipping user-modified file {relative}; "
+                f"pass --force-managed to overwrite.",
+                file=sys.stderr,
+            )
 
     if not check:
         save_requirement_runtime(root, load_requirement_runtime(root))
