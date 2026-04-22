@@ -1,3 +1,4 @@
+# === 通用忽略 ===
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -5,20 +6,24 @@ __pycache__/
 .venv/
 dist/
 build/
+
+# === 外部工具与 IDE ===
 /.claude/
 /.codex/
 /.idea/
 /.qoder/
-
-# harness workflow directory (must not be ignored)
-!.workflow/
-.workflow/context/backup/
-.worktrees/
-/docs/
-/.workflow/
-/.idea/
 /.kimi/
-/.workflow/
+
+# === 文档 / 产物 / worktrees ===
 /docs/
 /artifacts/
-/docs/
+.worktrees/
+
+# === macOS 元数据（req-28 / chg-01 新增）===
+.DS_Store
+
+# === harness workflow 目录 ===
+# 规则意图：.workflow/ 整体入版本，仅下列明确子路径忽略。
+# !.workflow/ 必须先于任何 .workflow/** 子忽略声明，否则否定规则被覆盖。
+!.workflow/
+.workflow/context/backup/
