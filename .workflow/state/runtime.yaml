@@ -1,9 +1,9 @@
 operation_type: "requirement"
-operation_target: "req-30"
-current_requirement: ""
-current_requirement_title: ""
-stage: "done"
-stage_entered_at: "2026-04-22T07:56:58.522610+00:00"
+operation_target: "req-31"
+current_requirement: "req-31"
+current_requirement_title: "角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界）"
+stage: "executing"
+stage_entered_at: "2026-04-22T09:25:20.205952+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -22,4 +22,5 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements: []
+active_requirements:
+  - req-31

@@ -1,0 +1,12 @@
+id: "req-31"
+title: "角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界）"
+stage: "executing"
+status: "active"
+created_at: "2026-04-22"
+started_at: "2026-04-22"
+completed_at: ""
+stage_timestamps:
+  plan_review: "2026-04-22T09:22:39.795649+00:00"
+  ready_for_execution: "2026-04-22T09:24:56.887694+00:00"
+  executing: "2026-04-22T09:25:20.209146+00:00"
+description: ""
