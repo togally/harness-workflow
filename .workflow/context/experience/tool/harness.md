@@ -118,4 +118,24 @@ def next_suggestion_id():
 `harness suggest` 同时需要 filename fallback（基于 `sug-NN` 前缀）兼容历史无 frontmatter 的 sug 文件，保证 `--apply / --delete / --archive` 对老文件可用。
 
 ### 来源
-req-28/chg-01 — create_suggestion 跨 archive+current 单调递增 + filename fallback
+req-28（目录散落产物清理与 gitignore 规约修正）/chg-01 — create_suggestion 跨 archive+current 单调递增 + filename fallback
+
+---
+
+## 经验：开放型 vs 执行型模型选择依据（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-04）
+
+### 场景
+主 agent / harness-manager 派发 subagent 时，需要按角色差异化选 model。`.workflow/context/role-model-map.yaml` 是权威配置，本节记录"为什么这样分"的底层权衡。
+
+### 经验内容
+
+harness-workflow 的 11 个角色按任务形态拆为"开放型"与"执行型"两组，分别绑定 Opus 4.7 / Sonnet 4.6。权衡从三个维度展开：
+
+- **成本**：Opus 单位 token 成本显著高于 Sonnet。对确定性高、模板化、步骤可复用的任务（executing 按 plan.md 实现、testing 按 AC 跑验证、acceptance 对照 checklist、tools-manager 工具匹配、reviewer 按 checklist 审查），用 Opus 是资源浪费。
+- **延迟**：Sonnet 响应更快。执行型角色追求步骤吞吐（一个 chg 内往往要跑若干轮 Edit + grep + pytest），延迟敏感，Sonnet 合适；开放型角色每轮产出更"厚"（需求澄清 / 变更拆分 / 根因诊断），延迟相对不敏感。
+- **任务确定性 / 推理深度**：开放型角色（requirement-review 澄清边界、planning 拆分变更 + 制定计划、regression 独立诊断 + 根因判断、harness-manager 命令意图解析 + 角色调度、done 六层回顾、technical-director 流程编排 + 异常监控）需要深度推理、综合判断、跨上下文关联，Opus 4.7 的推理深度是必须；执行型角色的决策树窄、断言明确，Sonnet 够用。
+
+权威源：`.workflow/context/role-model-map.yaml`；镜像展示：`.workflow/context/index.md` 的三张角色表 model 列。**双源改动必须同步**，以 yaml 为准；版本号解析（如 `opus` → `claude-opus-4-7[1m]`）由 dispatcher 在运行时完成，本 yaml 不硬编码具体子版本，以便未来小版本升级不触动权威配置。
+
+### 来源
+req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-04
