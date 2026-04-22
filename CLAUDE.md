@@ -20,8 +20,8 @@ If any of those files are missing, inconsistent, or unreadable, stop immediately
 
 ## Main Entry
 
-- `harness install`
-- `harness update`
+- `harness install`（已吸收原 update 的 CLI 刷新职责；req-33 / chg-01）
+- `harness update`（触发 project-reporter 生成 `artifacts/main/project-overview.md`；CLI 同步职责请用 `harness install`；req-33 / chg-02）
 - `harness status`
 - `harness requirement "<title>"`
 - `harness change "<title>"`

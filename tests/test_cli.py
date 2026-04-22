@@ -417,20 +417,20 @@ class HarnessCliTest(unittest.TestCase):
         qoder_rule.unlink()
         context_index.unlink()
 
-        # bugfix-3（新）：install --agent qoder 会把 active_agent=qoder 写到 platforms.yaml。
-        # 默认 update 只刷新 .qoder/*，所以这里用 --all-platforms escape hatch 恢复旧的全平台刷新行为，
-        # 以便该用例继续验证 .claude/.codex/.qoder 三处都能 missing → refresh。
+        # req-33 / chg-02：`harness update` CLI 已重定义为打印引导 + exit 0；
+        # 验证 CLI 打印引导行为（AC-B4）。
         check = self.run_cli("update", "--root", str(self.repo), "--check", "--all-platforms")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
-        self.assertIn("would refresh .qoder/skills/harness", check.stdout)
-        self.assertIn("missing .qoder/commands/harness-requirement.md", check.stdout)
-        self.assertIn("missing .claude/commands/harness-requirement.md", check.stdout)
-        self.assertIn("missing .codex/skills/harness-requirement/SKILL.md", check.stdout)
-        self.assertIn("missing .qoder/rules/harness-workflow.md", check.stdout)
-        self.assertIn("missing .workflow/context/index.md", check.stdout)
+        self.assertIn("harness update 已重定义为角色契约触发", check.stdout)
+        self.assertIn("生成项目现状报告", check.stdout)
+        self.assertIn("harness install", check.stdout)
 
-        result = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        # 实际刷新通过 update_repo Python API（空壳委托 → install_repo）完成。
+        import sys as _sys
+        _sys.path.insert(0, str(REPO_ROOT / "src"))
+        from harness_workflow.workflow_helpers import update_repo
+        rc = update_repo(self.repo, force_all_platforms=True)
+        self.assertEqual(rc, 0)
         self.assertTrue(qoder_command.exists())
         self.assertTrue(claude_command.exists())
         self.assertTrue(codex_wrapper.exists())
@@ -676,17 +676,21 @@ class HarnessCliTest(unittest.TestCase):
         codex_skill.write_text("tampered codex skill\n", encoding="utf-8")
         claude_skill.write_text("tampered claude skill\n", encoding="utf-8")
 
-        # bugfix-3（新）：install --agent claude 已把 active_agent=claude 写到 platforms.yaml。
-        # 本用例要同时验证 .codex 和 .claude 的刷新，用 --all-platforms escape hatch 保留原意图。
+        # req-33 / chg-02：`harness update` CLI 已重定义为打印引导 + exit 0；
+        # 验证 CLI 打印引导行为（AC-B4）。
         check = self.run_cli("update", "--root", str(self.repo), "--check", "--all-platforms")
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
-        self.assertIn("would refresh .codex/skills/harness", check.stdout)
-        self.assertIn("would refresh .claude/skills/harness", check.stdout)
-        self.assertIn("missing .workflow/context/roles/acceptance.md", check.stdout)
+        self.assertIn("harness update 已重定义为角色契约触发", check.stdout)
+        self.assertIn("生成项目现状报告", check.stdout)
+        self.assertIn("harness install", check.stdout)
         self.assertFalse(acceptance_role.exists())
 
-        result = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+        # 实际刷新通过 update_repo Python API（空壳委托 → install_repo）完成。
+        import sys as _sys
+        _sys.path.insert(0, str(REPO_ROOT / "src"))
+        from harness_workflow.workflow_helpers import update_repo
+        rc = update_repo(self.repo, force_all_platforms=True)
+        self.assertEqual(rc, 0)
         self.assertTrue(acceptance_role.exists())
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))
         self.assertIn("# Harness", claude_skill.read_text(encoding="utf-8"))

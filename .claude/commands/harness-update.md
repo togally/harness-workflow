@@ -22,6 +22,7 @@ Before acting:
 Execution rules:
 
 - center the task around `harness update`
+- req-33 / chg-02：本命令 CLI 仅打印引导 + exit 0；实际语义由 harness-manager 按 `.workflow/context/roles/harness-manager.md` §3.5.1 触发词召唤 project-reporter 生成 `artifacts/main/project-overview.md`。`--check` / `--scan` flag 不报错但 handler 忽略。
 - do not bypass the workflow with manual requirement / change / plan / execution steps
 - if workflow state is missing or inconsistent, handle by command type:
   - install/init/update/language/status are standalone commands; no current_requirement needed

@@ -398,18 +398,15 @@ def main() -> int:
             cmd_args.append("--write-claude")
         return _run_tool_script("harness_init.py", cmd_args, root)
     if args.command == "update":
-        cmd_args = []
-        if args.check:
-            cmd_args.append("--check")
-        if args.force_managed:
-            cmd_args.append("--force-managed")
-        if args.scan:
-            cmd_args.append("--scan")
-        if getattr(args, "agent", None):
-            cmd_args.extend(["--agent", args.agent])
-        if getattr(args, "all_platforms", False):
-            cmd_args.append("--all-platforms")
-        return _run_tool_script("harness_update.py", cmd_args, root)
+        # req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter）/
+        # chg-02（harness update 角色契约层重定义为召唤 project-reporter）/ S-B4：
+        # CLI 同步职责已迁到 `harness install`；本 handler 改为打印引导 + exit 0。
+        # 保留 update_parser 的 --check / --scan / --force-managed / --agent / --all-platforms
+        # 五个 flag 解析不报错（argparse 仍吃），handler 一律忽略。
+        print("harness update 已重定义为角色契约触发。")
+        print("请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。")
+        print("CLI 同步职责已迁到 `harness install`。")
+        return 0
     if args.command == "language":
         return _run_tool_script("harness_language.py", [args.language], root)
     if args.command == "enter":

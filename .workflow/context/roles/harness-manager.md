@@ -133,11 +133,11 @@ harness <verb> [noun] [--flags]
 
 | 命令 | 处理逻辑 |
 |------|----------|
-| `harness install` | 调用 `install_repo()` 初始化仓库 |
+| `harness install` | 调用 `install_repo()` 初始化 + 刷新仓库（已吸收原 update 刷新职责；req-33 / chg-01） |
 | `harness install --agent <agent>` | 调用 `install_agent()` 安装到指定 agent |
-| `harness update` | 调用 `update_repo()` 更新项目 |
-| `harness update --check` | 检查更新内容，不实际执行 |
-| `harness update --scan` | 调用 `scan_project()` 生成适配报告 |
+| `harness update` | 打印角色契约引导 + exit 0；语义由 §3.5.1 触发词召唤 project-reporter（req-33 / chg-02） |
+| `harness update --check` | 同上（flag 不报错，handler 忽略） |
+| `harness update --scan` | 同上（如需扫描报告请改用 `harness install` 的 stderr 提示或直接在会话中触发 project-reporter） |
 | `harness language` | 调用 `set_language()` 设置语言 |
 
 #### 3.2 会话控制类 → 主 agent（technical-director）执行
@@ -373,41 +373,32 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 **参数**:
 - `agent`: kimi | claude | codex | qoder
 
-#### A.3 `harness update`
+#### A.3 `harness update`（req-33 / chg-02 重定义）
 
-> req-33 / chg-01 过渡态：当前 `harness update` 行为 = `harness install`（`update_repo` 降级为 `install_repo` 空壳委托）；chg-02（harness update 角色契约层重定义为召唤 project-reporter）将把本节主体重写为"召唤 project-reporter 生成 artifacts/main/project-overview.md"。
+**功能**: 召唤 project-reporter 生成 `artifacts/main/project-overview.md`。
 
-**功能**: 更新项目中的 harness managed 文件。
+**语义**: 本命令已不再承担 CLI 同步职责（skill 刷新 / managed 文件 / legacy 清理 / state 迁移 / experience index / project-profile 写盘等已全部迁入 `harness install`，见 §A.1）；本条 CLI 现为**打印引导 + `exit 0`**。
 
 **执行流程**:
-1. 调用 `update_repo(check=False)`
-2. 刷新 .codex/skills/harness
-3. 刷新 .claude/skills/harness
-4. 刷新 .qoder/skills/harness
-5. 同步 managed 文件
-6. 清理 legacy artifacts
-7. 迁移 state 文件格式
-8. 刷新 experience index
+1. CLI 层：`src/harness_workflow/cli.py` main() 对 `args.command == "update"` 直接打印三行引导并 `return 0`（req-33 / chg-02 的 S-B4）：
+   - `harness update 已重定义为角色契约触发。`
+   - `请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。`
+   - `CLI 同步职责已迁到 \`harness install\`。`
+2. 角色层：harness-manager 识别用户在会话中说出 §3.5.1 登记的四触发词（`生成项目现状报告` / `项目状态` / `项目快照` / `生成 project-overview.md`）之一时，按 §3.5.1 派发协议召唤 project-reporter（Opus 4.7）产出 `artifacts/main/project-overview.md`（每次召唤覆写）。
+3. 与 `harness update` CLI 无强绑定：用户不跑 CLI 也可直接在会话中说触发词；CLI 仅作引导提示入口。
+
+**不包含**:
+- 不再刷新 `.codex/skills/harness` / `.claude/skills/harness` / `.qoder/skills/harness`（请用 `harness install`）
+- 不再同步 managed 文件 / 清理 legacy artifacts / 迁移 state / 刷新 experience index（请用 `harness install`）
+- 不再写盘 `.workflow/context/project-profile.md`（请用 `harness install`）
 
 #### A.4 `harness update --check`
 
-**功能**: 检查更新内容，不实际执行。
-
-**执行流程**:
-1. 调用 `update_repo(check=True)`
-2. 显示所有将要执行的操作
-3. 不写入任何文件
+见 §A.3；`--check` flag 被 argparse 解析不报错，但 handler 忽略该 flag 统一打印引导（req-33 / chg-02 的 S-B4 / P-B2）。
 
 #### A.5 `harness update --scan`
 
-**功能**: 扫描项目特征生成适配报告。
-
-**执行流程**:
-1. 调用 `scan_project()`
-2. 检测技术栈
-3. 检测目录结构
-4. 检测已有规范文件
-5. 生成并显示适配报告
+见 §A.3；`--scan` 同 `--check` 处理。若确需扫描项目特征，请在会话中直接触发 project-reporter（其 10 节模板的 §2-§5 覆盖原 `scan_project()` 的技术栈 / 目录结构 / 规范文件检测，且含证据路径硬门禁 H-1）。
 
 #### A.6 `harness language <english|cn>`
 
