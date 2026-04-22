@@ -20,6 +20,32 @@
 
 删除、覆盖、归档等操作必须显示变更内容并等待用户确认后才能执行。
 
+### 硬门禁五：跨 repo scaffold mirror 同步（req-34（新增工具 api-document-upload（首实现 apifox MCP，可拔插）+ 修复 scaffold_v2 mirror 漂移（project-reporter 系列漏同步）） / chg-04）
+
+> 本条编号跳过"四"以避免与 `base-role.md` 已占用的"硬门禁四：stage 边界决策批量化"在语义层面混淆。
+
+**适用范围**：以下三类文件的任意**新增 / 修改 / 删除 / 重命名**动作：
+
+1. `.workflow/context/roles/*.md`（任何角色文件，包括 Director / Stage 执行角色 / 辅助角色 / 抽象父类 / 协议文件）
+2. `.workflow/context/index.md`（角色索引表）
+3. `.workflow/context/role-model-map.yaml`（角色→模型权威映射）
+
+**强制规约**：同一 executing chg 的**同一 commit** 必须同步对应改动到 `src/harness_workflow/assets/scaffold_v2/.workflow/context/` 下的镜像文件；未同步视为硬门禁五违反，由 reviewer 阶段 checklist 拦截、done 阶段六层回顾兜底。
+
+**例外白名单**（不触发本硬门禁）：
+
+- `.workflow/context/experience/` 下的 requirement-scoped 经验文件（随需求归档）
+- `.workflow/context/checklists/` 下的 stage-specific 检查清单（按需演进）
+- `.workflow/context/team/` / `.workflow/context/project/` 等本项目独有子树
+- `.workflow/state/` / `artifacts/` 下任何文件（运行时状态 / 制品）
+
+**与 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））已有 scaffold_v2 契约的关系**：本条硬门禁**扩展** req-30 原契约——req-30 仅覆盖 `base-role.md` / `stage-role.md` 两个具体文件的**修改**场景；本条把保护面扩展到全部角色文件 + index.md + role-model-map.yaml 的全部四种动作（新增/修改/删除/重命名）。req-30 原契约同时仍然生效，两者并集执行。
+
+**违反处理**：
+
+1. reviewer 阶段 checklist 查 `git diff --name-only` 命中 `.workflow/context/roles/` 或 `index.md` 或 `role-model-map.yaml` 时，必须同时看到 `src/harness_workflow/assets/scaffold_v2/.workflow/context/` 对应同名文件改动；否则判 FAIL
+2. done 阶段六层回顾扫一次 `diff -rq .workflow/context/ src/harness_workflow/assets/scaffold_v2/.workflow/context/`（排除例外白名单），有非预期差异则回退路由到 regression
+
 ## 标准工作流程（SOP）
 
 ### Step 0: 初始化
