@@ -176,14 +176,14 @@ harness <verb> [noun] [--flags]
 | `harness regression` | 诊断问题，加载 `regression` 角色 |
 | `harness feedback` | 导出反馈，直接执行 |
 
-#### 3.5.1 触发 project-reporter 召唤（req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/status.md） / chg-02（注册三联：index.md 添加 + role-model-map.yaml 添加 + harness-manager.md 触发语））
+#### 3.5.1 触发 project-reporter 召唤（req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/project-overview.md） / chg-02（注册三联：index.md 添加 + role-model-map.yaml 添加 + harness-manager.md 触发语））
 
 **召唤判据**：用户自然语言输入**包含下列任一触发词**时，harness-manager 必须召唤 project-reporter 角色：
 
 - `生成项目现状报告`
 - `项目状态`
 - `项目快照`
-- `生成 status.md`
+- `生成 project-overview.md`
 
 （≥ 4 个触发词字面满足父需求 AC-4 ≥ 3 阈值；"当前项目状态" / "帮我过一遍项目" 等近义表达由 harness-manager 按意图判断归类到以上任一。）
 
@@ -191,10 +191,10 @@ harness <verb> [noun] [--flags]
 
 1. 按下一节 `#### 3.6 派发 Subagent` 派发协议执行；
 2. 按 Step 2.5（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03 派发协议扩展）从 `role-model-map.yaml` 查 `project-reporter: "opus"` → briefing.model = `opus`；
-3. 按 Step 6 用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） / chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）））首次派发说明形如 `派发 project-reporter（Opus 4.7）按 10 节扫仓库产出 artifacts/main/status.md`；
+3. 按 Step 6 用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） / chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）））首次派发说明形如 `派发 project-reporter（Opus 4.7）按 10 节扫仓库产出 artifacts/main/project-overview.md`；
 4. 角色文件路径：`.workflow/context/roles/project-reporter.md`。
 
-**产物**：单一文件 `artifacts/main/status.md`（每次召唤覆写，不做 diff / 版本历史；历史由 git 记录）。
+**产物**：单一文件 `artifacts/main/project-overview.md`（每次召唤覆写，不做 diff / 版本历史；历史由 git 记录）。
 
 **非召唤条件（明确不触发）**：用户要求"更新 harness" / "跑单测" / "归档需求" 等与现状报告无关的命令，不触发本召唤。
 

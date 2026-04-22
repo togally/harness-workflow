@@ -31,7 +31,7 @@
 | **命令引导中心（harness-manager）**（yaml key: harness-manager） | 作为所有 harness 命令的统一入口，解析命令意图、调度角色、管理 skill 生命周期 | `.workflow/context/roles/harness-manager.md` | opus |
 | **工具管理员（toolsManager）**（yaml key: tools-manager） | 在其他 agent 执行操作前，为其搜索、匹配并推荐最合适的工具 | `.workflow/context/roles/tools-manager.md` | sonnet |
 | **审查员（reviewer）**（yaml key: reviewer） | 按 checklist 逐条审查变更产物，客观评估产出质量 | `.workflow/context/roles/reviewer.md` | sonnet |
-| **项目现状报告官（project-reporter）**（yaml key: project-reporter） | 按 10 节精简模板扫本仓库实况、产出 `artifacts/main/status.md`；禁编造 / 禁推测 / 禁代写 §11（req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/status.md）） | `.workflow/context/roles/project-reporter.md` | opus |
+| **项目现状报告官（project-reporter）**（yaml key: project-reporter） | 按 10 节精简模板扫本仓库实况、产出 `artifacts/main/project-overview.md`；禁编造 / 禁推测 / 禁代写 §11（req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/project-overview.md）） | `.workflow/context/roles/project-reporter.md` | opus |
 
 ### 抽象父类
 
