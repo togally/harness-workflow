@@ -13,7 +13,7 @@
 - 提取所有验收标准（AC）
 - **对人文档落盘硬门禁（req-28 / chg-05，AC-09）**：验收开始前必须调用
   `harness validate --human-docs --requirement <current_requirement>`（bugfix 场景使用 `--bugfix <id>`），
-  结果须为全 ok；未达项必须写入后续产出的 `验收摘要.md`，并停下来把 subagent 交回 executing 角色补齐对人文档。
+  结果须为全 ok；未达项必须写入后续产出的 `acceptance-report.md`，并停下来把 subagent 交回 executing 角色补齐对人文档。
 
 ### Step 2: 逐条核查
 > **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简）收窄**：不重跑所有 AC，直接引用 test-report.md 做签字；技术验证信任 testing。
@@ -57,41 +57,14 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
-## 对人文档输出（req-26）
+## 对人文档输出（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）废止）
 
-在完成逐条 AC 核查并产出 agent 侧验收报告后，必须**为当前需求**额外产出一份面向用户的精炼中文文档：
-
-- **文件名**：`验收摘要.md`（固定，不得改名）
-- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/验收摘要.md`
-- **粒度**：req 级，每个 req 一份
-- **上限**：≤ 1 页
-- **与 agent 验收报告的关系**：对人文档不替代详细的验收报告，后者仍维持原路径。
-
-### 最小字段模板（字段名与顺序不得变更）
-
-> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{req-id}` 与 `{title}` 不可省略；AC 核对表与"未达项处理建议"中首次引用 chg / sug / bugfix 时形如 `{id}（{title}）`。
->
-> 向主 agent 汇报示例：
-> - "req-30（slug 沟通可读性增强：全链路透出 title）验收结论：AC-01~AC-10 全通过；建议直接进入 done；未达项：无。"
-
-```markdown
-# 验收摘要：{req-id} {title}
-
-## AC 核对结果
-- 表格：AC 编号 | 通过 | 证据 / 备注
-
-## 是否通过
-- 一句话判定 + 建议动作（归档 / 回归 / 延期）。
-
-## 未达项处理建议
-- 列未通过的 AC，给出明确下一步（谁做、预期完成时间）。
-```
+acceptance 阶段**不再**产出对人文档 `验收摘要.md`；AC 签字 + 异议流转建议直接写入 `acceptance-report.md`（≤ 30 行，由 chg-03（S-C testing/acceptance 职责边界精简）约束）。契约 4 硬门禁对本阶段豁免。req-30（slug 沟通可读性增强：全链路透出 title）契约 7 仍并列生效：所有 id 引用首次须带 title。
 
 ## 退出条件
 - [ ] 所有验收标准逐条核查完毕
 - [ ] 验收报告已产出
 - [ ] 人工最终判定：通过 或 驳回
-- [ ] 对人文档 `验收摘要.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
 - [ ] acceptance-report.md ≤ 30 行（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简）default-pick P-6 = A）
 - [ ] 逐条 AC 已签字，签字表以 test-report.md / 产物路径为证据
 - [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
@@ -119,11 +92,11 @@
 - [ ] 每个 change.md 中的 AC 是否都已逐条核查？
 - [ ] 验收报告是否客观，不带修复建议？
 - [ ] 人工是否已做出明确的通过/驳回判定？
-- [ ] 已调用 `harness validate --human-docs` 并确认对人文档落盘完整，未达项已写入验收摘要（req-28 / chg-05，AC-09）。
+- [ ] 已调用 `harness validate --human-docs` 并确认对人文档落盘完整，未达项已写入 acceptance-report.md（req-28 / chg-05，AC-09）。
 
 ## 完成前必须检查
 1. requirement.md 中每条验收标准是否都有对应的核查结论？
 2. 每个 change.md 中的 AC 是否都已逐条核查？
 3. 验收报告是否客观，不带修复建议？
 4. 人工是否已做出明确的通过/驳回判定？
-5. `harness validate --human-docs` 结果是否为全 ok？未达项是否写入 `验收摘要.md`？（req-28 / chg-05，AC-09）
+5. `harness validate --human-docs` 结果是否为全 ok？未达项是否写入 `acceptance-report.md`？（req-28 / chg-05，AC-09）

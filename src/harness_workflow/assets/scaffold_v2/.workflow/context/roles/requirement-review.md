@@ -56,19 +56,12 @@
 
 ## 对人文档输出（req-26）
 
-在完成 `requirement.md` 并获得用户确认后，必须**额外**产出一份面向用户的精炼中文文档：
-
-- **文件名**：`需求摘要.md`（固定，不得改名）
-- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`
-- **上限**：≤ 1 页（屏幕一屏内读完）
-- **与 `requirement.md` 的关系**：对人文档不替代 `requirement.md`，后者仍维持在 `.workflow/flow/requirements/` 原路径、原形态。
+- **文件名 / 路径**：`需求摘要.md` → `artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`，≤ 1 页
+- **frontmatter**：`delivery_link: artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`（req-31 / chg-04 互链）
 
 ### 最小字段模板（字段名与顺序不得变更）
 
-> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{req-id}` 与 `{title}` 均不可省略；首次引用本需求或其 chg / reg 时必须形如 `{id}（{title}）`，裸 id 视为硬门禁违反。
->
-> 自证样本行（向主 agent 汇报时复用）：
-> - "req-30（slug 沟通可读性增强：全链路透出 title）的 `需求摘要.md` 已落地，范围 / 验收要点 / 风险三段俱全。"
+> **req-30（slug 沟通可读性增强：全链路透出 title）契约 7**：首行 `{req-id}` 与 `{title}` 均不可省略；首次引用时形如 `{id}（{title}）`，裸 id 视为违反。
 
 ```markdown
 # 需求摘要：{req-id} {title}

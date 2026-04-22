@@ -186,8 +186,8 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 | requirement_review | 需求摘要.md | req | 需求分析师 |
 | planning | 变更简报.md | change | 架构师 |
 | executing | 实施说明.md | change | 开发者 |
-| testing | 测试结论.md | req | 测试工程师 |
-| acceptance | 验收摘要.md | req | 验收官 |
+| ~~testing~~ | ~~测试结论.md~~ **不要求产出**（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）废止，数据写入 test-report.md） | ~~req~~ | ~~测试工程师~~ |
+| ~~acceptance~~ | ~~验收摘要.md~~ **不要求产出**（req-31 / chg-04 废止，数据写入 acceptance-report.md） | ~~req~~ | ~~验收官~~ |
 | regression | 回归简报.md | regression | 诊断师 |
 | done | 交付总结.md | req | 主 agent（done） |
 
@@ -196,8 +196,15 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 - `决策汇总.md`（ff --auto 模式产出，acceptance 前由 chg-03 工具自动生成，路径
   artifacts/{branch}/requirements/{req-id}-{slug}/决策汇总.md，字段按 DecisionPoint）
 
+#### 跨文档引用 frontmatter（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减））
+
+- `需求摘要.md` 头部 frontmatter 新增：`delivery_link: artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`
+- `交付总结.md` 头部 frontmatter 新增：`requirement_link: artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`
+- 字段名采用 default-pick P-8 = A（英文语义化）；存量历史文档不回填。
+
 ### 契约 4：硬门禁
 
+- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）精简**：testing / acceptance 两阶段的对人文档已废止，契约 4 "对人文档 `{文件名}.md` 已产出" 硬门禁对这两阶段**豁免**；其 agent 过程文档 `test-report.md` / `acceptance-report.md` 即结论载体。
 - 每个 stage 角色的"退出条件"清单中**必须**包含一条："对人文档 `{文件名}.md` 已产出且字段完整"。
 - 每份对人文档必须 ≤ 1 页（屏幕一屏内读完），字段按各角色文件中的最小模板执行（字段名与字段顺序不得变更）。
 - 禁止把对人文档写到 `.workflow/flow/` 或其他位置；禁止用 agent 过程文档（如 session-memory）替代对人文档。

@@ -45,16 +45,7 @@ STAGE_HUMAN_DOC_SPEC = {
         "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/",
         "granularity": "change",
     },
-    "testing.md": {
-        "filename": "测试结论.md",
-        "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/",
-        "granularity": "req",
-    },
-    "acceptance.md": {
-        "filename": "验收摘要.md",
-        "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/",
-        "granularity": "req",
-    },
+    # testing.md / acceptance.md: 对人文档废止（req-31 / chg-04 S-D），不再产出 测试结论.md / 验收摘要.md
     "regression.md": {
         "filename": "回归简报.md",
         "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/regressions/",
@@ -123,31 +114,20 @@ class HumanDocExitConditionHardGateTest(unittest.TestCase):
 class TestingMinimalFieldTemplateTest(unittest.TestCase):
     """AC-06 契约 3：testing.md 的最小字段模板四字段顺序不得变更。
 
-    字段顺序：通过/失败统计 → 关键失败根因 → 未覆盖场景 → 风险评估
+    req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 /
+    对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）废止：
+    testing.md 的对人文档模板（测试结论.md）已废止；本测试改为验证 testing.md
+    含有废止声明，而非四字段模板。
     """
 
     def test_field_order_in_testing_md(self) -> None:
+        # req-31 / chg-04: 对人文档模板废止，改验证废止声明存在
         text = (ROLES_DIR / "testing.md").read_text(encoding="utf-8")
-        expected_fields = [
-            "## 通过/失败统计",
-            "## 关键失败根因",
-            "## 未覆盖场景",
-            "## 风险评估",
-        ]
-        # 取最后一处（对人文档章节内的字段）而非随机文本
-        positions = []
-        for field in expected_fields:
-            idx = text.rfind(field)
-            self.assertGreater(idx, 0, f"testing.md 缺少字段 `{field}`")
-            positions.append((field, idx))
-        # 必须严格递增
-        for i in range(1, len(positions)):
-            prev_field, prev_idx = positions[i - 1]
-            cur_field, cur_idx = positions[i]
-            self.assertLess(
-                prev_idx, cur_idx,
-                f"testing.md 字段顺序错误：`{prev_field}` 应出现在 `{cur_field}` 之前",
-            )
+        self.assertIn(
+            "废止",
+            text,
+            "testing.md 的对人文档段应含'废止'字样（req-31 / chg-04）",
+        )
 
 
 class StageRoleContractReferencesRolesTest(unittest.TestCase):

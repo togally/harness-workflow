@@ -56,20 +56,13 @@
 
 ## 对人文档输出（req-26）
 
-在完成每个 change 的 `change.md` 与 `plan.md` 后，必须**为每个 change 单独**额外产出一份面向用户的精炼中文文档：
-
 - **文件名**：`变更简报.md`（固定，不得改名）
 - **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/变更简报.md`
-- **粒度**：change 级，每个 change 一份
-- **上限**：≤ 1 页
-- **与 `change.md` / `plan.md` 的关系**：对人文档不替代这两份 agent 过程文档，两者仍维持在 `.workflow/flow/` 原路径。
+- **粒度**：change 级，每个 change 一份；**上限**：≤ 1 页
 
 ### 最小字段模板（字段名与顺序不得变更）
 
-> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{chg-id}` 与 `{title}` 不可省略。`变更简报.md` 内首次提到父需求或其他 change 时须写 `{id}（{title}）`（如 `req-30（slug 沟通可读性增强：全链路透出 title）的 chg-02（CLI 渲染 — render_work_item_id helper）`）。
->
-> 向主 agent 汇报示例：
-> - "req-30（slug 沟通可读性增强：全链路透出 title）已拆为 4 个 change：chg-01（state schema）/ chg-02（CLI 渲染）/ chg-03（角色契约）/ chg-04（归档 meta，optional），依赖顺序 chg-01 → chg-02 → chg-03 → chg-04。"
+> **req-30（slug 沟通可读性增强：全链路透出 title）契约 7**：首行 `{chg-id}` 与 `{title}` 不可省略；首次引用时形如 `{id}（{title}）`，裸 id 视为违反。
 
 ```markdown
 # 变更简报：{chg-id} {title}

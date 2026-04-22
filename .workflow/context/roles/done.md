@@ -91,19 +91,12 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 
 ## 对人文档输出（req-26）
 
-在完成六层回顾并产出 `done-report.md` 后，必须**为当前需求**额外产出一份面向用户的精炼中文文档：
-
-- **文件名**：`交付总结.md`（固定，不得改名）
-- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`
-- **粒度**：req 级，每个 req 一份
-- **上限**：≤ 1 页
-- **与 `done-report.md` 的关系**：对人文档不替代 `done-report.md`，后者仍维持原路径作为详细的六层回顾报告。
+- **文件名 / 路径**：`交付总结.md` → `artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`，≤ 1 页
+- **frontmatter**：`requirement_link: artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`（req-31 / chg-04 互链）
 
 ### 最小字段模板（字段名与顺序不得变更）
 
-> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{req-id}` 与 `{title}` 不可省略；"交付了什么"/"后续建议"中首次引用 chg / sug / bugfix 时形如 `{id}（{title}）`。
->
-> done 阶段六层回顾 id+title 校验：`grep -nE "(req|chg|sug|bugfix|reg)-[0-9]+" artifacts/{branch}/requirements/{req-id}-{slug}/ --include=*.md -r`，核对每个命中文件首次命中行是否含 `（...）` 括号。未通过视为契约 7 违反。
+> **契约 7**：首行 `{req-id}` 与 `{title}` 不可省略；首次引用时形如 `{id}（{title}）`。
 
 ```markdown
 # 交付总结：{req-id} {title}
