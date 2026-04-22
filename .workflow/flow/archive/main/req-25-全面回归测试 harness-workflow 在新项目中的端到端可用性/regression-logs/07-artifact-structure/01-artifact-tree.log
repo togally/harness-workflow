@@ -1,0 +1,27 @@
+=== Artifact Structure Validation ===
+=== TIME: 2026-04-19 10:52:15 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+
+--- artifacts/ tree ---
+/tmp/harness-regression-20260419-104820/artifacts
+/tmp/harness-regression-20260419-104820/artifacts/main
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change/regression
+/tmp/harness-regression-20260419-104820/artifacts/main/bugfixes
+/tmp/harness-regression-20260419-104820/artifacts/main/bugfixes/bugfix-1-test-bugfix
+/tmp/harness-regression-20260419-104820/artifacts/main/bugfixes/bugfix-1-test-bugfix/regression
+
+--- .workflow/state/requirements/ ---
+req-01-test-regression-req.yaml
+
+--- .workflow/state/bugfixes/ ---
+bugfix-1-test-bugfix.yaml
+
+--- changes dir check ---
+changes/ MISSING (top-level). Changes nested under requirements.
+
+--- archive dir check ---
+archive/ MISSING (expected - no archived req yet)

@@ -1,0 +1,6 @@
+=== COMMAND: harness suggest --archive sug-01 (sug-01 is applied) ===
+=== TIME: 2026-04-19 10:53:58 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Archived suggestion: sug-01 -> .workflow/flow/suggestions/archive/sug-01-test-suggestion-content.md
+=== EXIT_CODE: 0 ===

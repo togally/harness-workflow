@@ -1,0 +1,8 @@
+=== COMMAND: harness language en ===
+=== TIMESTAMP: 2026-04-19T04:27:44Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+Language set to english
+Run `harness update` if you want managed templates and guides to refresh in the new language.
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

@@ -1,0 +1,71 @@
+=== Full final artifact tree ===
+=== TIME: 2026-04-19 10:54:57 ===
+
+--- /tmp/harness-regression-20260419-104820/artifacts ---
+/tmp/harness-regression-20260419-104820/artifacts
+/tmp/harness-regression-20260419-104820/artifacts/main
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change/regression
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-02-test suggestion content
+/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-02-test suggestion content/changes
+/tmp/harness-regression-20260419-104820/artifacts/main/bugfixes
+/tmp/harness-regression-20260419-104820/artifacts/main/bugfixes/bugfix-1-test-bugfix
+/tmp/harness-regression-20260419-104820/artifacts/main/bugfixes/bugfix-1-test-bugfix/regression
+
+--- /tmp/harness-regression-20260419-104820/.workflow ---
+/tmp/harness-regression-20260419-104820/.workflow
+/tmp/harness-regression-20260419-104820/.workflow/tools
+/tmp/harness-regression-20260419-104820/.workflow/tools/catalog
+/tmp/harness-regression-20260419-104820/.workflow/tools/index
+/tmp/harness-regression-20260419-104820/.workflow/context
+/tmp/harness-regression-20260419-104820/.workflow/context/experience
+/tmp/harness-regression-20260419-104820/.workflow/context/experience/roles
+/tmp/harness-regression-20260419-104820/.workflow/context/experience/stage
+/tmp/harness-regression-20260419-104820/.workflow/context/experience/regression
+/tmp/harness-regression-20260419-104820/.workflow/context/experience/risk
+/tmp/harness-regression-20260419-104820/.workflow/context/experience/tool
+/tmp/harness-regression-20260419-104820/.workflow/context/checklists
+/tmp/harness-regression-20260419-104820/.workflow/context/roles
+/tmp/harness-regression-20260419-104820/.workflow/context/roles/directors
+/tmp/harness-regression-20260419-104820/.workflow/context/project
+/tmp/harness-regression-20260419-104820/.workflow/context/team
+/tmp/harness-regression-20260419-104820/.workflow/context/backup
+/tmp/harness-regression-20260419-104820/.workflow/context/backup/legacy-cleanup
+/tmp/harness-regression-20260419-104820/.workflow/archive
+/tmp/harness-regression-20260419-104820/.workflow/archive/legacy-cleanup
+/tmp/harness-regression-20260419-104820/.workflow/archive/legacy-cleanup/workflow
+/tmp/harness-regression-20260419-104820/.workflow/archive/v0.2.0-refactor
+/tmp/harness-regression-20260419-104820/.workflow/archive/v0.2.0-refactor/archive
+/tmp/harness-regression-20260419-104820/.workflow/archive/v0.2.0-refactor/regressions
+/tmp/harness-regression-20260419-104820/.workflow/archive/v0.1.0-self-optimization
+/tmp/harness-regression-20260419-104820/.workflow/archive/v0.1.0-self-optimization/changes
+/tmp/harness-regression-20260419-104820/.workflow/archive/v0.1.0-self-optimization/regressions
+/tmp/harness-regression-20260419-104820/.workflow/constraints
+/tmp/harness-regression-20260419-104820/.workflow/state
+/tmp/harness-regression-20260419-104820/.workflow/state/experience
+/tmp/harness-regression-20260419-104820/.workflow/state/requirements
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-08
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-06
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-07
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-09
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-05
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-02
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-03
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-04
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-10
+/tmp/harness-regression-20260419-104820/.workflow/state/sessions/req-11
+/tmp/harness-regression-20260419-104820/.workflow/state/bugfixes
+/tmp/harness-regression-20260419-104820/.workflow/evaluation
+/tmp/harness-regression-20260419-104820/.workflow/flow
+/tmp/harness-regression-20260419-104820/.workflow/flow/archive
+/tmp/harness-regression-20260419-104820/.workflow/flow/archive/main
+/tmp/harness-regression-20260419-104820/.workflow/flow/archive/req-20-审查Yh-platform工作流与产出
+/tmp/harness-regression-20260419-104820/.workflow/flow/requirements
+/tmp/harness-regression-20260419-104820/.workflow/flow/suggestions
+/tmp/harness-regression-20260419-104820/.workflow/flow/suggestions/archive
+/tmp/harness-regression-20260419-104820/.workflow/flow/regressions
+/tmp/harness-regression-20260419-104820/.workflow/flow/regressions/test-issue

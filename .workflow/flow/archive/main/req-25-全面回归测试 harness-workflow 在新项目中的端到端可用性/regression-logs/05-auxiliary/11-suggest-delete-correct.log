@@ -1,0 +1,6 @@
+=== COMMAND: harness suggest --delete sug-02 (actual existing) ===
+=== TIME: 2026-04-19 10:53:58 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Deleted suggestion: sug-02
+=== EXIT_CODE: 0 ===

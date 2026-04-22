@@ -1,0 +1,16 @@
+=== COMMAND: harness status ===
+=== TIMESTAMP: 2026-04-19T04:24:53Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+current_requirement: req-01
+stage: requirement_review
+conversation_mode: open
+locked_requirement: (none)
+locked_stage: (none)
+current_regression: (none)
+active_requirements: req-01
+requirement_title: test regression req
+requirement_status: active
+requirement_stage: requirement_review
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

@@ -1,0 +1,7 @@
+=== COMMAND: harness migrate requirements ===
+=== TIMESTAMP: 2026-04-19T04:27:19Z ===
+=== WORKDIR: /tmp/harness-migrate-test-1776572833 ===
+=== BEGIN OUTPUT ===
+[migrate] nothing to migrate
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

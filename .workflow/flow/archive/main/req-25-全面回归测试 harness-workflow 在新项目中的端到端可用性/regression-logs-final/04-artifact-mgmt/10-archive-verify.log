@@ -1,0 +1,14 @@
+=== COMMAND: ls artifacts/main/archive/main/ 2>&1; echo '---'; find artifacts/main/archive -type d 2>&1 ===
+=== TIMESTAMP: 2026-04-19T04:27:01Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+req-01-end-to-end test
+---
+artifacts/main/archive
+artifacts/main/archive/main
+artifacts/main/archive/main/req-01-end-to-end test
+artifacts/main/archive/main/req-01-end-to-end test/changes
+artifacts/main/archive/main/req-01-end-to-end test/changes/chg-01-test change 1
+artifacts/main/archive/main/req-01-end-to-end test/changes/chg-01-test change 1/regression
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

@@ -1,0 +1,6 @@
+=== COMMAND: harness regression --status ===
+=== TIME: 2026-04-19 10:51:32 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+No active regression. Start one with `harness regression "<issue>"` first.
+=== EXIT_CODE: 1 ===

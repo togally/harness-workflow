@@ -1,0 +1,8 @@
+=== COMMAND: harness migrate requirements ===
+=== TIMESTAMP: 2026-04-19T04:27:19Z ===
+=== WORKDIR: /tmp/harness-migrate-test-1776572833 ===
+=== BEGIN OUTPUT ===
+[migrate] /private/tmp/harness-migrate-test-1776572833/.workflow/flow/requirements/req-99-legacy -> /private/tmp/harness-migrate-test-1776572833/artifacts/main/requirements/req-99-legacy
+[migrate] done: 1 migrated, 0 skipped (conflict), 0 already-at-target
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

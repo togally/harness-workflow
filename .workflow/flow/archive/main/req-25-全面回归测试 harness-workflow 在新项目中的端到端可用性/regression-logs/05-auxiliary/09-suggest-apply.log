@@ -1,0 +1,9 @@
+=== COMMAND: harness suggest --apply sug-01 ===
+=== TIME: 2026-04-19 10:53:04 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Requirement workspace: /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-02-test suggestion content
+- created /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-02-test suggestion content/requirement.md
+- created .workflow/state/requirements/req-02-test suggestion content.yaml
+Applied suggestion sug-01 to requirement.
+=== EXIT_CODE: 0 ===

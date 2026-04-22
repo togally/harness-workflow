@@ -1,0 +1,7 @@
+=== COMMAND: harness tool-search "bash command" ===
+=== TIMESTAMP: 2026-04-19T04:27:30Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+No matching tool found.
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

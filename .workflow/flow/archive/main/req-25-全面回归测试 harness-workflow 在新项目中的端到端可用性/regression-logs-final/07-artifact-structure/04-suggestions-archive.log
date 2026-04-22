@@ -1,0 +1,10 @@
+=== COMMAND: ls -la .workflow/flow/suggestions/ 2>&1; echo '---'; ls -la .workflow/flow/suggestions/archive/ 2>&1; echo '---'; find .workflow/state/suggestions -type f 2>/dev/null ===
+=== TIMESTAMP: 2026-04-19T04:22:39Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+ls: .workflow/flow/suggestions/: No such file or directory
+---
+ls: .workflow/flow/suggestions/archive/: No such file or directory
+---
+=== END OUTPUT ===
+=== EXIT CODE: 1 ===

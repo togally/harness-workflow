@@ -1,0 +1,7 @@
+=== COMMAND: harness tool-rate bash 5 ===
+=== TIMESTAMP: 2026-04-19T04:27:31Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+Rated bash: 5.0 (from 1 ratings)
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

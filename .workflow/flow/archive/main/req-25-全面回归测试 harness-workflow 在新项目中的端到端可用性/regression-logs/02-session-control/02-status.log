@@ -1,0 +1,12 @@
+=== COMMAND: harness status (after enter) ===
+=== TIME: 2026-04-19 10:50:08 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+current_requirement: req-25
+stage: done
+conversation_mode: harness
+locked_requirement: (none)
+locked_stage: (none)
+current_regression: (none)
+active_requirements: req-25
+=== EXIT_CODE: 0 ===

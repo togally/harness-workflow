@@ -1,0 +1,35 @@
+=== Scaffold pollution check ===
+
+-- Pre-existing requirement session dirs in fresh install --
+req-02
+req-03
+req-04
+req-05
+req-06
+req-07
+req-08
+req-09
+req-10
+req-11
+
+-- Pre-existing archive/main in fresh install --
+main
+req-20-审查Yh-platform工作流与产出
+
+-- Pre-existing context/backup --
+
+-- Pre-existing archive dirs under .workflow/archive/ --
+legacy-cleanup
+qoder
+v0.1.0-self-optimization
+v0.2.0-refactor
+
+-- Pre-existing suggestions archive --
+sug-01-executing-selftest-restart.md
+sug-01-test-suggestion-content.md
+sug-02-开发规范自动生成机制.md
+sug-03-testing-write-test-cases.md
+sug-04-testing-unit-tests-required.md
+sug-05-state-sync-check.md
+sug-06-experience-deposition-check.md
+sug-07-stagetimestamps-substage.md

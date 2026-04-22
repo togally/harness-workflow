@@ -1,0 +1,8 @@
+=== COMMAND: harness language ===
+=== TIMESTAMP: 2026-04-19T04:27:33Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+usage: harness language [-h] [--root ROOT] language
+harness language: error: the following arguments are required: language
+=== END OUTPUT ===
+=== EXIT CODE: 2 ===

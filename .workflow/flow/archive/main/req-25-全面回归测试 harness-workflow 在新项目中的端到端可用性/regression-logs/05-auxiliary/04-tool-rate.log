@@ -1,0 +1,6 @@
+=== COMMAND: harness tool-rate bash 4 ===
+=== TIME: 2026-04-19 10:51:25 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Rated bash: 4.5 (from 1 ratings)
+=== EXIT_CODE: 0 ===

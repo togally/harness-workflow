@@ -1,0 +1,8 @@
+=== COMMAND: harness requirement "test-regression-req" ===
+=== TIME: 2026-04-19 10:50:17 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Requirement workspace: /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req
+- created /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/requirement.md
+- created .workflow/state/requirements/req-01-test-regression-req.yaml
+=== EXIT_CODE: 0 ===

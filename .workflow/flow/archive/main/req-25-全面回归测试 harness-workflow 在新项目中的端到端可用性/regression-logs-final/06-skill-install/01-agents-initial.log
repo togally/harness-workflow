@@ -1,0 +1,30 @@
+=== COMMAND: for a in codex claude kimi qoder; do echo "=== .$a/skills/harness/ ==="; ls -la .$a/skills/harness/ 2>/dev/null || echo '(not present)'; echo; done ===
+=== TIMESTAMP: 2026-04-19T04:23:08Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+=== .codex/skills/harness/ ===
+total 8
+drwxr-xr-x   3 jiazhiwei  wheel    96 Apr 19 12:22 .
+drwxr-xr-x  19 jiazhiwei  wheel   608 Apr 19 12:22 ..
+-rw-r--r--   1 jiazhiwei  wheel  1287 Apr 19 12:22 SKILL.md
+
+=== .claude/skills/harness/ ===
+(not present)
+
+=== .kimi/skills/harness/ ===
+total 16
+drwxr-xr-x   9 jiazhiwei  wheel   288 Apr 19 12:22 .
+drwxr-xr-x  19 jiazhiwei  wheel   608 Apr 19 12:22 ..
+-rw-r--r--   1 jiazhiwei  wheel  5054 Apr 19 12:22 SKILL.md
+drwxr-xr-x   3 jiazhiwei  wheel    96 Apr 19 12:22 agent
+drwxr-xr-x   3 jiazhiwei  wheel    96 Apr 19 12:22 agents
+drwxr-xr-x   3 jiazhiwei  wheel    96 Apr 19 12:22 assets
+drwxr-xr-x   6 jiazhiwei  wheel   192 Apr 19 12:22 references
+drwxr-xr-x   6 jiazhiwei  wheel   192 Apr 19 12:22 scripts
+drwxr-xr-x   3 jiazhiwei  wheel    96 Apr 19 12:22 tests
+
+=== .qoder/skills/harness/ ===
+(not present)
+
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

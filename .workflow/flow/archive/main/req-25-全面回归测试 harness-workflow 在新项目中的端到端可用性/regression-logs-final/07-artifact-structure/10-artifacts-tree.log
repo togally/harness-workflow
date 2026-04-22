@@ -1,0 +1,18 @@
+=== COMMAND: find artifacts -maxdepth 5 -type d | sort ===
+=== TIMESTAMP: 2026-04-19T04:28:30Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+artifacts
+artifacts/main
+artifacts/main/archive
+artifacts/main/archive/main
+artifacts/main/archive/main/req-01-end-to-end test
+artifacts/main/archive/main/req-01-end-to-end test/changes
+artifacts/main/bugfixes
+artifacts/main/bugfixes/bugfix-1-test-bug-fix
+artifacts/main/bugfixes/bugfix-1-test-bug-fix/regression
+artifacts/main/regressions
+artifacts/main/regressions/sample issue
+artifacts/main/requirements
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

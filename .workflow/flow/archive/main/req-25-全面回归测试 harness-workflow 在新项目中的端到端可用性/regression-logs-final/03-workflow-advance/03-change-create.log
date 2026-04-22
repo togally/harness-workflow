@@ -1,0 +1,7 @@
+=== COMMAND: harness change "test-change" ===
+=== TIMESTAMP: 2026-04-19T04:25:11Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+No active requirement. Run `harness requirement <title>` first.
+=== END OUTPUT ===
+=== EXIT CODE: 1 ===

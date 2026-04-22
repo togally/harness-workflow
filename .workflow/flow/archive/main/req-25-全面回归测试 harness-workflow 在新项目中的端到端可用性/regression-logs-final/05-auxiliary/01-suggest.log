@@ -1,0 +1,7 @@
+=== COMMAND: harness suggest "test suggestion" ===
+=== TIMESTAMP: 2026-04-19T04:27:30Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+Created suggestion: .workflow/flow/suggestions/sug-01-test-suggestion.md
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

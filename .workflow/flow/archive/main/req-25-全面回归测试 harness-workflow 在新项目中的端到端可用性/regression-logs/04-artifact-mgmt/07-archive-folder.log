@@ -1,0 +1,6 @@
+=== COMMAND: harness archive --folder testfolder ===
+=== TIME: 2026-04-19 10:54:20 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+No done requirements available to archive.
+=== EXIT_CODE: 1 ===

@@ -1,0 +1,10 @@
+=== COMMAND: harness change "test-change" ===
+=== TIME: 2026-04-19 10:50:28 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Change workspace: /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change
+- created /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change/change.md
+- created /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change/plan.md
+- created /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change/regression/required-inputs.md
+- created /private/tmp/harness-regression-20260419-104820/artifacts/main/requirements/req-01-test-regression-req/changes/chg-01-test-change/session-memory.md
+=== EXIT_CODE: 0 ===

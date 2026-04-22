@@ -1,0 +1,7 @@
+=== COMMAND: harness feedback ===
+=== TIMESTAMP: 2026-04-19T04:27:33Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+Feedback exported to /private/tmp/harness-regression-final-20260419-122147/harness-feedback.json
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

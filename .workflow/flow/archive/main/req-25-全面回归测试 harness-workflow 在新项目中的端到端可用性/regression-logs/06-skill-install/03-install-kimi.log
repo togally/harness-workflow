@@ -1,0 +1,11 @@
+=== COMMAND: harness install --agent kimi ===
+=== TIME: 2026-04-19 10:51:53 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Changes detected:
+  [modify] agent/claude.md
+  [modify] agent/codex.md
+  [modify] agent/kimi.md
+Installed harness skill to .kimi/skills/harness
+Bootstrap already present in AGENTS.md
+=== EXIT_CODE: 0 ===

@@ -1,0 +1,30 @@
+{"ts": "2026-04-20T13:18:29.700325+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 1085.387527}}
+{"ts": "2026-04-20T13:18:29.700493+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-20T13:51:39.932942+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 1990.234903}}
+{"ts": "2026-04-20T13:51:39.933139+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-20T13:57:20.870673+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 340.939685}}
+{"ts": "2026-04-20T13:57:20.870916+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-21T07:45:39.825358+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 11443.312159}}
+{"ts": "2026-04-21T07:45:39.825734+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-21T07:47:24.008057+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 104.186408}}
+{"ts": "2026-04-21T07:47:24.008187+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-21T08:06:57.218614+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 1173.214773}}
+{"ts": "2026-04-21T08:06:57.219110+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-21T08:09:40.136927+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 162.922441}}
+{"ts": "2026-04-21T08:09:40.137164+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-21T08:28:36.351838+00:00", "event": "stage_skip", "data": {"from_stage": "executing"}}
+{"ts": "2026-04-21T08:28:36.352280+00:00", "event": "ff", "data": {"from_stage": "executing"}}
+{"ts": "2026-04-21T23:47:38.730306+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 51631.216984}}
+{"ts": "2026-04-21T23:47:38.730708+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-22T00:20:40.052231+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 1981.326499}}
+{"ts": "2026-04-22T00:20:40.052837+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-22T00:22:57.187477+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 137.139406}}
+{"ts": "2026-04-22T00:22:57.187961+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-22T00:23:35.552903+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 38.369705}}
+{"ts": "2026-04-22T00:23:35.553112+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-22T02:01:02.098309+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 5846.545897}}
+{"ts": "2026-04-22T02:01:02.098689+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-22T02:38:40.841141+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 2258.746616}}
+{"ts": "2026-04-22T02:38:40.841944+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-22T02:43:35.180471+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 294.342399}}
+{"ts": "2026-04-22T02:43:35.180813+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

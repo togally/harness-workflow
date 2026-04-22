@@ -1,0 +1,7 @@
+=== COMMAND: harness rename requirement req-01 "renamed-req" ===
+=== TIMESTAMP: 2026-04-19T04:24:11Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+Requirement renamed: req-01-test regression req -> renamed-req
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

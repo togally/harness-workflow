@@ -1,0 +1,7 @@
+=== COMMAND: harness exit ===
+=== TIMESTAMP: 2026-04-19T04:27:46Z ===
+=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
+=== BEGIN OUTPUT ===
+Exited harness mode.
+=== END OUTPUT ===
+=== EXIT CODE: 0 ===

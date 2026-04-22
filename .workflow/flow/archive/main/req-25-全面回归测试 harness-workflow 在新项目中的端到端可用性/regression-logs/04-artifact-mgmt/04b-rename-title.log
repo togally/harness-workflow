@@ -1,0 +1,6 @@
+=== COMMAND: harness rename requirement test-regression-req test-regression-req-renamed ===
+=== TIME: 2026-04-19 10:50:46 ===
+=== CWD: /tmp/harness-regression-20260419-104820 ===
+=== STDOUT+STDERR ===
+Requirement does not exist: test-regression-req
+=== EXIT_CODE: 1 ===
