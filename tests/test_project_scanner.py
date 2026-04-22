@@ -200,3 +200,66 @@ def test_scan_agents_md_headline(tmp_path: Path) -> None:
 
     profile = build_project_profile(tmp_path)
     assert profile.project_headline == "Agents Manifest"
+
+
+# -----------------------------
+# Step 3: render_project_profile 渲染 + 时间戳 + content_hash
+# -----------------------------
+
+
+def _fixed_now() -> datetime:
+    return datetime(2026, 4, 21, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def test_render_project_profile_snapshot(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 3：固定输入 → 固定结构断言（frontmatter + 三段）。"""
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[project]
+name = "snap-demo"
+dependencies = ["requests>=2.0"]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    from harness_workflow.project_scanner import (
+        build_project_profile,
+        render_project_profile,
+    )
+
+    profile = build_project_profile(tmp_path)
+    text = render_project_profile(profile, now=_fixed_now)
+
+    assert text.startswith("---"), "应以 YAML frontmatter 起始"
+    assert "generated_at: 2026-04-21T12:00:00+00:00" in text
+    assert "content_hash:" in text
+    assert "## 结构化字段" in text
+    assert "## 项目用途（LLM 填充）" in text
+    assert "## 项目规范（LLM 填充）" in text
+    assert "snap-demo" in text
+
+
+def test_hash_stable_across_renders(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 3：相同输入 + 相同时间 → content_hash 稳定。"""
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'stable-demo'\n", encoding="utf-8"
+    )
+
+    from harness_workflow.project_scanner import (
+        build_project_profile,
+        render_project_profile,
+    )
+
+    profile = build_project_profile(tmp_path)
+    text_a = render_project_profile(profile, now=_fixed_now)
+    text_b = render_project_profile(profile, now=_fixed_now)
+    assert text_a == text_b
+
+    # 正文内容变化时 hash 应变；通过字段对比间接验证
+    import re as _re
+
+    hash_a = _re.search(r"content_hash:\s*(\S+)", text_a).group(1)
+    profile.package_name = "stable-demo-v2"
+    text_c = render_project_profile(profile, now=_fixed_now)
+    hash_c = _re.search(r"content_hash:\s*(\S+)", text_c).group(1)
+    assert hash_a != hash_c

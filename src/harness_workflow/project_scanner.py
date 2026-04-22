@@ -313,3 +313,83 @@ def build_project_profile(root: Path) -> ProjectProfile:
     profile.deps_top = dedup
 
     return profile
+
+
+# -----------------------------
+# Step 3: 渲染 profile → Markdown 文本
+# -----------------------------
+
+
+def _default_now() -> datetime:
+    """req-32 / chg-01 / Step 3：默认时间源（UTC ISO8601），支持测试 mock。"""
+    return datetime.now(tz=timezone.utc)
+
+
+def _render_body(profile: ProjectProfile) -> str:
+    """渲染 profile 的正文（不含 frontmatter），供 content_hash 计算使用。"""
+    lines: list[str] = []
+    lines.append("## 结构化字段")
+    lines.append("")
+    lines.append(f"- package_name: {profile.package_name or '(unknown)'}")
+    lines.append(f"- language: {profile.language}")
+    lines.append(f"- project_headline: {profile.project_headline or '(unset)'}")
+    lines.append("- stack_tags:")
+    if profile.stack_tags:
+        for tag in profile.stack_tags:
+            lines.append(f"  - {tag}")
+    else:
+        lines.append("  - (none)")
+    lines.append("- deps_top:")
+    if profile.deps_top:
+        for dep in profile.deps_top:
+            lines.append(f"  - {dep}")
+    else:
+        lines.append("  - (none)")
+    lines.append("- entrypoints:")
+    if profile.entrypoints:
+        for ep in profile.entrypoints:
+            lines.append(f"  - {ep}")
+    else:
+        lines.append("  - (none)")
+    if profile.parse_errors:
+        lines.append("- parse_errors:")
+        for err in profile.parse_errors:
+            lines.append(f"  - {err}")
+    lines.append("")
+    lines.append("## 项目用途（LLM 填充）")
+    lines.append("")
+    lines.append("<!-- 由 CTO/主 agent 依据结构化字段与 README 摘要补全；保持 ≤ 200 字 -->")
+    lines.append("")
+    lines.append("## 项目规范（LLM 填充）")
+    lines.append("")
+    lines.append("<!-- 由 CTO/主 agent 依据 CLAUDE.md / AGENTS.md / 代码风格归纳补全 -->")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_project_profile(
+    profile: ProjectProfile,
+    *,
+    now: Callable[[], datetime] = _default_now,
+) -> str:
+    """req-32 / chg-01 / Step 3：把 ``ProjectProfile`` 渲染为 ``project-profile.md`` 文本。
+
+    输出形态：
+      - 首部 YAML frontmatter（``---`` 包裹）含 ``generated_at`` + ``content_hash``
+      - 三块正文：``## 结构化字段`` / ``## 项目用途（LLM 填充）`` / ``## 项目规范（LLM 填充）``
+
+    ``now`` 为时间源依赖注入，测试可传入固定时间函数。
+    ``content_hash`` = ``_managed_hash(正文去 frontmatter)``，与 workflow_helpers 一致。
+    """
+    body = _render_body(profile)
+    content_hash = _managed_hash(body)
+    ts = now().isoformat()
+    front = [
+        "---",
+        f"generated_at: {ts}",
+        f"content_hash: {content_hash}",
+        "schema: project-profile/v1",
+        "---",
+        "",
+    ]
+    return "\n".join(front) + body
