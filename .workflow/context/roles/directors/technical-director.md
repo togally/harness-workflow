@@ -130,6 +130,9 @@ current_requirement_title: "slug 沟通可读性增强：全链路透出 title"
 current_regression: ""
 current_regression_title: ""
 stage: executing
+# 新增：req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03 派发协议扩展
+expected_model: "sonnet"        # 来自 .workflow/context/role-model-map.yaml['roles'][{role}]
+expected_model_source: ".workflow/context/role-model-map.yaml"
 context_chain:
   - level: 0
     agent: "主 agent / harness-manager"
@@ -143,6 +146,7 @@ context_chain:
 - "本次任务目标：{id}（{title}）的 XXX 工作"（例如："req-30（slug 沟通可读性增强：全链路透出 title）的 chg-02（CLI 渲染 — render_work_item_id helper）执行"）
 - 首次引用其他工作项（chg / sug / bugfix / reg）时同样带 title
 - 后续上下文可简写回 id
+- 当前 subagent 的 `expected_model` 值（来自 `.workflow/context/role-model-map.yaml`；Agent 工具调用时必须显式传递，不继承 parent）
 
 ### Step 5: 监控上下文与异常
 - 定期检查上下文负载（消息数、文件读取数、时长）

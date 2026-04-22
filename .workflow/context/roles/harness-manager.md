@@ -195,11 +195,29 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
    - task: 具体任务描述
    - context_chain: 调用链
    - session_memory_path: 结果写入路径
+   - model: 由 Step 2.5 选定的模型（`opus` / `sonnet`），Agent 工具调用时显式传递
+
+2.5. **按角色选 model（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03 派发协议扩展）**：
+
+   ```python
+   # 派发前必做的 4 步
+   # Step A. 加载权威映射
+   role_model_map = yaml.safe_load(open('.workflow/context/role-model-map.yaml'))
+   # Step B. 按 role 字段选 model
+   model = role_model_map['roles'].get(role, role_model_map['default'])
+   # Step C. 写入 briefing 的 model 字段
+   briefing['model'] = model
+   # Step D. Agent 工具调用时显式传 model 参数，不依赖 parent 继承
+   Agent(role=role, prompt=..., model=model)
+   ```
+
+   **硬门禁**：不得省略任何一步；`role` 在 `role-model-map.yaml` 未列出时回落 `default`（当前 `sonnet`）并在 session-memory 留痕；不得硬编码具体版本号，版本解析由 dispatcher 在运行时完成。
 
 3. **派发 subagent**：
    使用 Agent 工具，注入以下 prompt：
    ```
    你是 Subagent-L{N}（{role}角色）
+   当前 model: {model}   # 来自 .workflow/context/role-model-map.yaml，与 parent 解耦
    任务：{task_description}
 
    ## 角色文件
