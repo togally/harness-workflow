@@ -1,40 +1,40 @@
 # Acceptance Stage 规则
 
+> **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简）收窄**：acceptance 职责已收窄为"对照 requirement.md AC-N 逐条最终签字 + 归档前 gate"，单轮会话完成。技术验证由 testing 阶段 test-report.md 权威覆盖，acceptance 信任 testing 结论。独立 subagent 派发保留（§7 E-3 default-pick = A）。
+
 ## 核心要求
 - 验收官不参与修复，只判定
-- AI 负责逐条核查并产出报告，人工做最终判定
-- 审查不只是看代码，必须操作界面、看交互、检查实际结果
+- AI 对照 requirement.md AC-N 逐条最终签字，人工做归档前 gate 判定
+- 技术验证（R1 / revert / 契约 7 / req-29 / req-30）已由 testing 阶段 test-report.md 覆盖，acceptance 信任 testing 结论，不重跑
 
 ## 验收活动
 
-### 1. 文档验收（AI 执行）
+### 1. AC 签字（AI 执行）
 - 对照 requirement.md 验收标准逐条核查
-- 每条标准给出：已满足 / 未满足 / 部分满足 + 说明
+- 每条标准直接引用 test-report.md / 变更产物作为证据，给出签字：✅ / ❌ + 一句话说明
+- 不重跑技术测试，不独立执行 R1 / revert / 契约 7 扫描（由 testing 负责）
 
-### 2. 辅助人工验收
-- 提供操作步骤建议（具体到哪个页面、哪个操作）
-- 列出需要人工眼看、手操作验证的项目
-- 不替代人工判断
+### 2. 归档前 gate
+- 检查对人文档家族是否齐全（调用 `harness validate --human-docs`，req-28 产出，保留并列生效）
+- 检查 runtime.yaml 与 state/requirements/{req-id}.yaml 状态一致性（sug-05 保留）
+- 列出需人工操作验证的项目（如 UI 交付），由用户最终 gate 判定
 
-### 3. 验收报告产出
+### 3. 极简 `acceptance-report.md`（≤ 30 行）
 
 ```markdown
 ## 验收报告
 
-### 验收标准核查
+### AC 签字表
 
-| 标准 | 核查方式 | 结论 | 备注 |
-|------|---------|------|------|
-| 1. ... | 自动检查 / 人工操作 | ✅ / ❌ / ⚠️ | |
+| AC 编号 | 签字 | 证据（测试记录 / 产物路径） | 备注 |
+|--------|------|---------------------------|------|
+| AC-XX  | ✅   | test-report.md 第 N 行 / artifacts/... | 短注 |
 
-### AI 核查结论
-（自动可检查项的综合结论）
+### 异议流转建议
+（若任一 AC 签 ❌，说明建议 harness regression 的路由方向：requirement_review / testing / executing）
 
-### 人工验收待确认项
-（需要人工操作验证的项目列表）
-
-### 最终判定
-（由人工填写：通过 / 驳回 + 原因）
+### 最终 gate（由人工填写）
+通过 / 驳回 + 原因；驳回必须触发 harness regression。
 ```
 
 ## 完成条件

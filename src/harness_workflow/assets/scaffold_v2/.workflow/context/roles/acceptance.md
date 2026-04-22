@@ -16,6 +16,7 @@
   结果须为全 ok；未达项必须写入后续产出的 `验收摘要.md`，并停下来把 subagent 交回 executing 角色补齐对人文档。
 
 ### Step 2: 逐条核查
+> **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简）收窄**：不重跑所有 AC，直接引用 test-report.md 做签字；技术验证信任 testing。
 - 对照 AC 逐项检查实际交付
 - 对每条 AC 给出 `[x]` 已满足 或 `[ ]` 未满足 的结论
 - 任何一条未满足，整体验收不通过
@@ -91,6 +92,8 @@
 - [ ] 验收报告已产出
 - [ ] 人工最终判定：通过 或 驳回
 - [ ] 对人文档 `验收摘要.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] acceptance-report.md ≤ 30 行（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简）default-pick P-6 = A）
+- [ ] 逐条 AC 已签字，签字表以 test-report.md / 产物路径为证据
 - [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
 
 ## ff 模式说明

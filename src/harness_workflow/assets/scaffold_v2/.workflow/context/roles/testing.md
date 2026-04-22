@@ -23,6 +23,11 @@
 - 覆盖从 `requirement.md` 和 `change.md` 中提取的所有 AC
 - 如项目尚无单元测试基础设施，记录为职责外问题并上报主 agent
 
+### Step 2.75: 合规扫描（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简））
+
+- 按 `.workflow/evaluation/testing.md#R1 越界 / revert 抽样 / 契约 7 合规 / req-29 映射 / req-30 透出` 章节 1-5 项逐一扫描，结果并入 `test-report.md`。
+- 默认扫描范围 = `git diff --name-only` 命中文件（default-pick P-5 = A，保守范围）。
+
 ### Step 3: 执行测试
 - 按测试计划逐条运行
 - 客观记录通过/失败结果
@@ -107,6 +112,7 @@
 - [ ] 测试记录已产出（通过/失败列表）
 - [ ] 关键验收标准已有对应的可执行单元测试覆盖（或已记录无法自动化的原因）
 - [ ] 对人文档 `测试结论.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] test-report.md 包含 R1 / revert / 契约 7 / req-29 / req-30 五项合规扫描结论（来自 evaluation/testing.md 新章节）
 - [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
 
 ## ff 模式说明
