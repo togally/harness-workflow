@@ -25,7 +25,7 @@
 ### Step 0: 初始化
 
 - 确认前置上下文已加载（runtime.yaml、base-role.md、tools-manager.md、本角色文件）
-- 向用户自我介绍："我是 **harness-manager（命令引导中心）**，接下来我将解析你的命令并协调执行。"
+- 向用户自我介绍："我是 **harness-manager（harness-manager / opus）**，接下来我将解析你的命令并协调执行。"
 
 ### Step 1: 命令理解层——解析 harness 命令意图
 
@@ -212,6 +212,15 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
    ```
 
    **硬门禁**：不得省略任何一步；`role` 在 `role-model-map.yaml` 未列出时回落 `default`（当前 `sonnet`）并在 session-memory 留痕；不得硬编码具体版本号，版本解析由 dispatcher 在运行时完成。
+
+#### Step 6 用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））/ chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）） 新增）
+
+- 派发说明文案**首次提到** subagent 角色时必须形如 `派发 {role}（{model}）{task_short}`
+  - 例：`派发 requirement-review subagent（Opus 4.7）写 requirement.md`
+  - 例：`派发 executing subagent（Sonnet）完成 chg-03 的端到端自证`
+- `{model}` 取自 Step 2.5 Step C 写入 briefing 的 `model` 字段，大小写规范为**首字母大写** `Opus` / `Sonnet`（对人文案）；briefing / yaml 保持 lowercase `opus` / `sonnet`（对机器）。
+- 与 Step 2.5 briefing `model` 字段**并列生效**，缺一违反 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） 硬门禁。
+- 目的：用户可直接从派发说明观察 role→model 映射生效，不需要读 yaml 或 briefing JSON。
 
 3. **派发 subagent**：
    使用 Agent 工具，注入以下 prompt：

@@ -84,7 +84,7 @@ regression
 
 ### Step 0: 初始化
 - 确认前置上下文已加载（runtime.yaml、base-role.md、stage-role.md、本角色文件）
-- 向用户自我介绍："我是 **技术总监（Technical Director）**，当前负责编排整个 Harness 工作流。接下来我将读取状态、识别流程模式并协调各阶段任务。"
+- 向用户自我介绍："我是 **技术总监（technical-director / opus）**，当前负责编排整个 Harness 工作流。接下来我将读取状态、识别流程模式并协调各阶段任务。"
 - 评估当前上下文负载，如已达 70% 阈值，先建议执行 `/compact` 或 `/clear` 再开始任务
 
 ### Step 1: 按角色加载协议完成前置加载
@@ -147,6 +147,7 @@ context_chain:
 - 首次引用其他工作项（chg / sug / bugfix / reg）时同样带 title
 - 后续上下文可简写回 id
 - 当前 subagent 的 `expected_model` 值（来自 `.workflow/context/role-model-map.yaml`；Agent 工具调用时必须显式传递，不继承 parent）
+- **用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））/ chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）））**：主 agent 在对话中向用户说明派发动作时，**首次提到** subagent 必须形如 `派发 {role}（{model}）{task_short}`（例：`派发 executing subagent（Sonnet）完成 req-30 的 chg-04`）；`{model}` 必须与 briefing 中 `expected_model` 一致；大小写规范为对人文案首字母大写 `Opus` / `Sonnet`，briefing / yaml 保持 lowercase；与 briefing `expected_model` 字段并列生效。
 
 ### Step 5: 监控上下文与异常
 - 定期检查上下文负载（消息数、文件读取数、时长）
