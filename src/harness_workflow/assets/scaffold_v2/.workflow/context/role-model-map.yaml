@@ -1,0 +1,28 @@
+# role-model-map.yaml
+# 权威的角色 → 模型映射配置（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet））/ chg-01 落地）。
+# values: "opus" | "sonnet"; 精确版本号（如 claude-opus-4-7[1m]）由 dispatcher
+# 在运行时解析，本文件不硬编码具体子版本 —— 见 chg-04 中
+# experience/tool/harness.md "开放型 vs 执行型模型选择依据"一节说明。
+# 任何一方（本文件 / index.md model 列）变更都必须同步另一方，以 yaml 为准。
+
+version: 1
+
+# 未列出的角色兜底到 sonnet（执行型默认）。
+default: "sonnet"
+
+roles:
+  # ---- 开放型 / 创意型 / 综合判断型 → opus ----
+  harness-manager: "opus"       # 命令意图解析 + 角色调度（综合判断）
+  requirement-review: "opus"    # 需求澄清 / 边界识别（开放型）
+  planning: "opus"              # 变更拆分 + 计划制定（创意型）
+  regression: "opus"            # 独立诊断 + 根因判断（开放型）
+  done: "opus"                  # 六层回顾（跨上下文关联）
+  technical-director: "opus"    # 流程编排 + 异常监控（综合判断）
+  project-reporter: "opus"      # 10 节精简模板扫仓库实况（综合判断 + 推断，req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/project-overview.md））
+
+  # ---- 执行型 / 模板化 / 断言型 → sonnet ----
+  executing: "sonnet"           # 按 plan.md 实现（确定性高）
+  testing: "sonnet"             # 按 AC 跑验证（模板化）
+  acceptance: "sonnet"          # 对照 checklist（断言型）
+  tools-manager: "sonnet"       # 工具匹配（模板化）
+  reviewer: "sonnet"            # 按 checklist 审查（断言型）
