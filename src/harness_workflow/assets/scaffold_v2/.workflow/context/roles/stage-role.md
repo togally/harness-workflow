@@ -23,6 +23,14 @@ subagent 不需要重复读取 `runtime.yaml`、`base-role.md` 或 `stage-role.m
 - 与 `.workflow/context/roles/role-loading-protocol.md` Step 7.5 模型一致性自检**并列执行**，顺序为**先自检再自我介绍**——自检发现模型不符时直接报错中止，不给用户输出错误的自我介绍。
 - `model` 字段取自 `.workflow/context/role-model-map.yaml`，未列出则回落 `default`（当前 `sonnet`）。
 
+### 硬门禁：同阶段不打断 + default-pick 记录（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议））
+
+> 溯源：req-31 / chg-05；与 base-role.md `## 硬门禁四：同阶段不打断原则` 并列生效。
+
+- 每个 stage 的 subagent 在**同一 stage 内**遇争议点，按 base-role 硬门禁四流程：列 options + 标 default-pick + 按默认推进 + stage 流转前 batched-report。
+- **必须**在本 stage 的 `session-memory.md` 中留痕一节"default-pick 决策清单"（即使为空亦写"无"），汇总本 stage 所有按默认推进的决策与理由。
+- 汇报时**必须**把 default-pick 清单归并到 stage-role.md `## 统一精简汇报模板（req-31 / chg-02）` 字段 3"开放问题 / default-pick"；不另起新段落。
+
 ## 继承自 base-role 的执行清单
 
 `stage-role.md` 是所有 stage 角色的公共父类，必须将 `base-role.md` 中的抽象要求翻译为可执行、可检查的子类行为。以下清单中的每一项都**必须**在具体 stage 角色的 SOP 或职责描述中有明确的执行步骤和检查点。

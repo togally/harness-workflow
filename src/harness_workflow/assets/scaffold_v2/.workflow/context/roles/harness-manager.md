@@ -25,7 +25,8 @@
 ### Step 0: 初始化
 
 - 确认前置上下文已加载（runtime.yaml、base-role.md、tools-manager.md、本角色文件）
-- 向用户自我介绍："我是 **harness-manager（命令引导中心）**，接下来我将解析你的命令并协调执行。"
+- 向用户自我介绍："我是 **harness-manager（harness-manager / opus）**，接下来我将解析你的命令并协调执行。"
+- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议）硬门禁四并列生效**：stage 边界前**不打断**用户，争议点按 default-pick 推进；stage 流转时一次性 batched-report（含本 stage 所有 default-pick 决策 + 理由）。例外条款见 base-role.md `## 硬门禁四`。
 
 ### Step 1: 命令理解层——解析 harness 命令意图
 
@@ -195,11 +196,38 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
    - task: 具体任务描述
    - context_chain: 调用链
    - session_memory_path: 结果写入路径
+   - model: 由 Step 2.5 选定的模型（`opus` / `sonnet`），Agent 工具调用时显式传递
+
+2.5. **按角色选 model（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03 派发协议扩展）**：
+
+   ```python
+   # 派发前必做的 4 步
+   # Step A. 加载权威映射
+   role_model_map = yaml.safe_load(open('.workflow/context/role-model-map.yaml'))
+   # Step B. 按 role 字段选 model
+   model = role_model_map['roles'].get(role, role_model_map['default'])
+   # Step C. 写入 briefing 的 model 字段
+   briefing['model'] = model
+   # Step D. Agent 工具调用时显式传 model 参数，不依赖 parent 继承
+   Agent(role=role, prompt=..., model=model)
+   ```
+
+   **硬门禁**：不得省略任何一步；`role` 在 `role-model-map.yaml` 未列出时回落 `default`（当前 `sonnet`）并在 session-memory 留痕；不得硬编码具体版本号，版本解析由 dispatcher 在运行时完成。
+
+#### Step 6 用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））/ chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）） 新增）
+
+- 派发说明文案**首次提到** subagent 角色时必须形如 `派发 {role}（{model}）{task_short}`
+  - 例：`派发 requirement-review subagent（Opus 4.7）写 requirement.md`
+  - 例：`派发 executing subagent（Sonnet）完成 chg-03 的端到端自证`
+- `{model}` 取自 Step 2.5 Step C 写入 briefing 的 `model` 字段，大小写规范为**首字母大写** `Opus` / `Sonnet`（对人文案）；briefing / yaml 保持 lowercase `opus` / `sonnet`（对机器）。
+- 与 Step 2.5 briefing `model` 字段**并列生效**，缺一违反 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） 硬门禁。
+- 目的：用户可直接从派发说明观察 role→model 映射生效，不需要读 yaml 或 briefing JSON。
 
 3. **派发 subagent**：
    使用 Agent 工具，注入以下 prompt：
    ```
    你是 Subagent-L{N}（{role}角色）
+   当前 model: {model}   # 来自 .workflow/context/role-model-map.yaml，与 parent 解耦
    任务：{task_description}
 
    ## 角色文件
@@ -271,6 +299,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 操作完成后，必须：
 1. 向用户报告结果摘要
 2. 将操作追加到 `.workflow/state/action-log.md`
+3. **stage 边界 batched-report（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议））**：当 subagent 报告完成并需要 `harness next` 推进时，向用户的汇报**必须**含"default-pick 决策清单（若无写'无'）"。格式归并到 stage-role.md `## 统一精简汇报模板（req-31 / chg-02）` 字段 3。
 
 日志格式：
 ```markdown
@@ -534,7 +563,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 **功能**: 导出反馈事件摘要。
 
 **执行流程**:
-1. 读取 `.workflow/state/feedback/feedback.jsonl`
+1. 读取 `.harness/feedback.jsonl`
 2. 生成反馈摘要
 3. 显示或保存摘要
 4. 若指定 `--reset`，清空反馈日志
@@ -651,3 +680,23 @@ src/harness_workflow/
 ### 建议
 {基于检测结果的适配建议}
 ```
+
+## 契约 7（id + title 硬门禁）—— req-31（批量建议合集（20条）) / chg-01（契约自动化 + apply-all bug）/ sug-26 扩展
+
+> 本节把 `stage-role.md` 契约 7 扩展到辅助角色 **harness-manager**：
+> 所有 harness-manager 在跨 agent 的 briefing / 命令解析 stdout / subagent 派发说明中，对工作项 id 的**首次引用**必须带 title。
+
+### 规则
+
+- **首次引用带 title**：本文件、命令解析 stdout、subagent briefing 首次提到 `req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*` 时，必须形如 `{id}（{title}）`，例如 `req-31（批量建议合集（20条））` / `chg-01（契约自动化 + apply-all bug）` / `sug-26（辅助角色（harness-manager / tools-manager / reviewer）契约 7 扩展）`。
+- **同上下文后续简写**：同一段 briefing 同一 id 后续引用可简写为纯 id。
+- **示范输出**：`harness status` / `harness next` / `harness ff` / `harness suggest --list` 的 stdout 已由 `render_work_item_id` helper 统一带 title；harness-manager 可直接复制 CLI 输出作为文档样本。
+
+### 自检命令
+
+- 产出 briefing 或命令解析结果后，推荐调 `harness validate --contract 7` / `harness status --lint` 自检；命中违规直接阻塞 stage 推进。
+
+### fallback
+
+- 若 title 尚未定（极少数新建瞬间）允许首次引用写 `{id}（pending-title）`；后续 done 阶段统一纠正。
+- 本约定对本次提交之后新增 / 修改的引用生效；历史脏数据仅在明确补位任务时处理。

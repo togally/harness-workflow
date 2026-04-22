@@ -33,6 +33,7 @@
 ### Step 5: 交接
 - 将验收结论保存到验收报告和 `session-memory.md`
 - 向主 agent 报告任务完成，**汇报格式严格遵循** `stage-role.md#统一精简汇报模板（req-31 / chg-02）`；上下文消耗评估仅在 ≥ 70% 时按 base-role 规则主动追加。
+- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议）**：本 stage 所有 default-pick 决策 + 理由列表（若无写"无"）归并到统一精简汇报模板（req-31 / chg-02）字段 3；session-memory.md 同步留痕。
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#acceptance`。

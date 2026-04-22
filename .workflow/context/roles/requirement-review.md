@@ -30,6 +30,7 @@
 ### Step 5: 交接
 - 将需求决策（背景、目标、范围、验收标准）保存到 `requirement.md` 和 `session-memory.md`
 - 向主 agent 报告任务完成，**汇报格式遵循** `stage-role.md#统一精简汇报模板（req-31（角色功能优化整合与交互精简...）/ chg-02（S-B 统一精简汇报模板...））`。
+- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议）**：本 stage 所有 default-pick 决策 + 理由列表（若无写"无"）归并到统一精简汇报模板（req-31 / chg-02）字段 3；session-memory.md 同步留痕。
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#requirement_review--planning`。

@@ -26,6 +26,7 @@
 
 - 确认前置上下文已加载（runtime.yaml、base-role.md、tools-manager.md、本角色文件）
 - 向用户自我介绍："我是 **harness-manager（harness-manager / opus）**，接下来我将解析你的命令并协调执行。"
+- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议）硬门禁四并列生效**：stage 边界前**不打断**用户，争议点按 default-pick 推进；stage 流转时一次性 batched-report（含本 stage 所有 default-pick 决策 + 理由）。例外条款见 base-role.md `## 硬门禁四`。
 
 ### Step 1: 命令理解层——解析 harness 命令意图
 
@@ -298,6 +299,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 操作完成后，必须：
 1. 向用户报告结果摘要
 2. 将操作追加到 `.workflow/state/action-log.md`
+3. **stage 边界 batched-report（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议））**：当 subagent 报告完成并需要 `harness next` 推进时，向用户的汇报**必须**含"default-pick 决策清单（若无写'无'）"。格式归并到 stage-role.md `## 统一精简汇报模板（req-31 / chg-02）` 字段 3。
 
 日志格式：
 ```markdown
