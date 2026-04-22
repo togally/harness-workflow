@@ -1,24 +1,36 @@
-# Change 说明
+# Change
 
-## 1. 变更标题
+## 1. Title
 
 {{TITLE}}
 
-## 2. 目标
+## 2. Goal
 
-- 说明这个 change 要交付的单一功能点。
+<!-- 示例：一句话说明本 change 要解决的单一功能点 / 缺陷点。 -->
+- {{请用一句话说明本 change 要交付的单一功能点或要修复的单一缺陷点}}
 
-## 3. 所属需求
+## 3. Requirement
 
 - `{{REQUIREMENT_ID}}`
 
-## 4. 交付边界
+## 4. Scope
 
-- 说明做什么。
-- 说明不做什么。
+### Included
 
-## 5. 后续动作
+<!-- 示例：明确列出本 change 要做的事，3-5 条。 -->
+- {{列出本 change 明确覆盖的交付项}}
 
-- 完成 change 说明后，继续补 `design.md`
-- 方案稳定后，再生成 `plan.md`
-- 当前 change 的回归输入模板位于 `regression/required-inputs.md`
+### Excluded
+
+<!-- 示例：明确列出本 change 不做的事，避免 scope creep。 -->
+- {{列出本 change 明确不做、放到后续或其他 change 处理的事项}}
+
+## 5. Acceptance
+
+<!-- 示例：覆盖 requirement.md 的 AC-XX：用户可自行核对的判定条件。 -->
+- 覆盖 requirement.md 的 **AC-XX**：{{用户可自行核对的判定条件}}
+
+## 6. Risks
+
+<!-- 示例：列出本 change 可能带来的风险，每条同时写缓解策略。 -->
+- {{风险点}}：{{缓解策略}}

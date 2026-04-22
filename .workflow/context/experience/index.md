@@ -4,7 +4,8 @@
 
 ## regression
 - [regression/core-py.md](regression/core-py.md) — Regression Experience: core-py
-- [regression/harness-update-current-requirement.md](regression/harness-update-current-requirement.md) — Regression Experience: harness-update-current-requirement
+- [regression/reg-01.md](regression/reg-01.md) — Regression Experience: reg-01
+- [regression/req-25-6-p0.md](regression/req-25-6-p0.md) — Regression Experience: req-25-6-p0
 
 ## risk
 - [risk/known-risks.md](risk/known-risks.md) — Known Risks and Mitigations

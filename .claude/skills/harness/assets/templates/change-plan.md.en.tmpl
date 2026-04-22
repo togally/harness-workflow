@@ -2,8 +2,34 @@
 
 ## 1. Development Steps
 
-- Add implementation steps here.
+<!-- Each step should be concrete enough for a subagent to execute directly; step numbers are reused in session-memory to mark ✅/❌. -->
+
+### Step 1: {{Step title}}
+
+- {{What to do}}
+
+### Step 2: {{Step title}}
+
+- {{What to do}}
 
 ## 2. Verification Steps
 
-- Add verification steps here.
+### 2.1 Unit tests / static checks
+
+<!-- Example: list which files are touched and which grep/diff assertions must hold. -->
+- {{Static assertions such as grep, diff, file existence checks}}
+
+### 2.2 Manual smoke / integration verification
+
+<!-- Example: how to run an end-to-end verification locally. -->
+- {{Manual smoke steps and expected results}}
+
+### 2.3 AC Mapping
+
+<!-- Explicitly align AC from requirement.md / change.md with the steps above. -->
+- AC-XX -> Step X + 2.X;
+
+## 3. Dependencies & Execution Order
+
+<!-- Describe dependencies on other changes or systems, and any hard ordering inside this change. -->
+- {{Dependencies and ordering notes}}
