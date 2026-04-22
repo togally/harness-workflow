@@ -1,9 +1,9 @@
 operation_type: "requirement"
-operation_target: "req-33"
-current_requirement: ""
-current_requirement_title: ""
+operation_target: "req-34"
+current_requirement: "req-34"
+current_requirement_title: "新增工具 api-document-upload（首实现 apifox MCP，可拔插）+ 修复 scaffold_v2 mirror 漂移（project-reporter 系列漏同步）"
 stage: "done"
-stage_entered_at: "2026-04-22T17:19:49.420374+00:00"
+stage_entered_at: "2026-04-22T18:10:40.444873+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -22,4 +22,5 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements: []
+active_requirements:
+  - req-34

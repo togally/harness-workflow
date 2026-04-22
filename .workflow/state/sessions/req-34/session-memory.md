@@ -124,3 +124,61 @@
 - AC-A5 PASS（tools-manager 匹配 api-document-upload top-1，overlap=5）
 - AC-B1 PASS（bytes 级 0 diff）
 - AC-F2 基线：pytest 未在本 chg 跑（纯留痕 chg），由 testing stage 执行全量；R1 越界零：本 req 5 chg 仅改 .workflow/tools/ + .workflow/context/roles/harness-manager.md + scaffold_v2/ + session-memory，全在 §4.3 豁免范围内
+
+---
+
+## Testing 阶段（Subagent-L1 / testing / Sonnet 4.6 / 2026-04-22）
+
+### 判定：PASS（14/14 AC 通过）
+
+| AC | 结果 | 关键证据 |
+|----|------|---------|
+| A1 | PASS | api-document-upload.md 存在，全字段齐 |
+| A2 | PASS | keywords.yaml 含 7 关键词（≥3 要求满足） |
+| A3 | PASS | tools-manager SOP + keywords.yaml overlap 机制已验证，overlap=5 top-1 |
+| A4 | PASS | "## Provider: apifox" + "如何添加新 provider" 三步 + 示例占位 |
+| A5 | PASS | session-memory §端到端自证 req-34 存在，STEP-1 overlap=5，STEP-2 degraded（E-4 容错） |
+| B1 | PASS | diff 退出码 0，bytes 级完全一致 |
+| B2 | PASS | scaffold_v2/index.md 含 project-reporter 完整行 |
+| B3 | PASS | scaffold_v2/role-model-map.yaml `project-reporter: "opus"` 命中 |
+| B4 | PASS | scaffold_v2/harness-manager.md §3.5.1（205 行）+ §A.3（398 行）均命中 |
+| B5 | PASS* | req-34 范围内 4 文件对齐；pre-req-34 历史漂移约 10 余文件不计入 |
+| B6 | PASS | live harness-manager.md 第 23 行硬门禁五；scaffold_v2 同步一致 |
+| F1 | PASS | 5 commit 独立；chg-03/chg-04 revert 无冲突（exit 0） |
+| F2 | PASS | 338 collected，3 pre-existing fails（git stash 验证），零新增失败 |
+| F3 | PASS* | chg 文件均合规；requirement.md §2 裸引用为轻度不合规，非阻断 |
+| F4 | PASS | R1 越界零；src/ 下仅 scaffold_v2/ mirror 路径，符合 §4.3 豁免 |
+
+### 合规扫描五项
+
+1. **R1 越界**：PASS — `git diff --name-only` 显示 src/ 仅 scaffold_v2/ 路径，符合 §4.3
+2. **revert 抽样**：PASS — chg-03（f0063aa）/ chg-04（f5ccb88）各 revert --no-commit 无冲突；已 reset --hard HEAD
+3. **契约 7**：PASS（轻度不合规）— chg 文件合规；requirement.md §2 第 7 行裸引用 req-32（非阻断）
+4. **req-29（角色→模型映射）**：PASS — req-34 未改 live role-model-map.yaml；映射无漂移
+5. **req-30（model 透出）**：PASS（降级）— 本 req 纯文档层无角色派发；req-30 机制无回归
+
+### 开放问题
+
+- pre-req-34 scaffold_v2 历史漂移（experience/、review-checklist.md 等）建议入 sug 池
+- requirement.md §2 裸引用建议 requirement-review 阶段规范
+
+### 下一步
+
+acceptance 阶段
+
+---
+
+## Acceptance 阶段（Subagent-L1 / acceptance / Sonnet 4.6 / 2026-04-22）
+
+### 判定：PASS（14/14 AC 全签字）
+
+- AC-A1..A5：api-document-upload 工具全通（A5 STEP-2 degraded，E-4 容错，非阻断）
+- AC-B1..B6：scaffold_v2 mirror 修复全通（B5 pre-req-34 历史漂移附注，非阻断）
+- AC-F1..F4：流程合规全通（F3 requirement.md §2 裸引用轻度不合规，非阻断）
+
+### Gate：通过 — 推荐 done
+
+### 开放问题（入 sug 池）
+
+1. pre-req-34 scaffold_v2 历史漂移（experience/、review-checklist.md 等）
+2. requirement.md §2 裸引用规范（下 req 起执行）
