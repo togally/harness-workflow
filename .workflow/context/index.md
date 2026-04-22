@@ -8,28 +8,29 @@
 
 ### 顶级角色（Director）
 
-| 角色名称 | 职责 | 文件路径 |
-|---------|------|---------|
-| **技术总监** | 编排整个工作流，维护 stage 按研发流程图流转，监控上下文负载和异常，在 done 阶段执行六层回顾 | `.workflow/context/roles/directors/technical-director.md` |
+| 角色名称 | 职责 | 文件路径 | model |
+|---------|------|---------|-------|
+| **技术总监**（yaml key: technical-director） | 编排整个工作流，维护 stage 按研发流程图流转，监控上下文负载和异常，在 done 阶段执行六层回顾 | `.workflow/context/roles/directors/technical-director.md` | opus |
 
 ### Stage 执行角色
 
-| 角色名称 | 职责 | 文件路径 |
-|---------|------|---------|
-| **需求分析师** | 澄清用户意图，识别边界和风险，编写并确认 `requirement.md` | `.workflow/context/roles/requirement-review.md` |
-| **架构师** | 将需求拆分为独立变更，为每个变更制定 `change.md` + `plan.md` | `.workflow/context/roles/planning.md` |
-| **开发者** | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` |
-| **测试工程师** | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` |
-| **验收官** | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` |
-| **诊断师** | 独立分析问题，判断是否是真实问题，确定根因，决定路由方向 | `.workflow/context/roles/regression.md` |
-| **主 agent（done 阶段）** | 对整个需求周期进行六层回顾检查，输出回顾报告，转 suggest 池 | `.workflow/context/roles/done.md` |
+| 角色名称 | 职责 | 文件路径 | model |
+|---------|------|---------|-------|
+| **需求分析师**（yaml key: requirement-review） | 澄清用户意图，识别边界和风险，编写并确认 `requirement.md` | `.workflow/context/roles/requirement-review.md` | opus |
+| **架构师**（yaml key: planning） | 将需求拆分为独立变更，为每个变更制定 `change.md` + `plan.md` | `.workflow/context/roles/planning.md` | opus |
+| **开发者**（yaml key: executing） | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` | sonnet |
+| **测试工程师**（yaml key: testing） | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` | sonnet |
+| **验收官**（yaml key: acceptance） | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` | sonnet |
+| **诊断师**（yaml key: regression） | 独立分析问题，判断是否是真实问题，确定根因，决定路由方向 | `.workflow/context/roles/regression.md` | opus |
+| **主 agent（done 阶段）**（yaml key: done） | 对整个需求周期进行六层回顾检查，输出回顾报告，转 suggest 池 | `.workflow/context/roles/done.md` | opus |
 
 ### 辅助角色
 
-| 角色名称 | 职责 | 文件路径 |
-|---------|------|---------|
-| **命令引导中心（harness-manager）** | 作为所有 harness 命令的统一入口，解析命令意图、调度角色、管理 skill 生命周期 | `.workflow/context/roles/harness-manager.md` |
-| **工具管理员（toolsManager）** | 在其他 agent 执行操作前，为其搜索、匹配并推荐最合适的工具 | `.workflow/context/roles/tools-manager.md` |
+| 角色名称 | 职责 | 文件路径 | model |
+|---------|------|---------|-------|
+| **命令引导中心（harness-manager）**（yaml key: harness-manager） | 作为所有 harness 命令的统一入口，解析命令意图、调度角色、管理 skill 生命周期 | `.workflow/context/roles/harness-manager.md` | opus |
+| **工具管理员（toolsManager）**（yaml key: tools-manager） | 在其他 agent 执行操作前，为其搜索、匹配并推荐最合适的工具 | `.workflow/context/roles/tools-manager.md` | sonnet |
+| **审查员（reviewer）**（yaml key: reviewer） | 按 checklist 逐条审查变更产物，客观评估产出质量 | `.workflow/context/roles/reviewer.md` | sonnet |
 
 ### 抽象父类
 
@@ -44,3 +45,9 @@
 |---------|------|---------|
 | **角色加载协议** | 定义所有角色的通用加载步骤，所有 agent 必须遵循 | `.workflow/context/roles/role-loading-protocol.md` |
 
+---
+
+> **权威来源**：`.workflow/context/role-model-map.yaml` 是角色→模型映射的唯一权威源。
+> 本 `index.md` 中各表的 `model` 列是镜像展示，任何一方修改必须同步另一方；
+> 出现冲突时一律以 `.workflow/context/role-model-map.yaml` 为准。
+> 详细选择依据见 `.workflow/context/experience/tool/harness.md`（chg-04 沉淀）。
