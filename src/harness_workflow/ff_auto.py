@@ -260,6 +260,31 @@ def workflow_ff_auto(
     from_stage, to_stage = _advance_to_stage_before_acceptance(root)
     writer(f"[ff --auto] stage: {from_stage} -> {to_stage}")
 
+    # req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/ chg-03 扩展：
+    # ff --auto 最终落点 stage 派发 briefing，保持与 `harness next --execute` 一致的
+    # task_context_index / snapshot 契约。终局 stage（done / archive / completed /
+    # ready_for_execution）跳过；原地不动（from == to）也跳过，避免重复派发。
+    # 说明：中间 stage 不派发 briefing——ff --auto 的语义是一次性跳过执行，最终落点
+    # subagent 才是真正的工作者；若用户需要每个中间 stage 的 briefing，应走
+    # `harness next` 逐步推进。
+    from harness_workflow.workflow_helpers import (
+        _NO_BRIEFING_STAGES,
+        _build_subagent_briefing,
+        _resolve_title_for_id,
+    )
+
+    if to_stage and to_stage != from_stage and to_stage not in _NO_BRIEFING_STAGES:
+        req_title = str(runtime.get("current_requirement_title", "")).strip()
+        if not req_title:
+            req_title = _resolve_title_for_id(root, req_id) or ""
+        briefing = _build_subagent_briefing(
+            to_stage,
+            req_id,
+            req_title,
+            root=root,
+        )
+        writer(briefing)
+
     # Step 2：读 decision_log，按三档 ack。
     decisions = read_decision_log(root, req_id)
     pending_rejected = 0

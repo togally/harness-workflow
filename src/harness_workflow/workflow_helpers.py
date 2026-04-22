@@ -4198,6 +4198,24 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
         print(f"- created {path}")
     for path in skipped:
         print(f"- skipped {path}")
+
+    # req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/ chg-03 扩展：
+    # regression 创建即是一次"派发诊断师 subagent"动作，主 agent 需要 briefing 作为交接单。
+    # 与 workflow_next(execute=True) 的 briefing 链路一致，额外注入 regression_id /
+    # regression_title 两字段，方便诊断师直接定位目标。不修改 runtime["stage"]——
+    # regression 是并行的确认流，不占用主线 stage。
+    req_title_for_brief = str(runtime.get("current_requirement_title", "")).strip()
+    if not req_title_for_brief and req_ref:
+        req_title_for_brief = _resolve_title_for_id(root, req_ref) or ""
+    briefing = _build_subagent_briefing(
+        "regression",
+        req_ref or "",
+        req_title_for_brief,
+        root=root,
+        regression_id=reg_num_id,
+        regression_title=regression_title or "",
+    )
+    print(briefing)
     return 0
 
 
@@ -5737,8 +5755,11 @@ def _build_subagent_briefing(
     req_id: str,
     req_title: str,
     *,
+    root: Path | None = None,
     task_context_index: list[dict] | None = None,
     task_context_index_file: str = "",
+    regression_id: str = "",
+    regression_title: str = "",
 ) -> str:
     """构造 subagent briefing 文本（固定 JSON fence）。
 
@@ -5750,6 +5771,17 @@ def _build_subagent_briefing(
     ``task_context_index`` 数组（≤ 8 条，每条 ``{"path", "reason"}``）与
     ``task_context_index_file``（快照相对路径）。两者均为可选，未传时缺省为空
     数组 / 空串，向后兼容既有测试基线。序列化走 ``json.dumps``，保证 JSON 合法。
+
+    req-32 / chg-03 扩展（ff --auto / regression 派发）：新增三个可选 kwarg，
+    全部向后兼容：
+
+    - ``root``：若传入且 ``task_context_index`` 未显式传入，helper 内部调用
+      ``_build_task_context_index`` + ``_write_task_context_snapshot`` 自动构建
+      索引并落盘，便于 ff_auto / regression 派发点直接一行调用。
+    - ``regression_id`` / ``regression_title``：非空时在 briefing JSON 中追加
+      ``"regression_id"`` / ``"regression_title"`` 两字段，供 regression 诊断
+      子 agent 在 briefing 里直接拿到诊断目标 id / 标题。未传时字段不出现，
+      既有测试基线（``test_task_context_index`` 等）完全不受影响。
     """
     import json as _json
 
@@ -5757,6 +5789,31 @@ def _build_subagent_briefing(
     req_title_safe = req_title or "(no title)"
     idx_list: list[dict] = list(task_context_index or [])
     idx_file_str: str = task_context_index_file or ""
+    # req-32 / chg-03 扩展：若调用方未显式传 index 但传了 root + req_id + 非终局 stage，
+    # 则自动构建索引并落盘，减少 ff_auto / regression 派发点的样板代码。
+    if (
+        not idx_list
+        and not idx_file_str
+        and root is not None
+        and req_id
+        and new_stage
+        and new_stage not in _NO_BRIEFING_STAGES
+    ):
+        try:
+            idx_list = _build_task_context_index(
+                root=root, stage=new_stage, req_id=req_id
+            )
+            snap = _write_task_context_snapshot(
+                root=root, req_id=req_id, stage=new_stage, index=idx_list
+            )
+            try:
+                idx_file_str = str(snap.relative_to(root))
+            except ValueError:
+                idx_file_str = str(snap)
+        except Exception:
+            # 索引构建失败不应阻断派发；degrade to empty index。
+            idx_list = []
+            idx_file_str = ""
     # 用 json.dumps 序列化 index 数组，避免手工拼接带来的转义问题
     idx_json = _json.dumps(idx_list, ensure_ascii=False, indent=4)
     # 把 4 空格缩进再整体 shift 两格，让其与外层 "  \"task_context_index\": " 对齐
@@ -5769,6 +5826,14 @@ def _build_subagent_briefing(
         f'  "stage": "{new_stage}",',
         f'  "requirement_id": "{req_id}",',
         f'  "requirement_title": "{req_title_safe}",',
+    ]
+    # regression_id / regression_title 仅在非空时写入，保持向后兼容
+    if regression_id:
+        reg_id_json = _json.dumps(regression_id, ensure_ascii=False)
+        reg_title_json = _json.dumps(regression_title or "", ensure_ascii=False)
+        lines.append(f'  "regression_id": {reg_id_json},')
+        lines.append(f'  "regression_title": {reg_title_json},')
+    lines.extend([
         f'  "task_context_index": {idx_json_indented.lstrip()},',
         f'  "task_context_index_file": {idx_file_json},',
         '  "context_chain": [',
@@ -5776,7 +5841,7 @@ def _build_subagent_briefing(
         "  ]",
         "}",
         "```",
-    ]
+    ])
     return "\n".join(lines)
 
 
