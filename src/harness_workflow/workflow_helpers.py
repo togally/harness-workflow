@@ -3092,58 +3092,164 @@ def _migrate_workflow_dir(root: Path) -> bool:
     return False
 
 
-def install_repo(root: Path, force_skill: bool = False) -> int:
+def install_repo(
+    root: Path,
+    force_skill: bool = False,
+    check: bool = False,
+    force_managed: bool = False,
+    force_all_platforms: bool = False,
+    agent_override: str | None = None,
+) -> int:
+    """req-33 / chg-01：`install_repo` 合并 `update_repo` 职责为单一主实现。
+
+    - `check=True` 走 dry-run（等价原 update_repo --check 分支）：预演 managed
+      文件刷新、平台选择交互、init_repo 写盘一律跳过，只输出 "Update summary" +
+      "No files were changed."。
+    - `force_skill=False`（默认）表示直接 install 路径，运行平台选择交互 / init_repo 等
+      install 专属步骤；`force_skill=True` 表示 update 委托路径（由 `update_repo` 空壳
+      传入），跳过 install 专属交互，直接进入 update 刷新链。
+    - `force_managed` / `force_all_platforms` / `agent_override` 转发给 sync /
+      `install_local_skills` 的对应字段，保持原 update_repo 的 CLI 语义。
+    """
     # Lazy import to avoid circular dependency
     from harness_workflow.cli import prompt_platform_selection
 
-    _migrate_workflow_dir(root)
+    actions: list[str] = []
+
+    # ---- 公共前置（install + update 均执行）----
+    if _migrate_workflow_dir(root):
+        actions.append("migrated .workflow/ → .workflow/")
     _ensure_workflow_dir_gitignore(root)
 
-    migration_actions = migrate_legacy_docs_to_workflow(root)
-    if migration_actions:
-        print("Migrated legacy docs/ → .workflow/:")
-        for action in migration_actions:
-            print(f"- {action}")
-        print("")
+    # ---- 吸收 update_repo：feedback.jsonl 一次性迁移（原 L3303-L3327）----
+    if not check:
+        old_feedback = root / LEGACY_FEEDBACK_LOG
+        new_feedback = root / FEEDBACK_LOG
+        if old_feedback.exists() and not new_feedback.exists():
+            new_feedback.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(old_feedback), str(new_feedback))
+            legacy_dir = old_feedback.parent
+            if legacy_dir.exists() and not any(legacy_dir.iterdir()):
+                legacy_dir.rmdir()
+            actions.append("migrated .harness/feedback.jsonl -> .workflow/state/feedback/feedback.jsonl")
+            print(
+                "[install_repo] NOTE: migrated .harness/feedback.jsonl -> "
+                ".workflow/state/feedback/feedback.jsonl",
+                file=sys.stderr,
+            )
+            print(
+                "[install_repo] NOTE: run `git status -s .workflow/state/feedback/ .harness/` "
+                "and commit the migration.",
+                file=sys.stderr,
+            )
 
-    # Capture platform state before local skills are installed; otherwise the just-copied
-    # qoder skill tree makes a brand-new repository look partially configured.
-    active_platforms = get_active_platforms(str(root))
-    active_list = [p for p, is_active in active_platforms.items() if is_active]
+    # ---- install 专属：legacy docs/ → .workflow/ 迁移 + 平台选择 + init_repo ----
+    # force_skill=True 表示从 update_repo 空壳委托调用，跳过 install 专属交互步骤。
+    if not force_skill:
+        migration_actions = migrate_legacy_docs_to_workflow(root) if not check else []
+        if migration_actions:
+            print("Migrated legacy docs/ → .workflow/:")
+            for action in migration_actions:
+                print(f"- {action}")
+            print("")
 
-    skill_paths = install_local_skills(root, force=force_skill)
-    print("Installed local skills:")
-    for skill_path in skill_paths:
-        print(f"- {skill_path}")
+        # Capture platform state before local skills are installed; otherwise the just-copied
+        # qoder skill tree makes a brand-new repository look partially configured.
+        active_platforms = get_active_platforms(str(root))
+        active_list = [p for p, is_active in active_platforms.items() if is_active]
 
-    # If no existing config, default to all platforms
-    if not active_list:
-        selected = ["codex", "qoder", "cc", "kimi"]
-        print("\nNew installation: enabling all platforms (codex, qoder, cc, kimi)")
+        if not check:
+            skill_paths_first = install_local_skills(root, force=False)
+            print("Installed local skills:")
+            for skill_path in skill_paths_first:
+                print(f"- {skill_path}")
+
+            if not active_list:
+                selected = ["codex", "qoder", "cc", "kimi"]
+                print("\nNew installation: enabling all platforms (codex, qoder, cc, kimi)")
+            else:
+                print(f"\nCurrent active platforms: {', '.join(active_list)}")
+                selected = prompt_platform_selection(active_list)
+                if not selected:
+                    selected = ["codex", "qoder", "cc", "kimi"]
+                    print("No selection made, using all platforms")
+
+            result = sync_platforms_state(selected, str(root))
+            if result.get("backed_up"):
+                print(f"Backed up: {', '.join(result['backed_up'])}")
+            if result.get("restored"):
+                print(f"Restored from backup: {', '.join(result['restored'])}")
+            if result.get("need_generate"):
+                print(f"Generated new: {', '.join(result['need_generate'])}")
+            if result.get("kept"):
+                print(f"Kept: {', '.join(result['kept'])}")
+
+            # init_repo 内 write_if_missing 已做存在跳过（幂等天然）
+            write_agents = "codex" in selected
+            write_claude = "cc" in selected
+            init_repo(root, write_agents=write_agents, write_claude=write_claude)
+
+    # ---- 吸收 update_repo：active_agent 解析（原 L3336-L3350）----
+    effective_agent: str | None = None
+    if force_all_platforms:
+        effective_agent = None
+    elif agent_override:
+        effective_agent = agent_override
     else:
-        # Interactive selection for re-install
-        print(f"\nCurrent active platforms: {', '.join(active_list)}")
-        selected = prompt_platform_selection(active_list)
-        if not selected:
-            selected = ["codex", "qoder", "cc", "kimi"]
-            print("No selection made, using all platforms")
+        active = read_active_agent(root)
+        if active is None:
+            print("[install_repo] active agent not set; refreshing enabled set (compat mode)")
+            effective_agent = None
+        else:
+            effective_agent = active
 
-    # Sync platform state (backup/restore)
-    result = sync_platforms_state(selected, str(root))
-    if result.get("backed_up"):
-        print(f"Backed up: {', '.join(result['backed_up'])}")
-    if result.get("restored"):
-        print(f"Restored from backup: {', '.join(result['restored'])}")
-    if result.get("need_generate"):
-        print(f"Generated new: {', '.join(result['need_generate'])}")
-    if result.get("kept"):
-        print(f"Kept: {', '.join(result['kept'])}")
+    # ---- 吸收 update_repo：skill 刷新分支（原 L3352-L3366）----
+    if check:
+        if effective_agent:
+            actions.append(f"would refresh .{_AGENT_TO_SKILL_DIR[effective_agent][1:]}/skills/harness")
+        else:
+            actions.append("would refresh .codex/skills/harness")
+            actions.append("would refresh .claude/skills/harness")
+            actions.append("would refresh .qoder/skills/harness")
+    else:
+        installed = install_local_skills(root, force=True, active_agent=effective_agent)
+        for target in installed:
+            try:
+                rel = target.relative_to(root).as_posix()
+            except ValueError:
+                rel = str(target)
+            actions.append(f"refreshed {rel}")
 
-    # Generate configs for selected platforms
-    write_agents = "codex" in selected
-    write_claude = "cc" in selected
+    # ---- 吸收 update_repo：managed 文件同步（原 L3367-L3376）----
+    _, sync_actions = _sync_requirement_workflow_managed_files(
+        root,
+        include_agents=True,
+        include_claude=True,
+        check=check,
+        force_managed=force_managed,
+        active_agent=effective_agent,
+    )
+    actions.extend(sync_actions)
+    actions.extend(cleanup_legacy_workflow_artifacts(root, check))
 
-    return init_repo(root, write_agents=write_agents, write_claude=write_claude)
+    # ---- 吸收 update_repo：state / experience / profile（原 L3378-L3389）----
+    if not check:
+        migrate_actions = _migrate_state_files(root)
+        actions.extend(migrate_actions)
+
+    _refresh_experience_index(root)
+
+    if not check:
+        _write_project_profile_if_changed(root, actions)
+
+    # ---- 合并后的尾部汇总（统一 Update summary 段，兼容原 update_repo 断言）----
+    print("Update summary:")
+    for action in actions:
+        print(f"- {action}")
+    if check:
+        print("")
+        print("No files were changed.")
+    return 0
 
 
 def _migrate_state_files(root: Path) -> list[str]:
@@ -3285,116 +3391,19 @@ def update_repo(
     force_all_platforms: bool = False,
     agent_override: str | None = None,
 ) -> int:
-    """Refresh harness-managed files.
+    """req-33 / chg-01：空壳委托给合并后的 `install_repo`。
 
-    bugfix-3（新）改造：
-    - 读 `platforms.yaml.active_agent`，仅刷新当前 agent 的 skill/commands。
-    - `agent_override`（CLI `--agent X`，一次性覆盖）优先于 active_agent。
-    - `force_all_platforms=True`（CLI `--all-platforms` escape hatch）恢复旧的全 agent 刷新行为。
-    - 一次性迁移 `.harness/feedback.jsonl → .workflow/state/feedback/feedback.jsonl`。
-    - 缺 active_agent 时一行 warning 走兼容模式。
+    签名与原 update_repo 严格一致以保持 import 兼容；`force_skill=True` 硬编码
+    以保持原 update 行为（`install_local_skills(force=True, ...)`）。
     """
-    actions: list[str] = []
-    if not check:
-        if _migrate_workflow_dir(root):
-            actions.append("migrated .workflow/ → .workflow/")
-        _ensure_workflow_dir_gitignore(root)
-
-    # bugfix-3（新）问题 2：一次性迁移 .harness/feedback.jsonl → .workflow/state/feedback/
-    if not check:
-        old_feedback = root / LEGACY_FEEDBACK_LOG
-        new_feedback = root / FEEDBACK_LOG
-        if old_feedback.exists() and not new_feedback.exists():
-            new_feedback.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(old_feedback), str(new_feedback))
-            # 若 .harness/ 空目录则 rmdir（保留历史数据 + 清理脏路径）
-            legacy_dir = old_feedback.parent
-            if legacy_dir.exists() and not any(legacy_dir.iterdir()):
-                legacy_dir.rmdir()
-            actions.append("migrated .harness/feedback.jsonl -> .workflow/state/feedback/feedback.jsonl")
-            # req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/ Step 3（sug-20）：
-            # 迁移会产生 git 变更，stderr 提示用户 commit 本次迁移；CI / 非交互环境
-            # 可忽略（不阻塞）。
-            print(
-                "[update_repo] NOTE: migrated .harness/feedback.jsonl -> "
-                ".workflow/state/feedback/feedback.jsonl",
-                file=sys.stderr,
-            )
-            print(
-                "[update_repo] NOTE: run `git status -s .workflow/state/feedback/ .harness/` "
-                "and commit the migration.",
-                file=sys.stderr,
-            )
-
-    migration_actions = migrate_legacy_docs_to_workflow(root) if not check else []
-    if migration_actions:
-        print("Migrated legacy docs/ → .workflow/:")
-        for action in migration_actions:
-            print(f"- {action}")
-        print("")
-
-    # bugfix-3（新）问题 1：决定本次刷新的作用域
-    # 优先级：agent_override（一次性 --agent X）> active_agent（持久化字段）> 兼容模式
-    effective_agent: str | None = None
-    if force_all_platforms:
-        effective_agent = None  # 显式 escape hatch，走旧的全 agent 行为
-    elif agent_override:
-        effective_agent = agent_override
-    else:
-        active = read_active_agent(root)
-        if active is None:
-            # 旧仓兼容：保留 enabled[] 旧行为并打一行 warning
-            print("[harness update] active agent not set; refreshing enabled set (compat mode)")
-            effective_agent = None
-        else:
-            effective_agent = active
-
-    if check:
-        if effective_agent:
-            actions.append(f"would refresh .{_AGENT_TO_SKILL_DIR[effective_agent][1:]}/skills/harness")
-        else:
-            actions.append("would refresh .codex/skills/harness")
-            actions.append("would refresh .claude/skills/harness")
-            actions.append("would refresh .qoder/skills/harness")
-    else:
-        installed = install_local_skills(root, force=True, active_agent=effective_agent)
-        for target in installed:
-            try:
-                rel = target.relative_to(root).as_posix()
-            except ValueError:
-                rel = str(target)
-            actions.append(f"refreshed {rel}")
-    _, sync_actions = _sync_requirement_workflow_managed_files(
+    return install_repo(
         root,
-        include_agents=True,
-        include_claude=True,
+        force_skill=True,
         check=check,
         force_managed=force_managed,
-        active_agent=effective_agent,
+        force_all_platforms=force_all_platforms,
+        agent_override=agent_override,
     )
-    actions.extend(sync_actions)
-    actions.extend(cleanup_legacy_workflow_artifacts(root, check))
-
-    if not check:
-        migrate_actions = _migrate_state_files(root)
-        actions.extend(migrate_actions)
-
-    _refresh_experience_index(root)
-
-    # req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/
-    # chg-02（harness update 集成扫描器 + hash 漂移 + 用户自定义保护）/ Step 1-2：
-    # 末尾接入 project-profile 写盘 + hash 漂移检测（三态见 helper docstring）。
-    # check=True（`harness update --check`）仅预演不改盘，跳过。
-    if not check:
-        _write_project_profile_if_changed(root, actions)
-
-    print("Update summary:")
-    for action in actions:
-        print(f"- {action}")
-    if check:
-        print("")
-        print("No files were changed.")
-    return 0
 
 
 def set_language(root: Path, language: str) -> int:

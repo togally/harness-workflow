@@ -344,7 +344,9 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 
 #### A.1 `harness install`
 
-**功能**: 初始化当前仓库，安装 harness skill。
+> req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter）/ chg-01：已吸收 `update_repo` 的全部刷新职责（skill 刷新 / managed 文件 / feedback 迁移 / state 迁移 / experience index / project-profile 写盘）。
+
+**功能**: 初始化当前仓库，安装 harness skill；每次运行幂等（docs 迁移 / AGENTS.md / CLAUDE.md 生成检测已存在则跳过）。
 
 **执行流程**:
 1. 调用 `install_repo()` 初始化仓库结构
@@ -372,6 +374,8 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 - `agent`: kimi | claude | codex | qoder
 
 #### A.3 `harness update`
+
+> req-33 / chg-01 过渡态：当前 `harness update` 行为 = `harness install`（`update_repo` 降级为 `install_repo` 空壳委托）；chg-02（harness update 角色契约层重定义为召唤 project-reporter）将把本节主体重写为"召唤 project-reporter 生成 artifacts/main/project-overview.md"。
 
 **功能**: 更新项目中的 harness managed 文件。
 
