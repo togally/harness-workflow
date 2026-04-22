@@ -110,6 +110,56 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
   - `constraints/risk.md`：风险扫描规则（before-task 必须执行）
   - `constraints/recovery.md`：失败恢复路径（遇到失败时加载）
 
+## 统一精简汇报模板（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-02（S-B 统一精简汇报模板（stage-role.md 新增 + executing/testing/acceptance 3 份 role.md 汇报段替换）））
+
+> 溯源：req-31（角色功能优化整合与交互精简...）/ chg-02（S-B 统一精简汇报模板...）；并列生效于 base-role.md `## 上下文维护规则`、契约 7（id+title，req-30 chg-03）、req-30（角色 model 对用户透出）/ chg-02 自我介绍硬门禁三、chg-05（S-E 决策批量化协议）"同阶段不打断原则"。
+
+所有 stage 执行角色与辅助角色（harness-manager 派发后的 subagent）向主 agent 汇报时，**必须**按以下四字段顺序输出，**不得**在模板之外叠加冗余自检清单：
+
+### 字段 1：产出（≤ 3 行）
+
+- 落地文件路径 / commit sha / 关键数值（如 pytest passed / failed 数、grep 命中数）。
+- **契约 7 并列生效**：本字段若引用工作项 id（req / chg / sug / bugfix / reg），首次引用**必须**形如 `{id}（{title}）`，后续可简写。
+
+### 字段 2：状态（单行）
+
+- 取值：`PASS` / `FAIL` / `ABORT`，随后一句话原因。
+- 语义：
+  - `PASS` = 本 stage 退出条件全部满足
+  - `FAIL` = 业务未达标但 subagent 主动退出请求主 agent 决策
+  - `ABORT` = 遇硬门禁违反 / 外部事件 / 数据丢失风险，立即停止
+
+### 字段 3：开放问题（≤ 3 条；若无写"无"）
+
+- 每条形如 `- {问题一句话}。推荐默认 = {选项}。理由：{一句话}。`
+- 与 chg-05（S-E 决策批量化协议）"default-pick 决策列表"语义重叠，本字段同时覆盖"本 stage 按默认推进的争议点"清单。
+- > 3 条说明 stage 粒度过大，应拆 chg 或升级 regression。
+
+### 字段 4：建议下一步（单行）
+
+- 1 行，面向主 agent 的动作建议，如 `建议 harness next 推进到 executing`。
+- 内化原汇报模板中"是否准备好进下 stage"一项，不重复设置独立字段。
+
+### 与旧模板的差异（req-31 / chg-02）
+
+- **去除**：契约 7 样本行（改由 `harness validate --contract all` / `harness status --lint` 自检）、每轮硬性上下文消耗评估（仅在 ≥ 70% 时按 base-role 规则主动上报）、硬约束自检块（内化进状态 = PASS/FAIL）、"是否准备好进下 stage"（融入建议下一步）。
+- **保留**：字段 1 对契约 7 的引用约束（与 req-30 chg-03 并列生效）、字段 3 对 default-pick 的承载（与 chg-05 并列生效）。
+
+### 样本（复制-改几个字即可用）
+
+```
+**产出**：
+- artifacts/main/requirements/req-31（角色功能优化整合与交互精简...）/changes/chg-02/：change.md + plan.md + 变更简报.md 各 1 份。
+- pytest 288 passed，零回归。
+
+**状态**：PASS。四字段新章节已在 stage-role.md 落地；executing/testing/acceptance 三份 role.md 汇报段已替换为引用新模板。
+
+**开放问题**：
+- 无。
+
+**建议下一步**：建议 harness next 推进到 executing。
+```
+
 ## 对人文档输出契约（req-26 / sug-06）
 
 所有 stage 执行角色**在完成自身业务后**，除既有 agent 过程产物（requirement.md / change.md / plan.md / session-memory.md / regression/diagnosis.md 等）外，**必须额外按本契约产出一份面向用户的精炼中文文档**（下称"对人文档"），使用户仅读该文档即可掌握当前 stage 的关键结论。

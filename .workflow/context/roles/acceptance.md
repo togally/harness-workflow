@@ -31,7 +31,7 @@
 
 ### Step 5: 交接
 - 将验收结论保存到验收报告和 `session-memory.md`
-- 向主 agent 报告任务完成，包含上下文消耗评估和维护建议
+- 向主 agent 报告任务完成，**汇报格式严格遵循** `stage-role.md#统一精简汇报模板（req-31 / chg-02）`；上下文消耗评估仅在 ≥ 70% 时按 base-role 规则主动追加。
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#acceptance`。
@@ -91,6 +91,7 @@
 - [ ] 验收报告已产出
 - [ ] 人工最终判定：通过 或 驳回
 - [ ] 对人文档 `验收摘要.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
 
 ## ff 模式说明
 - ff 模式下，验收标准逐条核查完毕且验收报告已产出后，AI 可根据核查结果自主判定通过或驳回

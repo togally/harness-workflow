@@ -28,7 +28,7 @@
 
 ### Step 5: 交接
 - 将变更边界、执行顺序、依赖关系保存到 `change.md`、`plan.md` 和 `session-memory.md`
-- 向主 agent 报告任务完成，包含上下文消耗评估和维护建议
+- 向主 agent 报告任务完成，**汇报格式遵循** `stage-role.md#统一精简汇报模板（req-31（角色功能优化整合与交互精简...）/ chg-02（S-B 统一精简汇报模板...））`。
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#requirement_review--planning`。

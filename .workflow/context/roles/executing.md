@@ -32,7 +32,7 @@
 
 ### Step 6: 交接
 - 将关键执行决策和当前进度保存到 `session-memory.md`（所有步骤标记 ✅/❌）
-- 向主 agent 报告任务完成，包含上下文消耗评估和维护建议
+- 向主 agent 报告任务完成，**汇报格式严格遵循** `stage-role.md#统一精简汇报模板（req-31 / chg-02）`；上下文消耗评估仅在 ≥ 70% 时按 base-role 规则主动追加。
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#executing`。
@@ -95,6 +95,7 @@
 - [ ] 内部测试通过（编译无错误，基本功能验证通过，项目可正常重启）
 - [ ] session-memory 执行日志已更新（所有步骤标记 ✅）
 - [ ] 对人文档 `实施说明.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/` 下产出，字段完整
+- [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
 
 ## ff 模式说明
 - ff 模式下，所有 `plan.md` 步骤完成、内部测试通过且 `session-memory` 全部 ✅ 后，subagent 可直接报告完成，由主 agent 自动推进到 `testing`

@@ -39,7 +39,8 @@
 
 ### Step 6: 交接
 - 将测试结果（通过/失败列表）保存到测试记录文件和 `session-memory.md`
-- 向主 agent 报告任务完成，包含上下文消耗评估和维护建议
+- 向主 agent 报告任务完成，**汇报格式严格遵循** `stage-role.md#统一精简汇报模板（req-31 / chg-02）`；上下文消耗评估仅在 ≥ 70% 时按 base-role 规则主动追加。
+> 汇报示例：见 stage-role.md#统一精简汇报模板（req-31 / chg-02）样本段；testing 阶段填充字段 1（pytest passed/failed）+ 字段 2（PASS/FAIL）+ 字段 3（开放问题 / default-pick）+ 字段 4（acceptance / regression）。
 
 ## 可用工具
 工具白名单见 `.workflow/tools/stage-tools.md#testing`。
@@ -106,6 +107,7 @@
 - [ ] 测试记录已产出（通过/失败列表）
 - [ ] 关键验收标准已有对应的可执行单元测试覆盖（或已记录无法自动化的原因）
 - [ ] 对人文档 `测试结论.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
 
 ## ff 模式说明
 - ff 模式下，所有测试用例执行完毕且通过、测试记录已产出后，subagent 可直接报告完成，由主 agent 自动推进到 `acceptance`
