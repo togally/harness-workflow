@@ -197,6 +197,14 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 - 实现：`src/harness_workflow/workflow_helpers.py::render_work_item_id`（runtime 缓存 → state fallback → sug frontmatter → `(no title)` 降级）。
 - 自证：req-30（slug 沟通可读性增强：全链路透出 title）自身的 `requirement.md` / 各 `change.md` / `plan.md` / `实施说明.md` / `变更简报.md` 首次引用工作项 id 时均带完整 title，作为新约定示范样本。
 
+## task_context_index 回退语义（req-32 / chg-03）
+
+> **req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/ chg-03（CTO 派发 briefing 注入 task_context_index + 快照落盘）**：主 agent 派发 subagent 时，briefing JSON 中会携带 `task_context_index`（≤ 8 条，每条 `{"path", "reason"}`）与 `task_context_index_file`（快照相对路径，形如 `.workflow/state/sessions/{req-id}/task-context/{stage}-{seq}.md`）。
+
+- `task_context_index` 是**建议清单**，不是强制加载清单；subagent 按路径加载若命中文件不存在（仓库形态动态变化），**静默 fallback** 到 `.workflow/context/index.md` 全量按需加载，不得报错或中断 stage。
+- 对应 CLI 层提供 helper `workflow_helpers._resolve_task_context_paths(index, root) -> (existing, missing)` 用于过滤；CLI 不强制校验 subagent 行为，仅提供 helper 与单测覆盖。
+- `task_context_index_file` 指向本次派发落盘的 frontmatter 快照，归档时由既有 `harness archive` 随 `.workflow/state/sessions/{req-id}/` 一并迁入 `artifacts/{branch}/requirements/{req-id}-{slug}/sessions/`。
+
 ## 流转规则（按需）
 
 - 如需判断 stage 推进条件或归档规则，读取 `.workflow/flow/stages.md`

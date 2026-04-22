@@ -207,7 +207,9 @@ def test_next_execute_emits_briefing_with_index(tmp_path, capsys):
     """req-32 / chg-03 Step 4 / AC-03 + AC-07：`next --execute` stdout 含 task_context_index + task_context_index_file；快照落盘。"""
     from harness_workflow.workflow_helpers import workflow_next
 
-    root = _bootstrap_tmp_root(tmp_path, stage="plan_review", req_id="req-99")
+    # ready_for_execution → executing 是会派发 briefing 的路径；plan_review → ready_for_execution
+    # 属于 _NO_BRIEFING_STAGES，不触发索引构建。
+    root = _bootstrap_tmp_root(tmp_path, stage="ready_for_execution", req_id="req-99")
 
     rc = workflow_next(root, execute=True)
     assert rc == 0

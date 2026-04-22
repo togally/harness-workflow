@@ -5732,14 +5732,36 @@ _STAGE_TO_ROLE: dict[str, str] = {
 _NO_BRIEFING_STAGES = frozenset({"done", "archive", "completed", "ready_for_execution"})
 
 
-def _build_subagent_briefing(new_stage: str, req_id: str, req_title: str) -> str:
+def _build_subagent_briefing(
+    new_stage: str,
+    req_id: str,
+    req_title: str,
+    *,
+    task_context_index: list[dict] | None = None,
+    task_context_index_file: str = "",
+) -> str:
     """构造 subagent briefing 文本（固定 JSON fence）。
 
     req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）：
     供主 agent 在 `harness next --execute` 后直接复制使用；格式稳定，便于解析。
+
+    req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/ chg-03（CTO
+    派发 briefing 注入 task_context_index + 快照落盘）：在 JSON fence 中追加
+    ``task_context_index`` 数组（≤ 8 条，每条 ``{"path", "reason"}``）与
+    ``task_context_index_file``（快照相对路径）。两者均为可选，未传时缺省为空
+    数组 / 空串，向后兼容既有测试基线。序列化走 ``json.dumps``，保证 JSON 合法。
     """
+    import json as _json
+
     role = _STAGE_TO_ROLE.get(new_stage, new_stage)
     req_title_safe = req_title or "(no title)"
+    idx_list: list[dict] = list(task_context_index or [])
+    idx_file_str: str = task_context_index_file or ""
+    # 用 json.dumps 序列化 index 数组，避免手工拼接带来的转义问题
+    idx_json = _json.dumps(idx_list, ensure_ascii=False, indent=4)
+    # 把 4 空格缩进再整体 shift 两格，让其与外层 "  \"task_context_index\": " 对齐
+    idx_json_indented = "\n".join(("  " + line) if line else line for line in idx_json.splitlines())
+    idx_file_json = _json.dumps(idx_file_str, ensure_ascii=False)
     lines = [
         "```subagent-briefing",
         "{",
@@ -5747,6 +5769,8 @@ def _build_subagent_briefing(new_stage: str, req_id: str, req_title: str) -> str
         f'  "stage": "{new_stage}",',
         f'  "requirement_id": "{req_id}",',
         f'  "requirement_title": "{req_title_safe}",',
+        f'  "task_context_index": {idx_json_indented.lstrip()},',
+        f'  "task_context_index_file": {idx_file_json},',
         '  "context_chain": [',
         f'    {{"level": 0, "agent": "main", "stage": "{new_stage}"}}',
         "  ]",
@@ -5754,6 +5778,199 @@ def _build_subagent_briefing(new_stage: str, req_id: str, req_title: str) -> str
         "```",
     ]
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/ chg-03（CTO
+# 派发 briefing 注入 task_context_index + 快照落盘）
+# ---------------------------------------------------------------------------
+_TASK_CONTEXT_INDEX_MAX: int = 8
+"""req-32 / chg-03：task_context_index 硬上限，超限截断 + stderr warn。"""
+
+
+def _stage_role_name(stage: str) -> str:
+    """req-32 / chg-03：从 stage 反推对应的 role 文件名（裸名，不含 .md 后缀）。
+
+    与 ``_STAGE_TO_ROLE`` 的区别：该表里的 value 含中文括注（如 ``executing（开发者）``），
+    此处只需要文件名基底（``executing``）。若 stage 无明确映射，直接返回 stage 字符串。
+    """
+    mapping = {
+        "requirement_review": "requirement-review",
+        "changes_review": "planning",
+        "plan_review": "planning",
+        "ready_for_execution": "executing",
+        "executing": "executing",
+        "testing": "testing",
+        "acceptance": "acceptance",
+        "regression": "regression",
+        "done": "done",
+    }
+    return mapping.get(stage, stage)
+
+
+def _build_task_context_index(
+    *,
+    root: Path,
+    stage: str,
+    req_id: str,
+) -> list[dict]:
+    """req-32 / chg-03 / Step 2：构建任务级上下文索引（≤ 8 条）。
+
+    按优先级从高到低排列候选，仅保留实际存在的文件，最后按 ``_TASK_CONTEXT_INDEX_MAX``
+    硬上限截断。优先级：
+
+    1. 当前 stage 对应 role 文件（``.workflow/context/roles/{role}.md``）
+    2. ``roles/stage-role.md``
+    3. ``roles/base-role.md``
+    4. stage 经验（``experience/roles/{role}.md`` / ``experience/stage/{stage}.md``）
+    5. 项目 profile（``context/project-profile.md``，若存在）
+    6. 约束：risk / boundaries / recovery
+    7. checklist（review-checklist.md）
+
+    截断时向 stderr 打印 warn 一行，便于 CI / 人工观察。
+    """
+    role = _stage_role_name(stage)
+    review_stages = {"testing", "acceptance", "done"}
+
+    candidates: list[tuple[str, str]] = []
+
+    def _add(rel: str, reason: str) -> None:
+        if not rel:
+            return
+        # 去重
+        if any(path == rel for path, _ in candidates):
+            return
+        candidates.append((rel, reason))
+
+    # 1-3：默认角色集
+    _add(f".workflow/context/roles/{role}.md", "当前 stage 角色文件")
+    _add(".workflow/context/roles/stage-role.md", "stage 公共规约（继承链父类）")
+    _add(".workflow/context/roles/base-role.md", "agent 通用规约（继承链根）")
+
+    # 4：经验
+    _add(f".workflow/context/experience/roles/{role}.md", f"{role} 角色经验沉淀")
+    _add(f".workflow/context/experience/stage/{stage}.md", f"{stage} stage 经验沉淀")
+
+    # 5：project profile（若存在）
+    profile_rel = ".workflow/context/project-profile.md"
+    if (root / profile_rel).exists():
+        _add(profile_rel, "项目结构化描述（req-32 动态上下文生成落地）")
+
+    # 6：约束
+    _add(".workflow/constraints/risk.md", "风险扫描规则（before-task 必读）")
+    _add(".workflow/constraints/boundaries.md", "行为边界细则")
+    _add(".workflow/constraints/recovery.md", "失败恢复路径")
+
+    # 7：checklist（仅 review 类 stage）
+    if stage in review_stages:
+        _add(".workflow/context/checklists/review-checklist.md", "review 阶段检查清单")
+
+    # 仅保留实际存在的文件，保持原序
+    existing: list[tuple[str, str]] = [(p, r) for p, r in candidates if (root / p).exists()]
+
+    truncated = False
+    original_count = len(existing)
+    if original_count > _TASK_CONTEXT_INDEX_MAX:
+        existing = existing[:_TASK_CONTEXT_INDEX_MAX]
+        truncated = True
+
+    if truncated:
+        print(
+            f"[briefing] task_context_index truncated from {original_count} to {_TASK_CONTEXT_INDEX_MAX} "
+            f"(req_id={req_id}, stage={stage})",
+            file=sys.stderr,
+        )
+
+    return [{"path": p, "reason": r} for p, r in existing]
+
+
+def _next_task_context_seq(root: Path, req_id: str, stage: str) -> int:
+    """req-32 / chg-03 / Step 3：扫描快照目录计算下一个 seq（从 1 起）。"""
+    base = root / ".workflow" / "state" / "sessions" / req_id / "task-context"
+    if not base.exists():
+        return 1
+    pattern = re.compile(rf"^{re.escape(stage)}-(\d+)\.md$")
+    max_seq = 0
+    for p in base.iterdir():
+        if not p.is_file():
+            continue
+        m = pattern.match(p.name)
+        if m:
+            try:
+                n = int(m.group(1))
+                if n > max_seq:
+                    max_seq = n
+            except ValueError:
+                continue
+    return max_seq + 1
+
+
+def _write_task_context_snapshot(
+    *,
+    root: Path,
+    req_id: str,
+    stage: str,
+    index: list[dict],
+) -> Path:
+    """req-32 / chg-03 / Step 3：落盘任务级上下文快照。
+
+    路径：``.workflow/state/sessions/{req_id}/task-context/{stage}-{seq:03d}.md``
+    frontmatter：``req_id`` / ``stage`` / ``ts`` / ``index_count`` 四字段。
+    正文：每行 ``{path}: {reason}``，与 briefing 内索引等价。
+
+    归档由既有 ``harness archive`` 逻辑处理整个 ``sessions/{req_id}/`` 目录，
+    本 helper 不重复实现归档。
+    """
+    if not req_id:
+        raise ValueError("_write_task_context_snapshot requires req_id")
+    if not stage:
+        raise ValueError("_write_task_context_snapshot requires stage")
+
+    seq = _next_task_context_seq(root, req_id, stage)
+    base = root / ".workflow" / "state" / "sessions" / req_id / "task-context"
+    base.mkdir(parents=True, exist_ok=True)
+    target = base / f"{stage}-{seq:03d}.md"
+
+    ts = datetime.now(timezone.utc).isoformat()
+    lines: list[str] = [
+        "---",
+        f"req_id: {req_id}",
+        f"stage: {stage}",
+        f"ts: {ts}",
+        f"index_count: {len(index)}",
+        "---",
+        "",
+    ]
+    for item in index:
+        path = str(item.get("path", "")).strip()
+        reason = str(item.get("reason", "")).strip()
+        lines.append(f"{path}: {reason}")
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return target
+
+
+def _resolve_task_context_paths(
+    index: list[dict],
+    root: Path,
+) -> tuple[list[str], list[str]]:
+    """req-32 / chg-03 / Step 5 / AC-04：把 index 分流为 (existing, missing)。
+
+    C2 回退语义：subagent 拿到 briefing 后按此 helper 过滤不存在的条目，对
+    ``missing`` 中的路径应静默降级到 ``.workflow/context/index.md`` 全量加载。
+    CLI 层不强制约束 subagent 行为（subagent 是 LLM 消费者），仅在此提供
+    helper 与单测覆盖。
+    """
+    existing: list[str] = []
+    missing: list[str] = []
+    for item in index or []:
+        path = str(item.get("path", "")).strip()
+        if not path:
+            continue
+        if (root / path).exists():
+            existing.append(path)
+        else:
+            missing.append(path)
+    return existing, missing
 
 
 # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 1（sug-27）
@@ -5844,11 +6061,33 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 
     # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）：
     # --execute 派发 subagent briefing 供主 agent 直接消费，不仅翻 stage 字段。
+    # req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/ chg-03（CTO
+    # 派发 briefing 注入 task_context_index + 快照落盘）：先构建索引 → 写快照 →
+    # 注入 briefing 两字段，向后兼容未传 index 的调用方。
     if execute and next_stage not in _NO_BRIEFING_STAGES:
         req_title = str(runtime.get("current_requirement_title", "")).strip()
         if not req_title and operation_target:
             req_title = _resolve_title_for_id(root, operation_target) or ""
-        briefing = _build_subagent_briefing(next_stage, operation_target or "", req_title)
+        idx_list: list[dict] = []
+        idx_rel: str = ""
+        if operation_target:
+            idx_list = _build_task_context_index(
+                root=root, stage=next_stage, req_id=operation_target
+            )
+            snap = _write_task_context_snapshot(
+                root=root, req_id=operation_target, stage=next_stage, index=idx_list
+            )
+            try:
+                idx_rel = str(snap.relative_to(root))
+            except ValueError:
+                idx_rel = str(snap)
+        briefing = _build_subagent_briefing(
+            next_stage,
+            operation_target or "",
+            req_title,
+            task_context_index=idx_list,
+            task_context_index_file=idx_rel,
+        )
         print(briefing)
     return 0
 
