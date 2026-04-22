@@ -393,3 +393,117 @@ def render_project_profile(
         "",
     ]
     return "\n".join(front) + body
+
+
+# -----------------------------
+# Step 4: load_project_profile 反向解析 + write_project_profile 顶层入口
+# -----------------------------
+
+
+_BULLET_RE = re.compile(r"^\s*-\s+(.+?)\s*$")
+
+
+def load_project_profile(path: Path) -> ProjectProfile | None:
+    """req-32 / chg-01 / Step 4：从落盘 profile 反向解析为 ``ProjectProfile``。
+
+    - 文件不存在 → 返回 ``None``（不抛）
+    - 解析失败字段 → 字段置默认值并在 parse_errors 记录
+    - 不重新计算 hash；调用方（chg-02 漂移检测）负责用 frontmatter 中的
+      ``content_hash`` 与当前正文 hash 比对
+    """
+    path = Path(path)
+    if not path.exists():
+        return None
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        profile = ProjectProfile()
+        profile.parse_errors.append(f"profile read: {exc}")
+        return profile
+
+    profile = ProjectProfile()
+
+    # 剥 frontmatter
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        body = text[end + 4:] if end != -1 else text
+    else:
+        body = text
+
+    current_list_key: str | None = None
+
+    # 定位到结构化字段段
+    section_lines: list[str] = []
+    in_section = False
+    for line in body.splitlines():
+        if line.strip() == "## 结构化字段":
+            in_section = True
+            continue
+        if in_section and line.startswith("## ") and line.strip() != "## 结构化字段":
+            break
+        if in_section:
+            section_lines.append(line)
+
+    for line in section_lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # 一级 bullet: - key: value  或  - key:
+        top_match = re.match(r"^-\s+([a-zA-Z_]+):\s*(.*)$", stripped)
+        if top_match and not line.startswith("  "):
+            key = top_match.group(1)
+            value = top_match.group(2).strip()
+            if key in {"stack_tags", "deps_top", "entrypoints", "parse_errors"}:
+                current_list_key = key
+                if value:
+                    # 例如 "- stack_tags: foo" 单行形式（保留鲁棒性）
+                    _append_list_field(profile, key, value)
+                continue
+            current_list_key = None
+            if key == "package_name":
+                profile.package_name = "" if value == "(unknown)" else value
+            elif key == "language":
+                profile.language = value or "unknown"
+            elif key == "project_headline":
+                profile.project_headline = "" if value == "(unset)" else value
+            continue
+        # 二级 bullet：  - item
+        sub_match = _BULLET_RE.match(line)
+        if sub_match and current_list_key:
+            item = sub_match.group(1).strip()
+            if item == "(none)":
+                continue
+            _append_list_field(profile, current_list_key, item)
+
+    return profile
+
+
+def _append_list_field(profile: ProjectProfile, key: str, value: str) -> None:
+    if key == "stack_tags":
+        profile.stack_tags.append(value)
+    elif key == "deps_top":
+        profile.deps_top.append(value)
+    elif key == "entrypoints":
+        profile.entrypoints.append(value)
+    elif key == "parse_errors":
+        profile.parse_errors.append(value)
+
+
+def write_project_profile(
+    root: Path,
+    *,
+    now: Callable[[], datetime] = _default_now,
+) -> Path:
+    """req-32 / chg-01 / Step 4：顶层入口：扫描 → 渲染 → 写盘。
+
+    写盘目标：``root / PROFILE_REL_PATH``（``.workflow/context/project-profile.md``）。
+    自动创建父目录；返回写入的绝对路径。
+    """
+    root = Path(root)
+    profile = build_project_profile(root)
+    text = render_project_profile(profile, now=now)
+    target = root / PROFILE_REL_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    return target

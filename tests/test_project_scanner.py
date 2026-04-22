@@ -263,3 +263,86 @@ def test_hash_stable_across_renders(tmp_path: Path) -> None:
     text_c = render_project_profile(profile, now=_fixed_now)
     hash_c = _re.search(r"content_hash:\s*(\S+)", text_c).group(1)
     assert hash_a != hash_c
+
+
+# -----------------------------
+# Step 4: load_project_profile 反向解析 + 空仓兜底 + write_project_profile
+# -----------------------------
+
+
+def test_load_round_trip(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 4：render → load 字段往返一致。"""
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[project]
+name = "roundtrip-demo"
+dependencies = ["click>=8", "rich>=13"]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    from harness_workflow.project_scanner import (
+        build_project_profile,
+        load_project_profile,
+        render_project_profile,
+    )
+
+    profile = build_project_profile(tmp_path)
+    text = render_project_profile(profile, now=_fixed_now)
+    target = tmp_path / "profile.md"
+    target.write_text(text, encoding="utf-8")
+
+    loaded = load_project_profile(target)
+    assert loaded is not None
+    assert loaded.package_name == "roundtrip-demo"
+    assert loaded.language == "python"
+    assert any("click" in dep for dep in loaded.deps_top)
+
+
+def test_empty_repo_profile(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 4：空目录兜底 → profile 字段为空但 section 完整。"""
+    from harness_workflow.project_scanner import (
+        build_project_profile,
+        render_project_profile,
+    )
+
+    profile = build_project_profile(tmp_path)
+    assert profile.language == "unknown"
+    assert profile.package_name == ""
+    assert profile.deps_top == []
+    assert profile.stack_tags == []
+
+    text = render_project_profile(profile, now=_fixed_now)
+    assert "## 结构化字段" in text
+    assert "## 项目用途（LLM 填充）" in text
+    assert "## 项目规范（LLM 填充）" in text
+    assert "content_hash:" in text
+
+
+def test_write_project_profile_entrypoint(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 4：write_project_profile 顶层入口写盘 + 回读对比 hash。"""
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'write-demo'\n", encoding="utf-8"
+    )
+
+    from harness_workflow.project_scanner import (
+        PROFILE_REL_PATH,
+        load_project_profile,
+        write_project_profile,
+    )
+
+    written = write_project_profile(tmp_path)
+    assert written == tmp_path / PROFILE_REL_PATH
+    assert written.exists()
+    assert written.read_text(encoding="utf-8").startswith("---")
+
+    loaded = load_project_profile(written)
+    assert loaded is not None
+    assert loaded.package_name == "write-demo"
+
+
+def test_load_missing_file_returns_none(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 4：不存在文件 → load 返回 None（不抛）。"""
+    from harness_workflow.project_scanner import load_project_profile
+
+    assert load_project_profile(tmp_path / "nowhere.md") is None
