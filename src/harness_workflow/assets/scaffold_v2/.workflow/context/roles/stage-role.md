@@ -15,6 +15,14 @@
 
 subagent 不需要重复读取 `runtime.yaml`、`base-role.md` 或 `stage-role.md`，除非任务明确要求。
 
+### 硬门禁：按新模板自我介绍（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））/ chg-02（stage-role.md Session Start 约定扩展（强制按新模板自我介绍）））
+
+> 溯源：req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））/ chg-02（stage-role.md Session Start 约定扩展（强制按新模板自我介绍）），并列生效于 chg-01（base-role.md 自我介绍硬门禁模板扩展（加 role_key / model 字段））模板底座。
+
+- subagent 加载自身 role.md 后、任何实质工作前，**必须**按 `base-role.md` 硬门禁三新模板（`我是 {role_name}（{role_key} / {model}），接下来我将 {task_intent}。`）向用户做自我介绍。
+- 与 `.workflow/context/roles/role-loading-protocol.md` Step 7.5 模型一致性自检**并列执行**，顺序为**先自检再自我介绍**——自检发现模型不符时直接报错中止，不给用户输出错误的自我介绍。
+- `model` 字段取自 `.workflow/context/role-model-map.yaml`，未列出则回落 `default`（当前 `sonnet`）。
+
 ## 继承自 base-role 的执行清单
 
 `stage-role.md` 是所有 stage 角色的公共父类，必须将 `base-role.md` 中的抽象要求翻译为可执行、可检查的子类行为。以下清单中的每一项都**必须**在具体 stage 角色的 SOP 或职责描述中有明确的执行步骤和检查点。
@@ -23,7 +31,7 @@ subagent 不需要重复读取 `runtime.yaml`、`base-role.md` 或 `stage-role.m
 |------|---------------|---------------------|---------|
 | 1 | **硬门禁一：工具优先** | 在执行业务步骤前，必须先**委派** toolsManager subagent，由其匹配并推荐适合当前任务的工具；收到推荐后，优先使用匹配工具执行操作 | SOP 的"执行"部分 |
 | 2 | **硬门禁二：操作说明与日志** | 每执行一个操作前说明"接下来我要执行 [操作名称]"；执行后说明"执行完成，结果是 [结果摘要]"；将摘要追加到 `.workflow/state/action-log.md` | SOP 的"执行"部分 |
-| 3 | **硬门禁三：角色自我介绍** | 按 base-role 硬门禁三的格式执行，不在子角色中重复声明。格式："我是 [角色名称]，接下来我将 [任务意图]。" | SOP 的"初始化"部分 |
+| 3 | **硬门禁三：角色自我介绍** | 按 base-role 硬门禁三的格式执行，不在子角色中重复声明。格式："我是 {role_name}（{role_key} / {model}），接下来我将 {task_intent}。"；`{role_key} / {model}` 字段取自 `.workflow/context/role-model-map.yaml`，未列出回落 `default`（当前 `sonnet`） | SOP 的"初始化"部分 |
 | 4 | **上下文维护规则：70% 评估阈值** | 任务执行过程中主动监控上下文；达到 70%（~71680 tokens）时必须评估是否使用 `/compact` 或 `/clear`；达到 85% 时必须立即执行维护 | "上下文维护职责" + SOP 的"执行"部分 |
 | 5 | **经验沉淀规则** | 任务即将完成时，检查是否有可泛化的经验需要沉淀；若有，按格式写入对应经验文件 | SOP 的"退出"部分 |
 | 6 | **SOP 结构约定** | SOP 必须覆盖：初始化 → 执行 → 退出 → 交接，四个阶段完整无遗漏 | SOP 整体结构 |
