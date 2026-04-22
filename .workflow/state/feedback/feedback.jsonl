@@ -1,0 +1,8 @@
+{"ts": "2026-04-22T03:31:41.296926+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 2886.121381}}
+{"ts": "2026-04-22T03:31:41.297097+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-22T03:51:04.606277+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 1163.313565}}
+{"ts": "2026-04-22T03:51:04.606625+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-22T05:14:31.459669+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 5006.857522}}
+{"ts": "2026-04-22T05:14:31.460093+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-22T05:18:56.250109+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 264.794608}}
+{"ts": "2026-04-22T05:18:56.250344+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}

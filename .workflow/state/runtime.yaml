@@ -1,9 +1,9 @@
 operation_type: "requirement"
-operation_target: "req-32"
-current_requirement: ""
-current_requirement_title: ""
-stage: "done"
-stage_entered_at: "2026-04-22T02:43:35.175444+00:00"
+operation_target: "req-28"
+current_requirement: "req-28"
+current_requirement_title: "目录散落产物清理与 .gitignore 规约修正"
+stage: "executing"
+stage_entered_at: "2026-04-22T05:18:56.246297+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -22,4 +22,5 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements: []
+active_requirements:
+  - req-28
