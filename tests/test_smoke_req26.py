@@ -173,16 +173,17 @@ class SmokeE2ETest(unittest.TestCase):
         self.assertIn(req_id, [str(x) for x in runtime.get("active_requirements", [])])
 
         # -----------------------------------------------------------------
-        # 2) 推进 requirement_review → changes_review（AC-03）
+        # 2) 推进 requirement_review → planning（AC-03）
+        # P-1 default-pick C（req-31 chg-01）：planning 替代 changes_review
         # -----------------------------------------------------------------
         rc = workflow_next(self.root, execute=False)
         self.assertEqual(rc, 0)
 
         state_path = state_dir / f"{req_dir.name}.yaml"
         state = load_simple_yaml(state_path)
-        self.assertEqual(state.get("stage"), "changes_review",
+        self.assertEqual(state.get("stage"), "planning",
                          f"state yaml stage mismatch after first next: {state}")
-        self.assertEqual(str(load_requirement_runtime(self.root)["stage"]), "changes_review")
+        self.assertEqual(str(load_requirement_runtime(self.root)["stage"]), "planning")
 
         # -----------------------------------------------------------------
         # 3) 创建 change（AC-02：create_change 走 slugify_preserve_unicode）
@@ -215,15 +216,9 @@ class SmokeE2ETest(unittest.TestCase):
         # -----------------------------------------------------------------
         # 4) 连推 next，直到 executing
         # -----------------------------------------------------------------
-        # changes_review → plan_review → ready_for_execution → executing
+        # P-1 default-pick C（req-31 chg-01）：planning → ready_for_execution → executing
+        # 合并后序列：planning 直接推进到 ready_for_execution（不再经过 plan_review）
         # 注意 ready_for_execution → executing 需要 execute=True
-        rc = workflow_next(self.root, execute=False)
-        self.assertEqual(rc, 0)
-        self.assertEqual(
-            load_simple_yaml(state_path).get("stage"), "plan_review",
-            "state yaml stage should be plan_review",
-        )
-
         rc = workflow_next(self.root, execute=False)
         self.assertEqual(rc, 0)
         self.assertEqual(

@@ -149,8 +149,9 @@ class NextWritebackTest(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_next_writes_stage_to_requirement_yaml(self) -> None:
-        """推进 requirement_review → changes_review，req yaml 必须同步。
+        """推进 requirement_review → planning，req yaml 必须同步。
 
+        P-1 default-pick C（req-31 chg-01）：改测试断言对齐新 stage 序列；planning 替代 changes_review。
         模拟的是 bug 活证场景：runtime.yaml 有 current_requirement 但缺
         operation_target，旧实现会跳过写回；修复后必须基于 current_requirement 兜底。
         """
@@ -176,8 +177,8 @@ class NextWritebackTest(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         state = load_simple_yaml(state_path)
-        self.assertEqual(state.get("stage"), "changes_review",
-                         msg=f"state yaml stage should be changes_review, got {state!r}")
+        self.assertEqual(state.get("stage"), "planning",
+                         msg=f"state yaml stage should be planning, got {state!r}")
         # status 尚未 done，应保持 active
         self.assertEqual(state.get("status"), "active")
 

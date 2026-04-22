@@ -143,16 +143,14 @@ class FullLifecycleSmokeTest(unittest.TestCase):
         req_dir = req_dirs[0]
         state_path = self.root / ".workflow" / "state" / "requirements" / f"{req_dir.name}.yaml"
 
-        # requirement_review → changes_review
+        # requirement_review → planning（P-1 default-pick C, req-31 chg-01）
         self.assertEqual(workflow_next(self.root, execute=False), 0)
-        self.assertEqual(load_simple_yaml(state_path).get("stage"), "changes_review")
+        self.assertEqual(load_simple_yaml(state_path).get("stage"), "planning")
 
-        # 造一个 change，才能继续 plan_review / ready_for_execution
+        # 造一个 change，才能继续 ready_for_execution
         self.assertEqual(create_change(self.root, "demo-chg"), 0)
 
-        # changes_review → plan_review → ready_for_execution → executing
-        self.assertEqual(workflow_next(self.root, execute=False), 0)
-        self.assertEqual(load_simple_yaml(state_path).get("stage"), "plan_review")
+        # planning → ready_for_execution → executing（合并后序列，移除 plan_review）
         self.assertEqual(workflow_next(self.root, execute=False), 0)
         self.assertEqual(load_simple_yaml(state_path).get("stage"), "ready_for_execution")
         self.assertEqual(workflow_next(self.root, execute=True), 0)

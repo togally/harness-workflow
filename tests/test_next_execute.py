@@ -40,7 +40,8 @@ def _write_runtime(root: Path, stage: str, ff: bool = False) -> None:
 def test_next_without_execute_only_advances_no_briefing(tmp_path: Path) -> None:
     from harness_workflow.workflow_helpers import workflow_next
 
-    _write_runtime(tmp_path, "changes_review")
+    # P-1 default-pick C（req-31 chg-01）：改测试断言对齐新 stage 序列；planning 替代 changes_review
+    _write_runtime(tmp_path, "planning")
     buf = io.StringIO()
     with redirect_stdout(buf):
         workflow_next(tmp_path, execute=False)
@@ -52,7 +53,9 @@ def test_next_without_execute_only_advances_no_briefing(tmp_path: Path) -> None:
 def test_next_execute_outputs_subagent_briefing(tmp_path: Path) -> None:
     from harness_workflow.workflow_helpers import workflow_next
 
-    _write_runtime(tmp_path, "changes_review")
+    # P-1 default-pick C（req-31 chg-01）：requirement_review → planning 产 briefing（planning 不在 _NO_BRIEFING_STAGES）
+    # 原测试用 changes_review → plan_review；合并后改为 requirement_review → planning
+    _write_runtime(tmp_path, "requirement_review")
     buf = io.StringIO()
     with redirect_stdout(buf):
         workflow_next(tmp_path, execute=True)
@@ -61,8 +64,8 @@ def test_next_execute_outputs_subagent_briefing(tmp_path: Path) -> None:
     # JSON fence 包含关键字段
     assert "req-99" in out
     assert "fixture" in out  # requirement title
-    # 新 stage 为 plan_review（planning 之后的 sequence）
-    assert "plan_review" in out
+    # 新 stage 为 planning（requirement_review 之后，合并后序列）
+    assert "planning" in out
 
 
 def test_next_execute_does_not_brief_on_done(tmp_path: Path) -> None:

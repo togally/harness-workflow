@@ -98,10 +98,13 @@ LEGACY_CLEANUP_TARGETS = [
 OPTIONAL_EMPTY_DIRS = [
     Path(".workflow") / "flow" / "archive",
 ]
+# req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/
+# chg-01（S-A 合并 sub-stage）：
+# 将原两个 sub-stage 合并为单一 planning，架构师在一次派发内产出 change.md + plan.md + 变更简报.md。
+# 历史兼容：归档 req-02..req-30 的 stage_timestamps 旧字段保留不迁移。
 WORKFLOW_SEQUENCE = [
     "requirement_review",
-    "changes_review",
-    "plan_review",
+    "planning",
     "ready_for_execution",
     "executing",
     "testing",
@@ -1021,30 +1024,16 @@ HOOK_TIMINGS = [
                 },
             },
             {
-                "path": "changes-review/10-request-change-review-first.md",
-                "title": {"cn": "变更评审先等用户确认", "english": "Changes Review Waits for Human Confirmation"},
+                "path": "planning/10-request-planning-review-first.md",
+                "title": {"cn": "规划评审先等用户确认", "english": "Planning Waits for Human Confirmation"},
                 "body": {
                     "cn": [
-                        "如果当前 stage 是 `changes_review`，回复应优先请求用户审核 change 列表与 change 文档。",
-                        "不要在用户尚未确认 change 方案时主动开始写 `plan` 或继续推进阶段。",
+                        "如果当前 stage 是 `planning`，回复应优先请求用户审核 change 列表、change 文档与 plan 文档。",
+                        "架构师在 planning 阶段一次性产出 change.md + plan.md + 变更简报.md 后，停下等用户确认，不得自动推进到 executing。",
                     ],
                     "english": [
-                        "When the current stage is `changes_review`, prioritize asking the human to review the change list and change documents.",
-                        "Do not proactively start writing plans or continue advancing the workflow before the human confirms the change set.",
-                    ],
-                },
-            },
-            {
-                "path": "plan-review/10-request-plan-review-first.md",
-                "title": {"cn": "计划评审先等用户确认", "english": "Plan Review Waits for Human Confirmation"},
-                "body": {
-                    "cn": [
-                        "如果当前 stage 是 `plan_review`，回复应优先请求用户审核 plan 文档。",
-                        "不要在用户尚未确认 plan 时主动开始实现或推进执行。",
-                    ],
-                    "english": [
-                        "When the current stage is `plan_review`, prioritize asking the human to review the plan documents.",
-                        "Do not proactively start implementation or advance into execution before the human confirms the plan.",
+                        "When the current stage is `planning`, prioritize asking the human to review the change list, change documents, and plan documents.",
+                        "The architect produces change.md + plan.md + 变更简报.md in a single planning pass, then stops for human confirmation before advancing.",
                     ],
                 },
             },
@@ -1519,30 +1508,16 @@ HOOK_TIMINGS = [
                 },
             },
             {
-                "path": "changes-review/10-keep-change-split-context-only.md",
-                "title": {"cn": "变更评审只保留拆分上下文", "english": "Changes Review Keeps Change-Splitting Context Only"},
+                "path": "planning/10-keep-planning-context-only.md",
+                "title": {"cn": "规划阶段只保留规划上下文", "english": "Planning Keeps Planning Context Only"},
                 "body": {
                     "cn": [
-                        "在 `changes_review` 阶段，只保留 requirement 结论、change 列表、影响范围、风险与验收方式。",
-                        "已经不影响 change 拆分的 requirement 讨论细节，可优先 `/compact`。",
+                        "在 `planning` 阶段，只保留 requirement 结论、change 列表、focus change 的 plan 文档、影响范围、风险与必要依赖；架构师一次性产出 change.md + plan.md + 变更简报.md 后停下等用户确认。",
+                        "已经不影响 planning 的 requirement 讨论细节、其他 change 的实现历史，可优先 `/compact`。",
                     ],
                     "english": [
-                        "During `changes_review`, keep only the approved requirement outcome, change list, impact scope, risks, and acceptance method.",
-                        "Requirement discussion details that no longer affect change splitting should be compacted first.",
-                    ],
-                },
-            },
-            {
-                "path": "plan-review/10-keep-active-plan-context-only.md",
-                "title": {"cn": "计划评审只保留活跃计划上下文", "english": "Plan Review Keeps Active Plan Context Only"},
-                "body": {
-                    "cn": [
-                        "在 `plan_review` 阶段，只保留当前 focus change、plan 文档、验证步骤、风险与必要依赖关系。",
-                        "其他 change 的实现细节若不影响当前计划评审，应优先 `/compact`。",
-                    ],
-                    "english": [
-                        "During `plan_review`, keep only the focused change, plan document, verification steps, risks, and required dependencies.",
-                        "Implementation details for unrelated changes should be compacted if they do not affect the active plan review.",
+                        "During `planning`, keep only the requirement outcome, change list, focus change plan document, impact scope, risks, and required dependencies; the architect produces change.md + plan.md + 变更简报.md in one pass and waits for confirmation.",
+                        "Requirement discussion details and implementation history for unrelated changes that no longer affect planning should be compacted.",
                     ],
                 },
             },
@@ -1689,30 +1664,16 @@ HOOK_TIMINGS = [
                 },
             },
             {
-                "path": "changes-review/20-no-auto-stage-advance.md",
-                "title": {"cn": "变更评审中禁止自动推进阶段", "english": "No Automatic Stage Advance During Changes Review"},
+                "path": "planning/20-no-auto-stage-advance.md",
+                "title": {"cn": "规划阶段中禁止自动推进阶段", "english": "No Automatic Stage Advance During Planning"},
                 "body": {
                     "cn": [
-                        "在 `changes_review` 阶段，不要自动执行 `harness next`、自动生成 `plan` 或自动推进到计划评审。",
-                        "如果用户补充细节，也只允许把它吸收进 change 文档，然后等待用户确认。",
+                        "在 `planning` 阶段，不要自动执行 `harness next`、自动开始编码或自动进入执行阶段。",
+                        "架构师产出 change.md + plan.md + 变更简报.md 后，等待用户确认，方可推进到 executing。",
                     ],
                     "english": [
-                        "During `changes_review`, do not automatically run `harness next`, generate plans, or advance into plan review.",
-                        "If the human adds details, absorb them into the change documents and then wait for confirmation.",
-                    ],
-                },
-            },
-            {
-                "path": "plan-review/20-no-auto-stage-advance.md",
-                "title": {"cn": "计划评审中禁止自动推进阶段", "english": "No Automatic Stage Advance During Plan Review"},
-                "body": {
-                    "cn": [
-                        "在 `plan_review` 阶段，不要自动执行 `harness next`、自动开始编码或自动进入执行阶段。",
-                        "如果用户补充实施细节，也只允许把它吸收进 plan，然后等待用户确认。",
-                    ],
-                    "english": [
-                        "During `plan_review`, do not automatically run `harness next`, start coding, or enter execution.",
-                        "If the human adds implementation details, absorb them into the plan and then wait for confirmation.",
+                        "During `planning`, do not automatically run `harness next`, start coding, or enter execution.",
+                        "After producing change.md + plan.md + 变更简报.md, wait for human confirmation before advancing to executing.",
                     ],
                 },
             },
@@ -2723,44 +2684,29 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
     if stage == "requirement_review":
         payload.update(
             {
-                "stage": "changes_review",
+                "stage": "planning",
                 "status": "review",
-                "current_task": f"Split reviewed requirement {requirement_id or '(current requirement)'} into changes",
-                "next_action": "Create or refine change documents, then run `harness next`.",
-                "suggested_skill": "brainstorming",
-                "assistant_prompt": f"Use brainstorming to decompose the approved requirement into independently deliverable changes, create or update the change documents, and stop for human review before advancing.",
+                "current_task": f"Plan reviewed requirement {requirement_id or '(current requirement)'}: split into changes and produce change.md + plan.md + 变更简报.md in one pass",
+                "next_action": "Create or refine change.md + plan.md + 变更简报.md for every change, then run `harness next`.",
+                "suggested_skill": "writing-plans",
+                "assistant_prompt": "Use writing-plans (architect role) to decompose the approved requirement into independently deliverable changes and, for each, produce change.md + plan.md + 变更简报.md in a single planning pass. Stop for human review before advancing.",
                 "approval_required": True,
                 "stage_entered_at": now_iso,
             }
         )
         return payload
 
-    if stage == "changes_review":
+    if stage == "planning":
         if not focus_change:
             raise SystemExit("No changes exist yet. Create at least one `harness change` before advancing.")
-        payload.update(
-            {
-                "stage": "plan_review",
-                "status": "review",
-                "current_task": f"Draft and review the plan for change {focus_change}",
-                "next_action": f"Generate or review the plan for {focus_change}, then run `harness next`.",
-                "current_artifact_kind": "change",
-                "current_artifact_id": focus_change,
-                "suggested_skill": "writing-plans",
-                "assistant_prompt": f"Use writing-plans to turn change {focus_change} into a model-executable implementation plan, then stop for human review.",
-                "approval_required": True,
-                "stage_entered_at": now_iso,
-            }
-        )
-        return payload
-
-    if stage == "plan_review":
         payload.update(
             {
                 "stage": "ready_for_execution",
                 "status": "review",
                 "current_task": "Review complete. Waiting for execution confirmation",
                 "next_action": "Run `harness next --execute` to start implementation.",
+                "current_artifact_kind": "change",
+                "current_artifact_id": focus_change,
                 "suggested_skill": "",
                 "assistant_prompt": "Ask the human to confirm execution. Do not start implementation before explicit confirmation.",
                 "approval_required": True,
@@ -4834,9 +4780,8 @@ def _sync_stage_to_state_yaml(
 # 仅对主流程 stage 写入时间戳，避免 apply / suggestion_review 等辅助 stage 触发 schema 漂移。
 _STAGE_TIMESTAMP_WHITELIST = frozenset({
     "requirement_review",
-    "plan_review",
-    "ready_for_execution",
     "planning",
+    "ready_for_execution",
     "executing",
     "testing",
     "acceptance",
@@ -5748,8 +5693,7 @@ def workflow_status_lint(root: Path) -> int:
 # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）
 _STAGE_TO_ROLE: dict[str, str] = {
     "requirement_review": "requirement-review（需求分析师）",
-    "changes_review": "planning（架构师）",
-    "plan_review": "planning（架构师）",
+    "planning": "planning（架构师）",
     "ready_for_execution": "executing（开发者）",
     "executing": "executing（开发者）",
     "testing": "testing（测试工程师）",
@@ -5872,8 +5816,7 @@ def _stage_role_name(stage: str) -> str:
     """
     mapping = {
         "requirement_review": "requirement-review",
-        "changes_review": "planning",
-        "plan_review": "planning",
+        "planning": "planning",
         "ready_for_execution": "executing",
         "executing": "executing",
         "testing": "testing",

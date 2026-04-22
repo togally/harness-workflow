@@ -167,7 +167,7 @@ def test_resolve_task_context_paths_missing_not_raise(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _bootstrap_tmp_root(tmp_path: Path, stage: str = "changes_review", req_id: str = "req-99") -> Path:
+def _bootstrap_tmp_root(tmp_path: Path, stage: str = "planning", req_id: str = "req-99") -> Path:  # P-1 default-pick C（req-31 chg-01）：planning 替代 changes_review
     """构造最小可用的 workflow tmp root：runtime.yaml + 一个 requirement state yaml。"""
     import yaml as _yaml
 
@@ -207,8 +207,8 @@ def test_next_execute_emits_briefing_with_index(tmp_path, capsys):
     """req-32 / chg-03 Step 4 / AC-03 + AC-07：`next --execute` stdout 含 task_context_index + task_context_index_file；快照落盘。"""
     from harness_workflow.workflow_helpers import workflow_next
 
-    # ready_for_execution → executing 是会派发 briefing 的路径；plan_review → ready_for_execution
-    # 属于 _NO_BRIEFING_STAGES，不触发索引构建。
+    # ready_for_execution → executing 是会派发 briefing 的路径；planning → ready_for_execution
+    # 属于 _NO_BRIEFING_STAGES，不触发索引构建。（P-1 default-pick C, req-31 chg-01）
     root = _bootstrap_tmp_root(tmp_path, stage="ready_for_execution", req_id="req-99")
 
     rc = workflow_next(root, execute=True)

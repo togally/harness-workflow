@@ -358,12 +358,14 @@ class HarnessCliTest(unittest.TestCase):
 
         next_result = self.run_cli("next", "--root", str(self.repo))
         self.assertEqual(next_result.returncode, 0, msg=next_result.stderr or next_result.stdout)
-        self.assertIn("changes_review", next_result.stdout)
-        self.assertEqual(self.read_version_meta("v1.0.0")["stage"], "changes_review")
+        # P-1 default-pick C（req-31 chg-01）：planning 替代 changes_review
+        self.assertIn("planning", next_result.stdout)
+        self.assertEqual(self.read_version_meta("v1.0.0")["stage"], "planning")
 
         self.run_cli("change", "Online Booking", "--root", str(self.repo))
         self.run_cli("next", "--root", str(self.repo))
-        self.assertEqual(self.read_version_meta("v1.0.0")["stage"], "plan_review")
+        # planning → ready_for_execution（合并后序列，移除 plan_review 中间步骤）
+        self.assertEqual(self.read_version_meta("v1.0.0")["stage"], "ready_for_execution")
 
         ff_result = self.run_cli("ff", "--root", str(self.repo))
         self.assertEqual(ff_result.returncode, 0, msg=ff_result.stderr or ff_result.stdout)
