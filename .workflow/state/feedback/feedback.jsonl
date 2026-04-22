@@ -22,3 +22,17 @@
 {"ts": "2026-04-22T10:39:18.255062+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-22T10:47:19.394622+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 481.143475}}
 {"ts": "2026-04-22T10:47:19.394891+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-22T12:58:21.146627+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 7861.756221}}
+{"ts": "2026-04-22T12:58:21.146901+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "changes_review"}}
+{"ts": "2026-04-22T13:18:20.545128+00:00", "event": "stage_duration", "data": {"stage": "changes_review", "duration_seconds": 1199.403223}}
+{"ts": "2026-04-22T13:18:20.545593+00:00", "event": "stage_advance", "data": {"from_stage": "changes_review", "to_stage": "plan_review"}}
+{"ts": "2026-04-22T14:44:14.364675+00:00", "event": "stage_duration", "data": {"stage": "plan_review", "duration_seconds": 5153.824186}}
+{"ts": "2026-04-22T14:44:14.364956+00:00", "event": "stage_advance", "data": {"from_stage": "plan_review", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-22T14:45:48.665365+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 94.304969}}
+{"ts": "2026-04-22T14:45:48.666275+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-22T15:02:01.730633+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 973.074033}}
+{"ts": "2026-04-22T15:02:01.730753+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-22T15:33:56.047829+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 1914.320925}}
+{"ts": "2026-04-22T15:33:56.047963+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-22T15:33:57.503685+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 1.460745}}
+{"ts": "2026-04-22T15:33:57.503860+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
