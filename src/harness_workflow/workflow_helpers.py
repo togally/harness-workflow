@@ -3246,6 +3246,81 @@ def _migrate_state_files(root: Path) -> list[str]:
     return actions
 
 
+# req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/
+# chg-02（harness update 集成扫描器 + hash 漂移 + 用户自定义保护）/ Step 1 绿：
+# `.workflow/context/project-profile.md` 相对路径常量，helper 与 update_repo
+# 共享；与 project_scanner.PROFILE_REL_PATH 保持一致。
+_PROJECT_PROFILE_REL: str = ".workflow/context/project-profile.md"
+
+# 从已有 profile 文件中提取 frontmatter `content_hash:` 字段；匹配失败返回空串。
+_PROFILE_CONTENT_HASH_RE = re.compile(r"^content_hash:\s*([0-9a-f]{64})\s*$", re.MULTILINE)
+
+
+def _extract_profile_content_hash(text: str) -> str:
+    """req-32 / chg-02 / Step 1：从 profile 文本 frontmatter 解析 content_hash。
+
+    解析失败（文件损坏 / 字段缺失）返回空串，调用方视为 "无旧 hash" → 走漂移分支
+    重建（plan.md Step 4 旧 profile 损坏兜底）。
+    """
+    m = _PROFILE_CONTENT_HASH_RE.search(text)
+    return m.group(1) if m else ""
+
+
+def _write_project_profile_if_changed(root: Path, actions: list[str]) -> None:
+    """req-32 / chg-02 / Step 1-2：update_repo 末尾调用，写盘 + 漂移检测三态。
+
+    - **首次**（目标文件不存在）：写盘 + stderr ``project-profile 已生成（初始 hash: <short7>）``
+    - **无漂移**（旧 content_hash == 新）：**不重写**文件 + stderr 静默（避免 generated_at
+      漂移触发无意义 git diff）。
+    - **有漂移**（不同 / 旧文件损坏）：重写 + stderr ``project-profile 已刷新（hash 漂移：<old7>→<new7>）``
+
+    依赖 project_scanner（chg-01 已交付）；本 helper 不新增扫描逻辑，只做
+    "扫 → 渲染 → 比对 → 写 + stderr" 的装配。
+    """
+    # 延迟 import 避免 module load 时的循环依赖（project_scanner 反向依赖 _managed_hash）
+    from .project_scanner import (
+        build_project_profile,
+        render_project_profile,
+    )
+
+    target = root / _PROJECT_PROFILE_REL
+    profile = build_project_profile(root)
+    new_text = render_project_profile(profile)
+    new_hash = _extract_profile_content_hash(new_text)
+
+    old_hash = ""
+    if target.exists():
+        try:
+            old_text = target.read_text(encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            old_text = ""
+        old_hash = _extract_profile_content_hash(old_text)
+
+    if not target.exists():
+        # 首次生成
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(new_text, encoding="utf-8")
+        actions.append(f"generated {_PROJECT_PROFILE_REL}")
+        print(
+            f"[update_repo] project-profile 已生成（初始 hash: {new_hash[:7]}）",
+            file=sys.stderr,
+        )
+        return
+
+    if old_hash and old_hash == new_hash:
+        # 无漂移：保留旧文件（含旧 generated_at），静默跳过
+        return
+
+    # 有漂移（包括旧文件损坏 / 字段缺失 → old_hash 为空）
+    target.write_text(new_text, encoding="utf-8")
+    actions.append(f"refreshed {_PROJECT_PROFILE_REL}")
+    old_short = old_hash[:7] if old_hash else "unknown"
+    print(
+        f"[update_repo] project-profile 已刷新（hash 漂移：{old_short}→{new_hash[:7]}）",
+        file=sys.stderr,
+    )
+
+
 def update_repo(
     root: Path,
     check: bool = False,
@@ -3348,6 +3423,13 @@ def update_repo(
         actions.extend(migrate_actions)
 
     _refresh_experience_index(root)
+
+    # req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）/
+    # chg-02（harness update 集成扫描器 + hash 漂移 + 用户自定义保护）/ Step 1-2：
+    # 末尾接入 project-profile 写盘 + hash 漂移检测（三态见 helper docstring）。
+    # check=True（`harness update --check`）仅预演不改盘，跳过。
+    if not check:
+        _write_project_profile_if_changed(root, actions)
 
     print("Update summary:")
     for action in actions:
