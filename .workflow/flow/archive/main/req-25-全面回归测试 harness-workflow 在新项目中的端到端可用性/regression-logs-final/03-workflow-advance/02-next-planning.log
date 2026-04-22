@@ -1,7 +1,0 @@
-=== COMMAND: harness next ===
-=== TIMESTAMP: 2026-04-19T04:25:04Z ===
-=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
-=== BEGIN OUTPUT ===
-Workflow advanced to changes_review
-=== END OUTPUT ===
-=== EXIT CODE: 0 ===

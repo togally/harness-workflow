@@ -1,6 +1,0 @@
-=== COMMAND: harness exit ===
-=== TIME: 2026-04-19 10:50:09 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Exited harness mode.
-=== EXIT_CODE: 0 ===

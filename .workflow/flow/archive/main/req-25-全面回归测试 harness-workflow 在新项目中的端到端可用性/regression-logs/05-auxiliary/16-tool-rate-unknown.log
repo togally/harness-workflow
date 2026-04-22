@@ -1,6 +1,0 @@
-=== COMMAND: harness tool-rate unknown-tool 3 ===
-=== TIME: 2026-04-19 10:54:10 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Rated unknown-tool: 3.0 (from 0 ratings)
-=== EXIT_CODE: 0 ===

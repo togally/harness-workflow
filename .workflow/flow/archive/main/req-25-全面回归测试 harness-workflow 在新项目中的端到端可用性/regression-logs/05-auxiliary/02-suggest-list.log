@@ -1,7 +1,0 @@
-=== COMMAND: harness suggest --list ===
-=== TIME: 2026-04-19 10:51:19 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Suggestions:
-  sug-01 [pending] (2026-04-19) test suggestion content
-=== EXIT_CODE: 0 ===

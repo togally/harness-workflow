@@ -1,8 +1,0 @@
-=== COMMAND: find . -name 'done-report*' 2>/dev/null; echo '---req-old---'; find . -path '*req-0[2-9]*' 2>/dev/null | head -20; find . -path '*req-1[01]-*' 2>/dev/null | head -20; echo '---sug---'; find . -name 'sug-*' 2>/dev/null | head -20 ===
-=== TIMESTAMP: 2026-04-19T04:22:48Z ===
-=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
-=== BEGIN OUTPUT ===
----req-old---
----sug---
-=== END OUTPUT ===
-=== EXIT CODE: 0 ===

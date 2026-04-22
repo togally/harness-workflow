@@ -1,4 +1,3 @@
-# Python build/cache
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -6,17 +5,20 @@ __pycache__/
 .venv/
 dist/
 build/
-
-# Editor / tool dirs
+/.claude/
+/.codex/
 /.idea/
 /.qoder/
-/.kimi/
-/.codex/
-/.claude/
 
-# Local docs / worktrees
-/docs/
-.worktrees/
-
-# .workflow internal backups (keep .workflow/ itself tracked)
+# harness workflow directory (must not be ignored)
+!.workflow/
 .workflow/context/backup/
+.worktrees/
+/docs/
+/.workflow/
+/.idea/
+/.kimi/
+/.workflow/
+/docs/
+/artifacts/
+/docs/

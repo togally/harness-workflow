@@ -1,7 +1,0 @@
-=== COMMAND: harness suggest --delete sug-02 (after confirmed creation) ===
-=== TIME: 2026-04-19 10:53:44 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Created suggestion: .workflow/flow/suggestions/sug-02-yet-another-sug.md
-Suggestion not found: sug-03
-=== EXIT_CODE: 1 ===

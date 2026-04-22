@@ -1,6 +1,0 @@
-=== COMMAND: harness tool-search xyznomatch ===
-=== TIME: 2026-04-19 10:53:59 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-No matching tool found.
-=== EXIT_CODE: 0 ===

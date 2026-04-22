@@ -1,9 +1,0 @@
-=== COMMAND: harness regression --cancel ===
-=== TIMESTAMP: 2026-04-19T04:28:09Z ===
-=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
-=== BEGIN OUTPUT ===
-Created regression experience: .workflow/context/experience/regression/sample issue.md
-Regression sample issue cancelled.
-Consider summarizing lessons into `context/experience/stage/testing.md` and `context/experience/stage/acceptance.md` if applicable.
-=== END OUTPUT ===
-=== EXIT CODE: 0 ===

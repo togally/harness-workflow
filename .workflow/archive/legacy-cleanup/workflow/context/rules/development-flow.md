@@ -1,0 +1,72 @@
+# Development Flow
+
+## 1. Core Principle
+
+- Workflow rules live under `workflow/context/rules/`
+- Runtime state lives in `workflow/context/rules/workflow-runtime.yaml`
+- Lifecycle hooks live under `workflow/context/hooks/`
+- Each version keeps local state in `workflow/versions/active/<version>/meta.yaml`
+- Before any requirement, change, plan, execution, or regression work, the agent must route through runtime state first
+
+## 2. Routing Order
+
+Before doing any work:
+
+1. Read `workflow/context/rules/workflow-runtime.yaml`
+2. Find `current_version`
+3. Read the current version `meta.yaml`
+4. Confirm `stage`, `status`, and `current_task`
+5. Re-index `workflow/context/experience/index.md` and load the most relevant mature experience for the current task
+6. Continue only if the state allows it
+
+If `current_version` is missing, version `meta.yaml` is missing, or runtime/config disagree, stop immediately and require `harness active "<version>"` before continuing. Do not bypass workflow with a manual fallback process.
+
+## 3. Stage Definitions
+
+- `idle`
+- `requirement_review`
+- `changes_review`
+- `plan_review`
+- `ready_for_execution`
+- `executing`
+- `done`
+- `regression`
+
+Additional guardrails:
+
+- Every completed change must include `mvn compile`
+- Every completed requirement must include successful project startup validation
+- During `requirement_review`, do not start implementation directly; even an implementation-oriented prompt must first be handled as requirement discussion input
+- If compilation fails or startup fails, do not bypass the failure; start `harness regression "<issue>"` first
+- If startup logs, compile output, test failures, or runtime stack traces are already available locally, the AI should collect and analyze them first
+- If repair needs human-provided configuration, data, accounts, or external dependency details, the AI must fill the related change `regression/required-inputs.md` first and only then ask the human to complete it; do not skip the template and ask ad hoc questions in chat
+
+## 4. Command Semantics
+
+- `harness version "<name>"`: create or switch a version and make it current
+- `harness active "<name>"`: explicitly repair or switch the active version route
+- `harness use "<name>"`: switch the current version
+- `harness enter`: enter harness conversation mode at the current version and workflow node
+- `harness exit`: leave harness conversation mode without changing the current stage
+- `harness rename version|requirement|change "<old>" "<new>"`: rename work artifacts while keeping metadata aligned
+- `harness archive "<requirement>"`: archive one completed requirement and its linked changes
+- `harness regression "<issue>"`: start a regression diagnosis flow
+- `harness regression --confirm|--reject|--cancel`: advance the current regression diagnosis
+- `harness regression --change "<title>"`: convert a confirmed regression into a new change
+- `harness regression --requirement "<title>"`: convert a confirmed regression into a requirement update
+- `harness status`: show current runtime state
+- `harness next`: advance to the next stage
+- `harness next --execute`: confirm execution when already ready
+- `harness ff`: fast-forward to the final execution confirmation gate
+
+## 5. Guardrails
+
+- Do not start coding before routing through workflow state
+- Do not advance work without a confirmed current version
+- During `requirement_review`, do not treat extra implementation detail as permission to code
+- During regression flow, do not jump straight back into coding before the human confirms it is a real problem
+- Long-term regression history lives in `workflow/versions/active/<version>/regressions/`; it should not permanently occupy the main version workflow state
+- `ff` skips discussion gates, not the final execution confirmation
+- If workflow state is missing, inconsistent, or blocked, the agent must stop and require repair instead of manually simulating the workflow
+- After each stage-level task completes, check whether new lessons should be captured; mature lessons should be fused into `workflow/context/experience/` or formal rules
+- Any `harness` command should automatically enter harness conversation mode; while that mode is active, the conversation must remain constrained to the locked workflow node until `harness exit`

@@ -1,6 +1,0 @@
-=== COMMAND: harness archive req-01 ===
-=== TIME: 2026-04-19 10:54:37 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Requirement does not exist: req-01
-=== EXIT_CODE: 1 ===

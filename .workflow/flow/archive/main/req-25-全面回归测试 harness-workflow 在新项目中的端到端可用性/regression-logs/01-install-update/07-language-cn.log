@@ -1,7 +1,0 @@
-=== COMMAND: harness language cn ===
-=== TIME: 2026-04-19 10:49:15 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Language set to cn
-Run `harness update` if you want managed templates and guides to refresh in the new language.
-=== EXIT_CODE: 0 ===

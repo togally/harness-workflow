@@ -1,6 +1,0 @@
-=== COMMAND: harness validate (against req-01 now existing) ===
-=== TIME: 2026-04-19 10:52:41 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-Requirement not found: req-01
-=== EXIT_CODE: 1 ===

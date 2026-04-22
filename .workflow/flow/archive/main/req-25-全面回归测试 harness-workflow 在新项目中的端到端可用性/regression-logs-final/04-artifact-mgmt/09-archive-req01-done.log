@@ -1,7 +1,0 @@
-=== COMMAND: harness archive req-01 ===
-=== TIMESTAMP: 2026-04-19T04:26:52Z ===
-=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
-=== BEGIN OUTPUT ===
-No done requirements available to archive.
-=== END OUTPUT ===
-=== EXIT CODE: 1 ===

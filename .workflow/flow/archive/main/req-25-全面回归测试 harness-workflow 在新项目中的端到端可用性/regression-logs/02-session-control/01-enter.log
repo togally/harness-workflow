@@ -1,9 +1,0 @@
-=== COMMAND: harness enter ===
-=== TIME: 2026-04-19 10:50:08 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-No active requirements found.
-Entered harness mode.
-
-【提示】当前需求 req-25 暂无会话记录。
-=== EXIT_CODE: 0 ===

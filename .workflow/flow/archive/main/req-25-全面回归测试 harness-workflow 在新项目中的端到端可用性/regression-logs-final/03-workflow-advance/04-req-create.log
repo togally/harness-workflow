@@ -1,9 +1,0 @@
-=== COMMAND: harness requirement "end-to-end test" ===
-=== TIMESTAMP: 2026-04-19T04:25:33Z ===
-=== WORKDIR: /tmp/harness-regression-final-20260419-122147 ===
-=== BEGIN OUTPUT ===
-Requirement workspace: /private/tmp/harness-regression-final-20260419-122147/artifacts/main/requirements/req-01-end-to-end test
-- created /private/tmp/harness-regression-final-20260419-122147/artifacts/main/requirements/req-01-end-to-end test/requirement.md
-- created .workflow/state/requirements/req-01-end-to-end test.yaml
-=== END OUTPUT ===
-=== EXIT CODE: 0 ===

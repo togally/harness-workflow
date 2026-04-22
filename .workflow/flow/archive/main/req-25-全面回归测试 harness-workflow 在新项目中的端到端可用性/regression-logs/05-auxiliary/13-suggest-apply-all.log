@@ -1,6 +1,0 @@
-=== COMMAND: harness suggest --apply-all ===
-=== TIME: 2026-04-19 10:53:59 ===
-=== CWD: /tmp/harness-regression-20260419-104820 ===
-=== STDOUT+STDERR ===
-No pending suggestions found.
-=== EXIT_CODE: 0 ===
