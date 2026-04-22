@@ -78,3 +78,125 @@ def test_scan_node_project(tmp_path: Path) -> None:
     assert any("start" in ep or "node index.js" in ep for ep in profile.entrypoints)
     # TS 存在应有 node+ts 标签
     assert "node+ts" in profile.stack_tags or "nodejs" in profile.stack_tags
+
+
+# -----------------------------
+# Step 2: 其余描述文件
+# -----------------------------
+
+
+def test_scan_maven_project(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 2：pom.xml 解析最小用例。"""
+    (tmp_path / "pom.xml").write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>demo-java</artifactId>
+  <version>0.1.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>6.0.0</version>
+    </dependency>
+  </dependencies>
+</project>
+""".strip(),
+        encoding="utf-8",
+    )
+
+    from harness_workflow.project_scanner import build_project_profile
+
+    profile = build_project_profile(tmp_path)
+    assert profile.package_name == "demo-java"
+    assert profile.language == "java"
+    assert any("spring-core" in dep for dep in profile.deps_top)
+    assert "java+maven" in profile.stack_tags
+
+
+def test_scan_go_module(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 2：go.mod 解析最小用例。"""
+    (tmp_path / "go.mod").write_text(
+        """
+module github.com/acme/demo-go
+
+go 1.21
+
+require (
+    github.com/gorilla/mux v1.8.0
+    github.com/stretchr/testify v1.8.4
+)
+""".strip(),
+        encoding="utf-8",
+    )
+
+    from harness_workflow.project_scanner import build_project_profile
+
+    profile = build_project_profile(tmp_path)
+    assert profile.package_name == "demo-go"
+    assert profile.language == "go"
+    assert any("gorilla/mux" in dep for dep in profile.deps_top)
+    assert "go-module" in profile.stack_tags
+
+
+def test_scan_rust_cargo_project(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 2：Cargo.toml 解析最小用例。"""
+    (tmp_path / "Cargo.toml").write_text(
+        """
+[package]
+name = "demo-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1.0"
+tokio = { version = "1", features = ["full"] }
+""".strip(),
+        encoding="utf-8",
+    )
+
+    from harness_workflow.project_scanner import build_project_profile
+
+    profile = build_project_profile(tmp_path)
+    assert profile.package_name == "demo-rust"
+    assert profile.language == "rust"
+    joined = " ".join(profile.deps_top)
+    assert "serde" in joined and "tokio" in joined
+    assert "rust-cargo" in profile.stack_tags
+
+
+def test_scan_readme_headline(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 2：README.md 首 H1 作为 project_headline。"""
+    (tmp_path / "README.md").write_text(
+        "# My Cool Project\n\nSome description.\n", encoding="utf-8"
+    )
+
+    from harness_workflow.project_scanner import build_project_profile
+
+    profile = build_project_profile(tmp_path)
+    assert profile.project_headline == "My Cool Project"
+
+
+def test_scan_claude_md_headline(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 2：CLAUDE.md 首 H1 兜底作为 project_headline。"""
+    (tmp_path / "CLAUDE.md").write_text(
+        "# Claude Project Guide\n\nusage notes\n", encoding="utf-8"
+    )
+
+    from harness_workflow.project_scanner import build_project_profile
+
+    profile = build_project_profile(tmp_path)
+    assert profile.project_headline == "Claude Project Guide"
+
+
+def test_scan_agents_md_headline(tmp_path: Path) -> None:
+    """req-32 / chg-01 / Step 2：AGENTS.md 首 H1 兜底作为 project_headline。"""
+    (tmp_path / "AGENTS.md").write_text(
+        "# Agents Manifest\n", encoding="utf-8"
+    )
+
+    from harness_workflow.project_scanner import build_project_profile
+
+    profile = build_project_profile(tmp_path)
+    assert profile.project_headline == "Agents Manifest"
