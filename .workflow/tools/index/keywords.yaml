@@ -68,3 +68,8 @@ tools:
     keywords: ["cycle", "detector", "循环检测", "subagent", "call-chain", "调用链"]
     catalog: "catalog/harness-cycle-detector.md"
     description: "检测 subagent 调用链中的循环依赖"
+
+  - tool_id: "api-document-upload"
+    keywords: ["上传 API 文档", "API 同步 apifox", "生成 openapi", "API 文档同步", "接口文档上传", "apifox 同步", "openapi 导出"]
+    catalog: "catalog/api-document-upload.md"
+    description: "扫描项目 API 定义生成 OpenAPI 并上传到选定 provider（apifox/postman/swagger/...）"
