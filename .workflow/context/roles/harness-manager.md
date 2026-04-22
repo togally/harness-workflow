@@ -161,9 +161,9 @@ harness <verb> [noun] [--flags]
 |------|----------|
 | `harness install` | 调用 `install_repo()` 初始化 + 刷新仓库（已吸收原 update 刷新职责；req-33 / chg-01） |
 | `harness install --agent <agent>` | 调用 `install_agent()` 安装到指定 agent |
-| `harness update` | 打印角色契约引导 + exit 0；语义由 §3.5.1 触发词召唤 project-reporter（req-33 / chg-02） |
-| `harness update --check` | 同上（flag 不报错，handler 忽略） |
-| `harness update --scan` | 同上（如需扫描报告请改用 `harness install` 的 stderr 提示或直接在会话中触发 project-reporter） |
+| `harness update` | 裸调用（无 flag）：打印角色契约引导 + exit 0；语义由 §3.5.1 触发词召唤 project-reporter（req-33 / chg-02） |
+| `harness update --check` | 有 flag：透传到 `install_repo(check=True, ...)`，输出 drift 预览（bugfix-1 修正，见 §A.4） |
+| `harness update --scan` | 有 flag：透传到 `scan_project(root)`，输出项目适配报告（bugfix-1 修正，见 §A.5） |
 | `harness language` | 调用 `set_language()` 设置语言 |
 
 #### 3.2 会话控制类 → 主 agent（technical-director）执行
@@ -399,32 +399,35 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 **参数**:
 - `agent`: kimi | claude | codex | qoder
 
-#### A.3 `harness update`（req-33 / chg-02 重定义）
+#### A.3 `harness update`（req-33 / chg-02 重定义 + bugfix-1 flag 路由修正）
 
-**功能**: 召唤 project-reporter 生成 `artifacts/main/project-overview.md`。
+**功能**: **无 flag 时**打印引导 + exit 0（保留 req-33 / chg-02 角色触发语义）；**任意刷新 flag（`--check` / `--scan` / `--force-managed` / `--all-platforms` / `--agent`）存在时**透传到 `install_repo(...)` / `scan_project(...)`（等价 req-33 / chg-01 合并后的 Python API，drift check 能力恢复）。
 
-**语义**: 本命令已不再承担 CLI 同步职责（skill 刷新 / managed 文件 / legacy 清理 / state 迁移 / experience index / project-profile 写盘等已全部迁入 `harness install`，见 §A.1）；本条 CLI 现为**打印引导 + `exit 0`**。
+**语义**: 本命令已不再承担完整 CLI 同步职责（skill 刷新 / managed 文件 / legacy 清理 / state 迁移 / experience index / project-profile 写盘等已全部迁入 `harness install`，见 §A.1）；裸 `harness update`（无 flag）现为**打印引导 + `exit 0`**；带刷新 flag 的 `harness update` 委托到 `install_repo(force_skill=True, ...)`（bugfix-1 修正）。
 
 **执行流程**:
-1. CLI 层：`src/harness_workflow/cli.py` main() 对 `args.command == "update"` 直接打印三行引导并 `return 0`（req-33 / chg-02 的 S-B4）：
-   - `harness update 已重定义为角色契约触发。`
-   - `请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。`
-   - `CLI 同步职责已迁到 \`harness install\`。`
+1. CLI 层 handler 按 flag 分叉（bugfix-1）：
+   - 若含 `--scan` → 调 `scan_project(root)`（项目适配报告）。
+   - 若含 `--check` / `--force-managed` / `--all-platforms` / `--agent` 任一 → 调 `install_repo(root, force_skill=True, check=..., force_managed=..., force_all_platforms=..., agent_override=...)`，输出 "Update summary … No files were changed." 形式的 drift 预览（原 `update_repo --check` 行为回归）。
+   - 否则（裸 update，无任何刷新 flag）→ 打印三行引导并 `return 0`（req-33 / chg-02 的 S-B4）：
+     - `harness update 已重定义为角色契约触发。`
+     - `请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。`
+     - `CLI 同步职责已迁到 \`harness install\`。`
 2. 角色层：harness-manager 识别用户在会话中说出 §3.5.1 登记的四触发词（`生成项目现状报告` / `项目状态` / `项目快照` / `生成 project-overview.md`）之一时，按 §3.5.1 派发协议召唤 project-reporter（Opus 4.7）产出 `artifacts/main/project-overview.md`（每次召唤覆写）。
 3. 与 `harness update` CLI 无强绑定：用户不跑 CLI 也可直接在会话中说触发词；CLI 仅作引导提示入口。
 
-**不包含**:
-- 不再刷新 `.codex/skills/harness` / `.claude/skills/harness` / `.qoder/skills/harness`（请用 `harness install`）
+**不包含**（裸 update / 无 flag 时仍适用）:
+- 不再刷新 `.codex/skills/harness` / `.claude/skills/harness` / `.qoder/skills/harness`（请用 `harness install` 或 `harness update --force-managed`）
 - 不再同步 managed 文件 / 清理 legacy artifacts / 迁移 state / 刷新 experience index（请用 `harness install`）
 - 不再写盘 `.workflow/context/project-profile.md`（请用 `harness install`）
 
 #### A.4 `harness update --check`
 
-见 §A.3；`--check` flag 被 argparse 解析不报错，但 handler 忽略该 flag 统一打印引导（req-33 / chg-02 的 S-B4 / P-B2）。
+`--check` flag 触发 `install_repo(root, force_skill=True, check=True, ...)`，输出 "Update summary … No files were changed." 的 drift 预览（原 `update_repo --check` 行为回归，bugfix-1 修正）。不再统一打印引导（req-33 / chg-02 的 P-B2 已被 bugfix-1 覆盖）。
 
 #### A.5 `harness update --scan`
 
-见 §A.3；`--scan` 同 `--check` 处理。若确需扫描项目特征，请在会话中直接触发 project-reporter（其 10 节模板的 §2-§5 覆盖原 `scan_project()` 的技术栈 / 目录结构 / 规范文件检测，且含证据路径硬门禁 H-1）。
+`--scan` flag 触发 `scan_project(root)`（项目适配报告，等价历史行为，bugfix-1 修正）。若需 10 节现状报告请在会话中说触发词召唤 project-reporter（§3.5.1）。
 
 #### A.6 `harness language <english|cn>`
 

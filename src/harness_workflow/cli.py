@@ -398,11 +398,32 @@ def main() -> int:
             cmd_args.append("--write-claude")
         return _run_tool_script("harness_init.py", cmd_args, root)
     if args.command == "update":
+        # bugfix-1（harness update --check 等 flag 被角色触发吞了，drift check 无路可走）：
         # req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter）/
         # chg-02（harness update 角色契约层重定义为召唤 project-reporter）/ S-B4：
-        # CLI 同步职责已迁到 `harness install`；本 handler 改为打印引导 + exit 0。
-        # 保留 update_parser 的 --check / --scan / --force-managed / --agent / --all-platforms
-        # 五个 flag 解析不报错（argparse 仍吃），handler 一律忽略。
+        # 方案 A：有任意刷新 flag → 透传到 install_repo（等价历史 update_repo 行为）；
+        # 裸 update（无 flag）→ 保留 req-33 / chg-02 的三行引导 + exit 0。
+        has_refresh_flag = (
+            getattr(args, "check", False)
+            or getattr(args, "scan", False)
+            or getattr(args, "force_managed", False)
+            or getattr(args, "all_platforms", False)
+            or bool(getattr(args, "agent", None))
+        )
+        if getattr(args, "scan", False):
+            from harness_workflow.workflow_helpers import scan_project
+            return scan_project(root)
+        if has_refresh_flag:
+            from harness_workflow.workflow_helpers import install_repo
+            return install_repo(
+                root,
+                force_skill=True,
+                check=getattr(args, "check", False),
+                force_managed=getattr(args, "force_managed", False),
+                force_all_platforms=getattr(args, "all_platforms", False),
+                agent_override=getattr(args, "agent", None),
+            )
+        # 裸 `harness update`（无任何刷新 flag）→ req-33 / chg-02 引导 + exit 0
         print("harness update 已重定义为角色契约触发。")
         print("请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。")
         print("CLI 同步职责已迁到 `harness install`。")
