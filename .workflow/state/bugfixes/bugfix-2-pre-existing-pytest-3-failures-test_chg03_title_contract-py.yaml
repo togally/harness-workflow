@@ -1,0 +1,9 @@
+id: "bugfix-2"
+title: "pre-existing pytest 3 failures：test_chg03_title_contract.py 与 test_smoke_req29.py 硬编码 req-29 / req-30 旧目录名（req-29 实际归档为 角色-模型映射-... 而非 批量建议合集）"
+stage: "regression"
+status: "active"
+created_at: "2026-04-23"
+started_at: "2026-04-23"
+completed_at: ""
+stage_timestamps: {}
+description: ""
