@@ -1,7 +1,7 @@
 operation_type: "requirement"
 operation_target: "req-36"
-current_requirement: "req-36"
-current_requirement_title: "harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）"
+current_requirement: ""
+current_requirement_title: ""
 stage: "done"
 stage_entered_at: "2026-04-23T06:00:20.561834+00:00"
 conversation_mode: "open"
@@ -22,5 +22,4 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements:
-  - req-36
+active_requirements: []
