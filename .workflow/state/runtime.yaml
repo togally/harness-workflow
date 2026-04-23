@@ -1,15 +1,15 @@
 operation_type: "bugfix"
 operation_target: "bugfix-3"
-current_requirement: "bugfix-2"
-current_requirement_title: "pre-existing pytest 3 failures：test_chg03_title_contract.py 与 test_smoke_req29.py 硬编码 req-29 / req-30 旧目录名（req-29 实际归档为 角色-模型映射-... 而非 批量建议合集）"
-stage: "done"
-stage_entered_at: "2026-04-23T07:40:27.914614+00:00"
+current_requirement: "bugfix-3"
+current_requirement_title: "CLI sug-12 / sug-13 复发：harness next 在 regression/planning 后吞 stage（执行至 testing 跳过应有的 planning/executing），且 runtime.yaml ↔ state/requirements/req-*.yaml 的 stage 字段不同步（多次手工修复）"
+stage: "regression"
+stage_entered_at: "2026-04-23T07:50:00.000000+00:00"
 conversation_mode: "harness"
 locked_requirement: ""
 locked_requirement_title: ""
 locked_stage: ""
-current_regression: "reg-02"
-current_regression_title: "req-36 AC-5 收口：CLI 路由 + packaging 双根因（install 不调 install_repo + update --flag 仍走 install_repo + pyproject 漏装 mirror）"
+current_regression: ""
+current_regression_title: ""
 ff_mode: false
 ff_stage_history:
   - regression
@@ -23,4 +23,4 @@ ff_stage_history:
   - acceptance
   - done
 active_requirements:
-  - bugfix-2
+  - bugfix-3
