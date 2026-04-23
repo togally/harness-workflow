@@ -64,6 +64,7 @@
 - 确认前置上下文已加载（runtime.yaml、base-role.md、tools-manager.md、本角色文件）
 - 向用户自我介绍："我是 **harness-manager（harness-manager / opus）**，接下来我将解析你的命令并协调执行。"（输出 ID 时记得带 ≤ 15 字简短描述，base-role 硬门禁六（req-35（base-role 加硬门禁：对人汇报 ID 必带简短描述（契约 7 扩展）） / chg-02））
 - **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议）硬门禁四并列生效**：stage 边界前**不打断**用户，争议点按 default-pick 推进；stage 流转时一次性 batched-report（含本 stage 所有 default-pick 决策 + 理由）。例外条款见 base-role.md `## 硬门禁四`。
+- **汇报口径**（base-role 硬门禁七（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）并列生效）：任意命令执行完 / subagent 派发完 / 解析完，汇报必须遵循 Ra/Rb/Rc 三条——**停下** + 报做了什么 + 报状态 + 收「**本命令已执行完。**」，**不列**"后续可选动作 1/2/3"、**不诱导**用户择一。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
 
 ### Step 1: 命令理解层——解析 harness 命令意图
 
@@ -231,6 +232,8 @@ harness <verb> [noun] [--flags]
 3. 按 Step 6 用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） / chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）））首次派发说明形如 `派发 project-reporter（Opus 4.7）按 10 节扫仓库产出 artifacts/main/project-overview.md`；
 4. 角色文件路径：`.workflow/context/roles/project-reporter.md`。
 
+**汇报收束**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：派发 project-reporter 后，harness-manager 汇报形如「**已派发 project-reporter（Opus 4.7）按 10 节扫仓库，产出 artifacts/main/project-overview.md。本命令已执行完。**」；**禁**再列"后续可选动作 1/2/3"、**禁**询问"要不要也跑 harness status / drift check"。用户自主决定下一步（通过 `harness next` / `/<command>` / 直接说话）。
+
 **产物**：单一文件 `artifacts/main/project-overview.md`（每次召唤覆写，不做 diff / 版本历史；历史由 git 记录）。
 
 **非召唤条件（明确不触发）**：用户要求"更新 harness" / "跑单测" / "归档需求" 等与现状报告无关的命令，不触发本召唤。
@@ -360,6 +363,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 1. 向用户报告结果摘要
 2. 将操作追加到 `.workflow/state/action-log.md`
 3. **stage 边界 batched-report（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议））**：当 subagent 报告完成并需要 `harness next` 推进时，向用户的汇报**必须**含"default-pick 决策清单（若无写'无'）"。格式归并到 stage-role.md `## 统一精简汇报模板（req-31 / chg-02）` 字段 3。**base-role 硬门禁六（req-35（base-role 加硬门禁：对人汇报 ID 必带简短描述（契约 7 扩展）） / chg-02）**：batched-report 里所有 reg/req/chg/sug/bugfix id 必须带 ≤ 15 字简短描述，例：`完成 chg-01（硬门禁六定义）+ chg-02（hint 加注），无 default-pick`。
+4. **汇报禁区**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：batched-report 与命令执行汇报末尾一律收「**本命令已执行完。**」或「**本阶段已结束。**」；**禁**"建议下一步：..."、"是否同意..."、"回 yes/no"、"A/B/C 后续可选动作"等诱导句式。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
 
 日志格式：
 ```markdown
@@ -379,6 +383,8 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 ## 命令执行手册
 
 ### A. 安装更新类
+
+> **汇报口径通则**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：本节所有命令执行完后，harness-manager 汇报必须遵循 base-role 硬门禁七 Ra/Rb/Rc——停下 + 报做了什么 + 报状态 + 收「**本命令已执行完。**」，**不列**"后续可选动作 1/2/3"、**不诱导**用户择一。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
 
 #### A.1 `harness install`
 
@@ -425,6 +431,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
      - `harness update 已重定义为角色契约触发。`
      - `请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。`
      - `CLI 同步职责已迁到 \`harness install\`。`
+     - **汇报收束**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：harness-manager 打印完三行引导即**停**；**不**再列"后续可选动作 3 条"、**不**询问"要不要生成 project-overview.md"。用户如需召唤 project-reporter，自行在会话中说 §3.5.1 触发词之一。harness-manager 的裸 update 职责至此结束，末尾收「**本命令已执行完。**」一行。
 2. 角色层：harness-manager 识别用户在会话中说出 §3.5.1 登记的四触发词（`生成项目现状报告` / `项目状态` / `项目快照` / `生成 project-overview.md`）之一时，按 §3.5.1 派发协议召唤 project-reporter（Opus 4.7）产出 `artifacts/main/project-overview.md`（每次召唤覆写）。
 3. 与 `harness update` CLI 无强绑定：用户不跑 CLI 也可直接在会话中说触发词；CLI 仅作引导提示入口。
 
@@ -451,6 +458,8 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 3. 提示运行 `harness update` 刷新模板
 
 ### B. 会话控制类
+
+> **汇报口径通则**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：本节所有命令执行完后，harness-manager 汇报必须遵循 base-role 硬门禁七 Ra/Rb/Rc——停下 + 报做了什么 + 报状态 + 收「**本命令已执行完。**」，**不列**"后续可选动作 1/2/3"、**不诱导**用户择一。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
 
 #### B.1 `harness enter [req-id]`
 
@@ -494,6 +503,8 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 
 ### C. 工作流推进类
 
+> **汇报口径通则**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：本节所有命令执行完后，harness-manager 汇报必须遵循 base-role 硬门禁七 Ra/Rb/Rc——停下 + 报做了什么 + 报状态 + 收「**本命令已执行完。**」，**不列**"后续可选动作 1/2/3"、**不诱导**用户择一。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
+
 #### C.1 `harness next [--execute]`
 
 **功能**: 推进到下一 stage。
@@ -519,6 +530,8 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 3. 记录推进历史到 ff_stage_history
 
 ### D. 工件管理类
+
+> **汇报口径通则**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：本节所有命令执行完后，harness-manager 汇报必须遵循 base-role 硬门禁七 Ra/Rb/Rc——停下 + 报做了什么 + 报状态 + 收「**本命令已执行完。**」，**不列**"后续可选动作 1/2/3"、**不诱导**用户择一。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
 
 #### D.1 `harness requirement <title>`
 
@@ -574,6 +587,8 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 3. 更新所有关联引用
 
 ### E. 辅助功能类
+
+> **汇报口径通则**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）：本节所有命令执行完后，harness-manager 汇报必须遵循 base-role 硬门禁七 Ra/Rb/Rc——停下 + 报做了什么 + 报状态 + 收「**本命令已执行完。**」，**不列**"后续可选动作 1/2/3"、**不诱导**用户择一。豁免清单（破坏性 / 不可回滚 / 跨 repo）见 base-role 硬门禁七段落。
 
 #### E.1 `harness suggest`
 

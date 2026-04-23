@@ -150,3 +150,12 @@
 - [ ] 已执行 `harness validate --contract 7` 或 `harness status --lint`，返回 0（高）
 - [ ] 本次新增 / 修改的对人文档（requirement.md / change.md / plan.md / session-memory.md / 各 `*.md` 对人文档）首次引用 `req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*` 均带 title（形如 `req-31（批量建议合集（20条））`）（高）
 - [ ] 若命中历史 legacy 裸 id，已判定为"只对本次提交之后引用生效"的 fallback，不强制回补（中）
+
+## req-37 汇报合规三问（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-03）
+
+> 承接 base-role 硬门禁七（req-37 / chg-01）Ra/Rb/Rc 三条；lint 自动化成本过高时由本清单人工降级兜底（AC-6）。
+
+- [ ] **Ra 无选项诱导**：`grep -nE "A[./、 ]|B[./、 ]|C[./、 ]|选项 ?[1-3]|后续可选|请选择"` 扫本 stage 对人汇报段，无命中即通过；命中即判 FAIL。
+- [ ] **Rb 无"建议下一步 / 是否同意"**：`grep -nE "建议下一步|是否同意|回 ?yes|回 ?no|要不要"` 扫汇报结尾段，无命中即通过；命中需核对是否在豁免清单（破坏性 / 不可回滚 / 跨 repo，见 base-role 硬门禁七），豁免外命中判 FAIL。
+- [ ] **Rc 有"本阶段已结束 / 本命令已执行完"收束**：`grep -nE "本阶段已结束|本命令已执行完|本次已完成"` 扫汇报末尾，命中即通过；未命中且不在豁免场景判 FAIL。
+- [ ] **reviewer 对照样本**：现场 1/2/3 的 before/after 对比样例见 `artifacts/main/requirements/req-37-.../changes/chg-03-.../self-cert.md`。
