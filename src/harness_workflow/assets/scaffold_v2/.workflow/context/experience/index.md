@@ -2,6 +2,10 @@
 
 > Auto-generated index of `.workflow/context/experience`.
 
+## regression
+- [regression/core-py.md](regression/core-py.md) — Regression Experience: core-py
+- [regression/reg-01.md](regression/reg-01.md) — Regression Experience: reg-01
+
 ## risk
 - [risk/known-risks.md](risk/known-risks.md) — Known Risks and Mitigations
 

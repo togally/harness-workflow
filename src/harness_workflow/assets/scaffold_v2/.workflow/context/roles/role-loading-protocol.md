@@ -7,7 +7,7 @@
 - **所有角色平等**：顶级角色（Director）和 stage 角色都遵循同一套前置加载流程
 - **角色索引是入口**：`.workflow/context/index.md` 是所有角色的唯一索引表
 - **角色文件是 briefing**：找到角色后，必须完整读取对应的 `.md` 文件
-- **模型一致性**：所有角色（含 subagent）应使用与主 agent 相同的模型，以保证执行质量一致性
+- **模型一致性**：所有角色按 `.workflow/context/role-model-map.yaml` 声明的 model 执行；subagent 模型不盲从 parent，也不硬编码具体版本号（见 Step 7.5）
 - **base-role 是所有角色的通用规约**：加载任何角色前，必须先加载 `base-role.md`
 - **stage-role 是 stage 角色的公共父类**：stage 执行角色在加载自身前，必须先加载 `base-role.md`，再加载 `stage-role.md`
 
@@ -106,6 +106,22 @@ base-role.md → stage-role.md → 你的 stage 角色文件
 
 ---
 
+---
+
+### Step 7.5：模型一致性自检（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03）
+
+subagent 加载完自己的角色文件后、开始执行实质性任务前，必须核对自身运行 model 与 `.workflow/context/role-model-map.yaml` 中 `roles[{自己的 role}]` 声明值是否一致：
+
+1. 读取 `.workflow/context/role-model-map.yaml`，取 `roles[{role}]` 得到期望 model（未列出则取 `default`）。
+2. 若 runtime 支持自省自身 model（如环境变量 / Agent 工具返回值），与期望值比对。
+3. **一致** → 在首条输出中简述"本 subagent 运行于 {model}，与 role-model-map.yaml 声明一致"。
+4. **不一致** → 立即上报主 agent，在当前 session-memory.md 追加一段"## 模型一致性告警"记录（期望值 / 实际值 / 时间戳），不得静默继续。
+5. **无法自省**（runtime 限制）→ 降级：读 briefing 的 `expected_model` 字段（由 harness-manager / technical-director 按 chg-03 协议注入），在首条输出中显式写："本 subagent 未能自检 model 一致性，briefing 期望 = {expected_model}"，并在 session-memory.md 记录一条"未自检"留痕即可，不阻塞。
+
+此节与 `base-role.md` 硬门禁三的"角色自我介绍"同时执行，先做自检再做自我介绍。
+
+---
+
 ### Step 7：开始执行
 
 角色 briefing 加载完成后，严格按角色文件中的 SOP 执行。禁止在加载完成前执行任何实质性操作。
@@ -130,6 +146,8 @@ base-role.md ← 所有角色必须加载
 加载自己的角色文件
     ↓
 按需加载附加上下文（evaluation、experience、constraints 等）
+    ↓
+模型一致性自检（Step 7.5）
     ↓
 [开始执行]
 ```

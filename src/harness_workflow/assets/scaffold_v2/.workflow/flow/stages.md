@@ -295,3 +295,8 @@ stage_timestamps:
 ### 展示位置
 
 时长记录展示在 `done-report.md` 头部，格式由 `context/roles/done.md` 定义。
+
+<!-- Legacy (req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-01（S-A 合并 changes_review + plan_review → 单一 planning sub-stage）)：
+  - 旧 stage 序列曾为 requirement_review → changes_review → plan_review → ready_for_execution → executing → testing → acceptance → done；
+  - 自 req-31 chg-01 合并后，changes_review / plan_review 统一为 planning；归档 req-02..req-30 的 stage_timestamps 保留历史字段不迁移。
+-->

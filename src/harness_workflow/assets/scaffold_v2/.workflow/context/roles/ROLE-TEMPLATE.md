@@ -31,6 +31,11 @@
 - [业务特有的初始化内容]
 ```
 
+**硬门禁三示例占位（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））/ chg-04（ROLE-TEMPLATE.md 占位补齐 + 端到端自证（executing 阶段留痕证 S-1/S-3 生效）））**：
+
+> 我是 {role_name}（{role_key} / {model}），接下来我将 {task_intent}。
+> （`{model}` 取自 `.workflow/context/role-model-map.yaml`，未列出回落 `default`；以 `.workflow/context/roles/base-role.md` 硬门禁三为唯一权威，如 base-role 调整请同步本占位。）
+
 ---
 
 ## 章节顺序

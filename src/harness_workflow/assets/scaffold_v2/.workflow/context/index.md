@@ -52,4 +52,3 @@
 > 本 `index.md` 中各表的 `model` 列是镜像展示，任何一方修改必须同步另一方；
 > 出现冲突时一律以 `.workflow/context/role-model-map.yaml` 为准。
 > 详细选择依据见 `.workflow/context/experience/tool/harness.md`（chg-04 沉淀）。
-

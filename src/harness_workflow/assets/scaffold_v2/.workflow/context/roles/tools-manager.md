@@ -93,3 +93,17 @@
 3. 若查询了 skill hub，是否已将新 skill 正确注册到 `keywords.yaml`？
 4. 是否未修改 `ratings.yaml`？
 
+## 契约 7（id + title 硬门禁）—— req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ sug-26 扩展
+
+本节把 `stage-role.md` 契约 7 扩展到辅助角色 **tools-manager**。所有 tools-manager 输出的工具推荐 briefing / missing-log.yaml 评论 / 跨 agent 沟通说明中，对工作项 id 的**首次引用**必须带 title。
+
+### 规则
+
+- **首次引用带 title**：briefing / usage_hint / 推荐报告首次提到 `req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*` 时必须形如 `{id}（{title}）`，例如 `req-31（批量建议合集（20条））` 或 `sug-26（辅助角色（harness-manager / tools-manager / reviewer）契约 7 扩展）`。
+- **同上下文后续简写**：同一份推荐报告中同一 id 后续引用可简写为纯 id。
+- **命中违规视为契约 7 硬门禁违反**，由 done 阶段 `harness validate --contract 7` / `harness status --lint` 兜底拦截。
+
+### fallback
+
+- 若工具相关 sug 暂无正式 title，允许首次引用写 `{id}（pending-title）`，done 阶段修正。
+- 本约定对本次提交之后新增 / 修改引用生效；历史文档内裸 id 不追溯。
