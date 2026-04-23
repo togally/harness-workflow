@@ -20,17 +20,19 @@
 
 删除、覆盖、归档等操作必须显示变更内容并等待用户确认后才能执行。
 
-### 硬门禁五：跨 repo scaffold mirror 同步（req-34（新增工具 api-document-upload（首实现 apifox MCP，可拔插）+ 修复 scaffold_v2 mirror 漂移（project-reporter 系列漏同步）） / chg-04）
+### 硬门禁五：跨 repo scaffold mirror 同步（req-34（新增工具 api-document-upload（首实现 apifox MCP，可拔插）+ 修复 scaffold_v2 mirror 漂移（project-reporter 系列漏同步）） / chg-04；保护面扩展 req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-02）
 
 > 本条编号跳过"四"以避免与 `base-role.md` 已占用的"硬门禁四：stage 边界决策批量化"在语义层面混淆。
 
-**适用范围**：以下三类文件的任意**新增 / 修改 / 删除 / 重命名**动作：
+**适用范围**：以下五大子树下的任意**新增 / 修改 / 删除 / 重命名**动作：
 
-1. `.workflow/context/roles/*.md`（任何角色文件，包括 Director / Stage 执行角色 / 辅助角色 / 抽象父类 / 协议文件）
-2. `.workflow/context/index.md`（角色索引表）
-3. `.workflow/context/role-model-map.yaml`（角色→模型权威映射）
+1. `.workflow/context/`（角色 / 索引 / role-model-map / 团队 / 项目 / checklists / experience/roles / experience/tool / experience/index.md，本子树继承 req-34（新增工具 api-document-upload + 修复 scaffold_v2 mirror 漂移） / chg-04 原契约）
+2. `.workflow/tools/`（catalog / index / stage-tools / selection-guide / maintenance / ratings.yaml，覆盖 req-34（新增工具 api-document-upload + 修复 scaffold_v2 mirror 漂移）后续工具新增 / 索引漂移）
+3. `.workflow/evaluation/`（acceptance / testing 评审标准，覆盖 req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））类规约更新）
+4. `.workflow/flow/`（stages.md 等流程定义，注意 flow/archive、flow/requirements、flow/suggestions 在例外白名单）
+5. `.workflow/state/experience/`（index.md 等本仓库经验沉淀，注意 state/experience/stage 在例外白名单）
 
-**强制规约**：同一 executing chg 的**同一 commit** 必须同步对应改动到 `src/harness_workflow/assets/scaffold_v2/.workflow/context/` 下的镜像文件；未同步视为硬门禁五违反，由 reviewer 阶段 checklist 拦截、done 阶段六层回顾兜底。
+**强制规约**：同一 executing chg 的**同一 commit** 必须同步对应改动到 `src/harness_workflow/assets/scaffold_v2/.workflow/{context,tools,evaluation,flow,state/experience}/` 下的镜像文件；未同步视为硬门禁五违反，由 reviewer 阶段 checklist 拦截、done 阶段六层回顾兜底。
 
 **例外白名单**（不触发本硬门禁）：
 
@@ -38,13 +40,22 @@
 - `.workflow/context/checklists/` 下的 stage-specific 检查清单（按需演进）
 - `.workflow/context/team/` / `.workflow/context/project/` 等本项目独有子树
 - `.workflow/state/` / `artifacts/` 下任何文件（运行时状态 / 制品）
+- `.workflow/state/experience/stage/` 下的 stage-scoped 经验文件（与 context/experience/stage/ 同语义，本项目独有）
+- `.workflow/flow/{archive,requirements,suggestions}/`（运行时 flow 数据，跨项目语义不通用）
+- `.workflow/state/{runtime.yaml,action-log.md,sessions,requirements,bugfixes,feedback}/`（运行时状态）
+- `.workflow/context/backup/`（迁移备份区）
+- `.workflow/archive/`（归档需求容器）
 
-**与 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））已有 scaffold_v2 契约的关系**：本条硬门禁**扩展** req-30 原契约——req-30 仅覆盖 `base-role.md` / `stage-role.md` 两个具体文件的**修改**场景；本条把保护面扩展到全部角色文件 + index.md + role-model-map.yaml 的全部四种动作（新增/修改/删除/重命名）。req-30 原契约同时仍然生效，两者并集执行。
+**与 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））已有 scaffold_v2 契约的关系**：本条硬门禁**扩展** req-30 原契约——req-30 仅覆盖 `base-role.md` / `stage-role.md` 两个具体文件的**修改**场景；本条把保护面扩展到全部五大子树下的全部四种动作（新增/修改/删除/重命名）。req-30 原契约同时仍然生效，两者并集执行。
 
 **违反处理**：
 
-1. reviewer 阶段 checklist 查 `git diff --name-only` 命中 `.workflow/context/roles/` 或 `index.md` 或 `role-model-map.yaml` 时，必须同时看到 `src/harness_workflow/assets/scaffold_v2/.workflow/context/` 对应同名文件改动；否则判 FAIL
-2. done 阶段六层回顾扫一次 `diff -rq .workflow/context/ src/harness_workflow/assets/scaffold_v2/.workflow/context/`（排除例外白名单），有非预期差异则回退路由到 regression
+1. reviewer 阶段 checklist 查 `git diff --name-only` 命中 `.workflow/{context,tools,evaluation,flow,state/experience}/` 任一子树时，必须同时看到 `src/harness_workflow/assets/scaffold_v2/.workflow/` 对应同名文件改动；否则判 FAIL
+2. done 阶段六层回顾扫一次 `diff -rq .workflow/{context,tools,evaluation,flow,state/experience}/ src/harness_workflow/assets/scaffold_v2/.workflow/{context,tools,evaluation,flow,state/experience}/`（排除例外白名单），有非预期差异则回退路由到 regression
+
+**正例（req-34（新增工具 api-document-upload + 修复 scaffold_v2 mirror 漂移） / chg-04）**：同一 commit 同时改 `.workflow/context/roles/project-reporter.md` 与 `src/harness_workflow/assets/scaffold_v2/.workflow/context/roles/project-reporter.md`，reviewer 通过。
+
+**反例（req-32（动态上下文生成：update 扫描项目描述 + CTO 任务级上下文注入）系列）**：仅改 live `.workflow/evaluation/testing.md` 增加 R1 / revert / 契约 7 / req-29 / req-30 五项扫描章节，未同步 mirror，导致 req-36（harness install 同步契约完整性修复）audit 命中 A21 漂移。本硬门禁扩展后，此类反例 reviewer 阶段直接 FAIL。
 
 ## 标准工作流程（SOP）
 
@@ -159,9 +170,9 @@ harness <verb> [noun] [--flags]
 
 | 命令 | 处理逻辑 |
 |------|----------|
-| `harness install` | 调用 `install_repo()` 初始化仓库 |
+| `harness install` | 调用 `install_repo()` 初始化 + 刷新仓库（已吸收原 update 刷新职责；req-33 / chg-01） |
 | `harness install --agent <agent>` | 调用 `install_agent()` 安装到指定 agent |
-| `harness update` | 裸调用（无 flag）：打印角色契约引导 + exit 0；语义由 §3.5.1 触发词召唤 project-reporter（req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter） / chg-02） |
+| `harness update` | 裸调用（无 flag）：打印角色契约引导 + exit 0；语义由 §3.5.1 触发词召唤 project-reporter（req-33 / chg-02） |
 | `harness update --check` | 有 flag：透传到 `install_repo(check=True, ...)`，输出 drift 预览（bugfix-1 修正，见 §A.4） |
 | `harness update --scan` | 有 flag：透传到 `scan_project(root)`，输出项目适配报告（bugfix-1 修正，见 §A.5） |
 | `harness language` | 调用 `set_language()` 设置语言 |
@@ -219,6 +230,10 @@ harness <verb> [noun] [--flags]
 2. 按 Step 2.5（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03 派发协议扩展）从 `role-model-map.yaml` 查 `project-reporter: "opus"` → briefing.model = `opus`；
 3. 按 Step 6 用户面透出（req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） / chg-03（harness-manager.md + technical-director.md 派发说明契约扩展（Step 6 用户面透出 + model）））首次派发说明形如 `派发 project-reporter（Opus 4.7）按 10 节扫仓库产出 artifacts/main/project-overview.md`；
 4. 角色文件路径：`.workflow/context/roles/project-reporter.md`。
+
+**产物**：单一文件 `artifacts/main/project-overview.md`（每次召唤覆写，不做 diff / 版本历史；历史由 git 记录）。
+
+**非召唤条件（明确不触发）**：用户要求"更新 harness" / "跑单测" / "归档需求" 等与现状报告无关的命令，不触发本召唤。
 
 #### 3.6 派发 Subagent
 
@@ -369,7 +384,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 
 > req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter）/ chg-01：已吸收 `update_repo` 的全部刷新职责（skill 刷新 / managed 文件 / feedback 迁移 / state 迁移 / experience index / project-profile 写盘）。
 
-**功能**: 初始化当前仓库，安装 harness skill。
+**功能**: 初始化当前仓库，安装 harness skill；每次运行幂等（docs 迁移 / AGENTS.md / CLAUDE.md 生成检测已存在则跳过）。
 
 **执行流程**:
 1. 调用 `install_repo()` 初始化仓库结构
@@ -396,7 +411,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 **参数**:
 - `agent`: kimi | claude | codex | qoder
 
-#### A.3 `harness update`（req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter） / chg-02 重定义 + bugfix-1 flag 路由修正）
+#### A.3 `harness update`（req-33 / chg-02 重定义 + bugfix-1 flag 路由修正）
 
 **功能**: **无 flag 时**打印引导 + exit 0（保留 req-33 / chg-02 角色触发语义）；**任意刷新 flag（`--check` / `--scan` / `--force-managed` / `--all-platforms` / `--agent`）存在时**透传到 `install_repo(...)` / `scan_project(...)`（等价 req-33 / chg-01 合并后的 Python API，drift check 能力恢复）。
 

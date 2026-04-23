@@ -3249,6 +3249,10 @@ def install_repo(
     if check:
         print("")
         print("No files were changed.")
+
+    # req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-02：
+    # 本仓库自身 install 末尾自检；目标项目天然不触发（pyproject.toml 锚点）
+    _install_self_audit(root)
     return 0
 
 
@@ -6505,3 +6509,77 @@ def scan_project(root: Path) -> int:
         print("- 建议添加 development-standards.md 定义团队开发规范")
 
     return 0
+
+
+def _install_self_audit(root: Path) -> int:
+    """req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-02：
+    install 末尾自检 helper。仅在本仓库自身（pipx 安装源）运行时启用，
+    在目标项目（用户存量项目）禁用——通过 HARNESS_DEV_REPO_ROOT env 或
+    pyproject.toml `name = "harness-workflow"` 锚点判断（使用正则解析，零新增依赖）。
+
+    返回：drift 计数。命中差异时 stderr 逐条 + 末尾 WARNING；零差异时静默 return 0。
+    """
+    # 1) 触发面判定
+    dev_root_env = os.environ.get("HARNESS_DEV_REPO_ROOT")
+    if dev_root_env:
+        if Path(dev_root_env).resolve() != root.resolve():
+            return 0
+    else:
+        pyproject = root / "pyproject.toml"
+        if not pyproject.exists():
+            return 0
+        try:
+            content = pyproject.read_text(encoding="utf-8")
+            # 最简正则解析 name 字段（零新增依赖，缓解 R-E tomllib 版本风险）
+            import re as _re
+            match = _re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, _re.MULTILINE)
+            if not match or match.group(1) != "harness-workflow":
+                return 0
+        except Exception:
+            return 0
+
+    # 2) 白名单（承 requirement.md §2.3 C 段 12 条 + A27 missing-log.yaml 特殊处理）
+    whitelist_substrings = (
+        "state/sessions", "state/requirements", "state/bugfixes", "state/feedback",
+        "state/runtime.yaml", "state/action-log.md",
+        "flow/archive", "flow/requirements", "flow/suggestions",
+        "context/backup", "context/experience/stage", "workflow/archive",
+        "tools/index/missing-log.yaml",  # A27 运行时累积，mirror 是模板态空值
+    )
+
+    # 3) live vs mirror diff（mirror 全量 dict）
+    mirror = _scaffold_v2_file_contents(root, include_agents=False, include_claude=False, language="cn")
+    drift_count = 0
+    for relative, expected in mirror.items():
+        if any(w in relative for w in whitelist_substrings):
+            continue
+        live_path = root / relative
+        if not live_path.exists():
+            print(f"[install_repo:self-audit] drift detected (missing in live): {relative}", file=sys.stderr)
+            drift_count += 1
+            continue
+        actual = live_path.read_text(encoding="utf-8")
+        if actual != expected:
+            print(f"[install_repo:self-audit] drift detected (content differs): {relative}", file=sys.stderr)
+            drift_count += 1
+
+    # 4) 反向：live 多出 mirror 没有的非白名单文件
+    live_workflow = root / ".workflow"
+    if live_workflow.exists():
+        for live_path in sorted(live_workflow.rglob("*")):
+            if not live_path.is_file():
+                continue
+            relative = live_path.relative_to(root).as_posix()
+            if any(w in relative for w in whitelist_substrings):
+                continue
+            if relative not in mirror:
+                print(f"[install_repo:self-audit] drift detected (only in live): {relative}", file=sys.stderr)
+                drift_count += 1
+
+    if drift_count > 0:
+        print(
+            f"[install_repo:self-audit] WARNING: {drift_count} drift(s) detected; "
+            f"run chg-03 reconcile or see audit.md",
+            file=sys.stderr,
+        )
+    return drift_count
