@@ -236,3 +236,34 @@ bugfix-3（新） — install/update 仅更新当前选定 agent（问题 1）
 ### 来源
 
 bugfix-3（新） — `.harness/feedback.jsonl` 落层归位（问题 2）
+
+---
+
+## 经验十一：mirror→live 全量同步契约（install_repo 完整性收口）
+
+### 场景
+
+`install_repo` 落地多版本演进，原有 `_sync_requirement_workflow_managed_files` 只针对 `_managed_file_contents`（curated 子集 + 平台 commands/skills），但 `_scaffold_v2_file_contents` 是更全的 mirror（含 role / experience / evaluation / context/index 等）。在 managed_state 缺登记的存量项目（无 `managed-files.json`），默认走 adopt-as-managed 分支可覆盖大多数 drift；但仍存在两类残留：(1) 系统 post-install 重建文件（`_refresh_experience_index` / `_write_project_profile_if_changed` / `render_template` CLAUDE.md 等）必然 drift；(2) install_repo 未跑 mirror 全量比对作为 defense-in-depth，自检 audit 又被 pyproject 锚点锁死，存量项目漂移沉默。
+
+### 经验内容
+
+1. **"两段同步 + 共享白名单"契约**：
+   - 段一 = `_sync_requirement_workflow_managed_files`（managed 子集，承用户保护语义：adopt-as-managed / skipped user-authored / skipped modified）；
+   - 段二 = `_sync_scaffold_v2_mirror_to_live`（mirror 全量 defense-in-depth，对 missing / drift 残留补铺）；
+   - 共享白名单 = 模块级 `_SCAFFOLD_V2_MIRROR_WHITELIST`，由 sync helper + `_install_self_audit` 双方消费，避免双份维护。
+2. **顺序敏感**：sync helper 必须放在 `_sync_requirement_workflow_managed_files` 之后、`_write_project_profile_if_changed` 之后、`print("Update summary:")` 之前、`_install_self_audit` 之前。倒置会让 (a) 最终 actions 不进 summary 段；(b) audit 看到未 sync 的 drift 误报。
+3. **白名单要包含 "post-install 系统重建" 类**：`context/experience/index.md` / `context/project-profile.md` / `CLAUDE.md` / `AGENTS.md` 这类必然与 mirror 不同的文件，必须列入白名单否则 helper 会持续误判为 user-modified（hash 已登记但被系统重写过）。
+4. **非 managed 用户改动按保守策略 stderr-skip 而非静默覆盖**：未登记 hash 的 mirror 文件 + live 内容不等于 mirror → 默认 stderr 跳过（"用户可能自定义"），`--force-managed` 才覆盖；与 sug-13 / sug-14 协同保护用户改动。
+5. **self-audit 触发面解锁，但保留 env escape hatch**：删除 `pyproject.toml name == "harness-workflow"` 锚点（让所有项目都跑 audit），保留 `HARNESS_DEV_REPO_ROOT` env（开发期切到本仓 audit、不污染目标项目）。
+6. **测试六分支齐全**：`tests/test_install_repo_sync_contract.py` 应覆盖 fresh install zero-drift / missing 文件铺回 / user-modified 保护 / force_managed 覆盖 / 白名单豁免 / audit 触发面解锁，每条独立用例。
+
+### 反例
+
+- 把 sync helper 放在 `_install_self_audit` 之后：audit 永远报 drift（sync 还没跑），WARNING 噪声爆给用户。
+- 把白名单常量内联到 helper 与 audit 两处：常量更新时漏改一处导致两个出口判据不一致，drift count 不对齐。
+- 没把 `experience/index.md` / `project-profile.md` 列入白名单：每次 install 后 helper 都报 "skipped user-modified" + audit 报 "drift detected"，用户体验差且 stderr 噪声高。
+- 删 audit pyproject 锚点时把 env 段也删了：开发期 harness-workflow 仓库自己跑 audit 会爆假阳（本仓 .workflow/ 是开发态，不一定与 mirror 完全一致）。
+
+### 来源
+
+req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-05（install_repo 末尾追加 mirror→live 全量同步） + chg-06（解锁 _install_self_audit 触发面）

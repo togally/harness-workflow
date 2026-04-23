@@ -1,15 +1,15 @@
 operation_type: "requirement"
-operation_target: "req-35"
-current_requirement: ""
-current_requirement_title: ""
+operation_target: "req-36"
+current_requirement: "req-36"
+current_requirement_title: "harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）"
 stage: "done"
-stage_entered_at: "2026-04-23T01:20:16.435945+00:00"
+stage_entered_at: "2026-04-23T06:00:20.561834+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
 locked_stage: ""
-current_regression: ""
-current_regression_title: ""
+current_regression: "reg-02"
+current_regression_title: "req-36 AC-5 收口：CLI 路由 + packaging 双根因（install 不调 install_repo + update --flag 仍走 install_repo + pyproject 漏装 mirror）"
 ff_mode: false
 ff_stage_history:
   - regression
@@ -22,4 +22,5 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements: []
+active_requirements:
+  - req-36

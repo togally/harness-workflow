@@ -161,6 +161,24 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser.add_argument("--root", default=".", help="Repository root.")
     install_parser.add_argument("--force-skill", action="store_true", help="Overwrite existing local project skills.")
     install_parser.add_argument("--agent", choices=["kimi", "claude", "codex", "qoder"], help="Install harness skill to specific agent directory.")
+    # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 harness update --flag
+    # 的 install_repo hack）：install 子命令加 --check / --force-managed / --all-platforms
+    # 三 flag，透传给 install_repo（与原 update 子命令同名同 dest，行为对齐）。
+    install_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Show what would change without writing files (dry-run drift preview).",
+    )
+    install_parser.add_argument(
+        "--force-managed",
+        action="store_true",
+        help="Overwrite managed files even if they were modified locally.",
+    )
+    install_parser.add_argument(
+        "--all-platforms",
+        action="store_true",
+        help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
+    )
 
     init_parser = subparsers.add_parser("init", help="Initialize harness docs structure.")
     init_parser.add_argument("--root", default=".", help="Repository root.")
@@ -383,13 +401,27 @@ def main() -> int:
         root = Path(raw_root).resolve()
 
     if args.command == "install":
+        # chg-07：install 子命令的 --check / --force-managed / --all-platforms 透传给
+        # tools/harness_install.py（→ install_agent + install_repo）；与 update --flag
+        # 硬 fail 配合，让 install 成为同步契约的唯一真入口（reg-02 根因 A 收口）。
+        extra_args: list[str] = []
+        if getattr(args, "check", False):
+            extra_args.append("--check")
+        if getattr(args, "force_managed", False):
+            extra_args.append("--force-managed")
+        if getattr(args, "all_platforms", False):
+            extra_args.append("--all-platforms")
         if args.agent:
-            return _run_tool_script("harness_install.py", ["--agent", args.agent], root)
+            return _run_tool_script(
+                "harness_install.py", ["--agent", args.agent, *extra_args], root
+            )
         agent = prompt_agent_selection()
         if not agent:
             print("No agent selected.")
             return 1
-        return _run_tool_script("harness_install.py", ["--agent", agent], root)
+        return _run_tool_script(
+            "harness_install.py", ["--agent", agent, *extra_args], root
+        )
     if args.command == "init":
         cmd_args = []
         if args.write_agents:
@@ -398,32 +430,29 @@ def main() -> int:
             cmd_args.append("--write-claude")
         return _run_tool_script("harness_init.py", cmd_args, root)
     if args.command == "update":
-        # bugfix-1（harness update --check 等 flag 被角色触发吞了，drift check 无路可走）：
-        # req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter）/
-        # chg-02（harness update 角色契约层重定义为召唤 project-reporter）/ S-B4：
-        # 方案 A：有任意刷新 flag → 透传到 install_repo（等价历史 update_repo 行为）；
-        # 裸 update（无 flag）→ 保留 req-33 / chg-02 的三行引导 + exit 0。
-        has_refresh_flag = (
-            getattr(args, "check", False)
-            or getattr(args, "scan", False)
-            or getattr(args, "force_managed", False)
-            or getattr(args, "all_platforms", False)
-            or bool(getattr(args, "agent", None))
-        )
+        # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 harness update --flag
+        # 的 install_repo hack）：
+        # `harness update` 是纯角色触发；`--check / --force-managed / --all-platforms
+        # / --agent` 已迁到 `harness install --{flag}`；`--scan` 仍走 scan_project
+        # （与 install_repo 无关，保留分支）；裸 update 仍打 req-33 / chg-02 引导 + exit 0。
         if getattr(args, "scan", False):
             from harness_workflow.workflow_helpers import scan_project
             return scan_project(root)
-        if has_refresh_flag:
-            from harness_workflow.workflow_helpers import install_repo
-            return install_repo(
-                root,
-                force_skill=True,
-                check=getattr(args, "check", False),
-                force_managed=getattr(args, "force_managed", False),
-                force_all_platforms=getattr(args, "all_platforms", False),
-                agent_override=getattr(args, "agent", None),
-            )
-        # 裸 `harness update`（无任何刷新 flag）→ req-33 / chg-02 引导 + exit 0
+        # chg-07：刷新类 flag 硬 fail + stderr 迁移提示
+        flag_to_hint = [
+            ("check", "--check"),
+            ("force_managed", "--force-managed"),
+            ("all_platforms", "--all-platforms"),
+            ("agent", "--agent"),
+        ]
+        for attr, flag_name in flag_to_hint:
+            if getattr(args, attr, None):
+                print(
+                    f"harness update {flag_name} 已迁移到 `harness install {flag_name}`，请改用新入口。",
+                    file=sys.stderr,
+                )
+                return 1
+        # 裸 `harness update`（无任何 flag）→ req-33 / chg-02 引导 + exit 0
         print("harness update 已重定义为角色契约触发。")
         print("请在 Claude Code / Codex 会话中说 '生成项目现状报告' 召唤 project-reporter。")
         print("CLI 同步职责已迁到 `harness install`。")

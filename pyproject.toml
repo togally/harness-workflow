@@ -46,20 +46,10 @@ harness_workflow = [
   "assets/skill/scripts/*.py",
   "assets/skill/tests/*.py",
   "assets/scaffold_v2/WORKFLOW.md",
-  "assets/scaffold_v2/.workflow/context/*.md",
-  "assets/scaffold_v2/.workflow/context/roles/*.md",
-  "assets/scaffold_v2/.workflow/context/roles/directors/*.md",
-  "assets/scaffold_v2/.workflow/context/project/*.md",
-  "assets/scaffold_v2/.workflow/context/team/*.md",
-  "assets/scaffold_v2/.workflow/context/experience/index.md",
-  "assets/scaffold_v2/.workflow/context/experience/roles/*.md",
-  "assets/scaffold_v2/.workflow/context/experience/tool/*.md",
-  "assets/scaffold_v2/.workflow/context/experience/risk/*.md",
-  "assets/scaffold_v2/.workflow/state/experience/*.md",
-  "assets/scaffold_v2/.workflow/constraints/*.md",
-  "assets/scaffold_v2/.workflow/evaluation/*.md",
-  "assets/scaffold_v2/.workflow/flow/*.md",
-  "assets/scaffold_v2/.workflow/tools/*.md",
-  "assets/scaffold_v2/.workflow/tools/catalog/*.md",
+  # chg-08（pyproject.toml package-data 补齐 + 加打包契约测试（防漏装回归））：
+  # scaffold_v2/.workflow/ mirror 下任何文件都必须打入 wheel；细分 patterns
+  # 易漏（reg-02 实证 14 类漏装），统一改为 `**/*` 全量 glob，setuptools >= 69
+  # 原生支持。配套契约测试 tests/test_package_data_completeness.py。
+  "assets/scaffold_v2/.workflow/**/*",
   "harness_workflow/tools/*.py",
 ]

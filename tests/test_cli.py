@@ -417,17 +417,20 @@ class HarnessCliTest(unittest.TestCase):
         qoder_rule.unlink()
         context_index.unlink()
 
-        # bugfix-1 / req-33 / chg-02：`harness update --check --all-platforms` 带 flag 时
-        # 透传到 install_repo（不再打印引导）；验证 flag 路由行为（AC-1 / AC-6）。
-        check = self.run_cli("update", "--root", str(self.repo), "--check", "--all-platforms")
+        # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 update --flag hack）：
+        # 刷新职责已迁到 `harness install --check / --all-platforms`，`harness update --flag`
+        # 硬 fail，本用例改走 `harness install` 入口。
+        check = self.run_cli(
+            "install", "--root", str(self.repo), "--agent", "qoder",
+            "--check", "--all-platforms",
+        )
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
-        # bugfix-1: 有 flag 时不打印引导，而是走 install_repo drift preview
-        self.assertNotIn("harness update 已重定义为角色契约触发", check.stdout)
-        # drift preview 输出包含 "Update summary"
         self.assertIn("Update summary", check.stdout)
 
-        # 实际刷新通过 update CLI --all-platforms（带 flag → install_repo）完成。
-        apply = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
+        # 实际刷新通过 `harness install --all-platforms` 完成。
+        apply = self.run_cli(
+            "install", "--root", str(self.repo), "--agent", "qoder", "--all-platforms"
+        )
         self.assertEqual(apply.returncode, 0, msg=apply.stderr or apply.stdout)
         self.assertTrue(qoder_command.exists())
         self.assertTrue(claude_command.exists())
@@ -445,13 +448,17 @@ class HarnessCliTest(unittest.TestCase):
         self.assertIn("生成项目现状报告", result.stdout)
         self.assertIn("harness install", result.stdout)
 
-    def test_update_check_flag_routes_to_drift_preview(self) -> None:
-        """bugfix-1 AC-1：`harness update --check` rc=0 且输出 drift 预览（含 'Update summary'），不打印引导。"""
+    def test_update_check_flag_hard_fails_with_migration_hint(self) -> None:
+        """chg-07（CLI 路由修正）：`harness update --check` 硬 fail（exit 1）+ stderr 含迁移提示。
+
+        历史 bugfix-1 / req-33 / chg-02 让 `update --check` 透传到 install_repo 做 drift
+        预览；chg-07 把 drift preview 收回 `harness install --check`，update --flag 硬 fail。
+        """
         self.run_cli("install", "--root", str(self.repo))
         result = self.run_cli("update", "--root", str(self.repo), "--check")
-        self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
-        self.assertNotIn("harness update 已重定义为角色契约触发", result.stdout)
-        self.assertIn("Update summary", result.stdout)
+        self.assertEqual(result.returncode, 1, msg=result.stderr or result.stdout)
+        self.assertIn("harness install --check", result.stderr)
+        self.assertNotIn("Update summary", result.stdout)
 
     def test_update_scan_flag_routes_to_scan_project(self) -> None:
         """bugfix-1 AC-2：`harness update --scan` rc=0 且输出项目适配报告（scan_project），不打印引导。"""
@@ -699,18 +706,23 @@ class HarnessCliTest(unittest.TestCase):
         codex_skill.write_text("tampered codex skill\n", encoding="utf-8")
         claude_skill.write_text("tampered claude skill\n", encoding="utf-8")
 
-        # bugfix-1 / req-33 / chg-02：`harness update --check --all-platforms` 带 flag 时
-        # 透传到 install_repo(check=True, ...) drift preview，不再打印引导（AC-1 / AC-6）。
-        check = self.run_cli("update", "--root", str(self.repo), "--check", "--all-platforms")
+        # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 update --flag hack）：
+        # 刷新职责已迁到 `harness install --check / --all-platforms`，本用例改走新入口。
+        check = self.run_cli(
+            "install", "--root", str(self.repo), "--agent", "claude",
+            "--check", "--all-platforms",
+        )
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
-        # bugfix-1: 有 flag 时不打印引导，走 install_repo drift preview
-        self.assertNotIn("harness update 已重定义为角色契约触发", check.stdout)
         self.assertIn("Update summary", check.stdout)
         # check=True (dry-run) → acceptance_role 仍未写盘
         self.assertFalse(acceptance_role.exists())
 
-        # 实际刷新通过 update CLI --all-platforms（带 flag → install_repo）完成。
-        apply = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
+        # 实际刷新通过 `harness install --all-platforms --force-managed` 完成（force-managed
+        # 覆盖被篡改的 managed skill 文件）。
+        apply = self.run_cli(
+            "install", "--root", str(self.repo), "--agent", "claude",
+            "--all-platforms", "--force-managed",
+        )
         self.assertEqual(apply.returncode, 0, msg=apply.stderr or apply.stdout)
         self.assertTrue(acceptance_role.exists())
         self.assertIn("# Harness", codex_skill.read_text(encoding="utf-8"))

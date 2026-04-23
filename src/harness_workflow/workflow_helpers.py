@@ -151,6 +151,34 @@ LEGACY_FEEDBACK_DIR = Path(".harness")
 LEGACY_FEEDBACK_LOG = LEGACY_FEEDBACK_DIR / "feedback.jsonl"
 
 
+# req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致））/
+# chg-05（install_repo 末尾追加 mirror→live 全量同步）/ chg-06（解锁 _install_self_audit 触发面）：
+# scaffold_v2 mirror→live 全量同步 + self-audit 共享白名单（13 条 + A27 missing-log + 3 条 template-rebuild）。
+# 白名单 = 不同步（运行时态 / 业务态 / 模板渲染态文件，跨项目独立，不能从 mirror 覆盖回去）。
+# 由 `_sync_scaffold_v2_mirror_to_live` 与 `_install_self_audit` 共同消费，避免双份维护。
+_SCAFFOLD_V2_MIRROR_WHITELIST: tuple[str, ...] = (
+    # 运行时 / 业务态（13 条 + A27）
+    "state/sessions",
+    "state/requirements",
+    "state/bugfixes",
+    "state/feedback",
+    "state/runtime.yaml",
+    "state/action-log.md",
+    "flow/archive",
+    "flow/requirements",
+    "flow/suggestions",
+    "context/backup",
+    "context/experience/stage",
+    "workflow/archive",
+    "tools/index/missing-log.yaml",  # A27 运行时累积，mirror 是模板态空值
+    # chg-05 / chg-06 扩展：post-install 系统重建 / 项目专属渲染（mirror 比对会一直 drift，需豁免）
+    "context/experience/index.md",   # _refresh_experience_index 按本仓 experience/ 实况重建
+    "context/project-profile.md",    # _write_project_profile_if_changed 按 repo 元信息生成
+    "CLAUDE.md",                     # render_template 按 repo_name 渲染（与 mirror 模板不同）
+    "AGENTS.md",                     # 同 CLAUDE.md
+)
+
+
 ITEM_META_ORDER = [
     "id",
     "title",
@@ -2945,6 +2973,104 @@ def _sync_requirement_workflow_managed_files(
     return config, actions
 
 
+def _sync_scaffold_v2_mirror_to_live(
+    root: Path,
+    *,
+    check: bool,
+    force_managed: bool,
+) -> list[str]:
+    """req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致））/
+    chg-05（install_repo 末尾追加 mirror→live 全量同步）：
+
+    全量遍历 scaffold_v2 mirror dict，对漏写 / 内容不一致的文件做最后一轮同步：
+    - 数据源：``_scaffold_v2_file_contents(root, include_agents=False, include_claude=False, language='cn')``
+      （`include_agents` / `include_claude` = False，避免与 install_repo 渲染的项目名模板冲突）。
+    - 白名单：复用模块级 ``_SCAFFOLD_V2_MIRROR_WHITELIST``（13 条），覆盖运行时态 / 业务态文件。
+    - 协作：放在 `_sync_requirement_workflow_managed_files` 之后调用，多数文件已被 managed sync 处理为
+      `current == mirror[relative]`，本 helper 直接 no-op；仅对 drift 残留 / 用户手改 / 未登记文件做
+      defense-in-depth 处理。
+
+    写入策略（六分支）：
+      1. 命中白名单 → continue（不动）。
+      2. live 不存在 → ``_write_with_hash_guard`` 写入 + 登记 hash + actions ``created (mirror) {rel}``。
+      3. live 存在且 ``current == expected`` → no-op，仅兜底登记 hash（保险）。
+      4. live 存在且 ``managed_state[relative] == current_hash`` → 已被 managed sync 处理（current 等于
+         managed 模板渲染态，但与本 helper 用的 mirror 态不完全一致，如 CLAUDE.md / AGENTS.md），continue。
+      5. live 存在且 ``relative in managed_state`` 且 hash 不匹配 → 用户改过；非 ``force_managed`` 时
+         stderr 提示并跳过 + actions ``skipped user-modified (mirror) {rel}``；``force_managed=True`` 时
+         覆盖 + actions ``overwrote user-modified (mirror) {rel}``。
+      6. live 存在且 ``relative not in managed_state`` 且 ``current != expected`` → 非 managed 用户修改
+         （未登记 hash 的文件被改过）；保守策略同分支 5：默认 stderr 跳过，``force_managed=True`` 才覆盖。
+
+    返回：actions 列表（汇报到 install_repo Update summary 段）；``check=True`` 时不写盘，仅模拟 actions。
+    """
+    actions: list[str] = []
+    mirror = _scaffold_v2_file_contents(
+        root, include_agents=False, include_claude=False, language="cn"
+    )
+    managed_state = _load_managed_state(root)
+    refreshed_state = dict(managed_state)
+    drift_count = 0
+    for relative in sorted(mirror):
+        if any(white in relative for white in _SCAFFOLD_V2_MIRROR_WHITELIST):
+            continue
+        expected = mirror[relative]
+        live = root / relative
+        desired_hash = _managed_hash(expected)
+
+        # 分支 2：live 不存在
+        if not live.exists():
+            actions.append(f"{'would create (mirror)' if check else 'created (mirror)'} {relative}")
+            drift_count += 1
+            if not check:
+                live.parent.mkdir(parents=True, exist_ok=True)
+                _write_with_hash_guard(live, expected)
+                refreshed_state[relative] = desired_hash
+            continue
+
+        current = live.read_text(encoding="utf-8")
+        current_hash = _managed_hash(current)
+
+        # 分支 3：内容一致 → no-op，兜底登记 hash
+        if current == expected:
+            refreshed_state[relative] = desired_hash
+            continue
+
+        # 分支 4：managed sync 已处理（current 与 managed 模板等价但与 mirror 不同）
+        if managed_state.get(relative) == current_hash:
+            # 已属 managed 模板态（如 CLAUDE.md/AGENTS.md 在 install 时按 repo_name 渲染），
+            # 不应被 mirror 模板态覆盖（mirror dict 不含这些渲染文件，本分支按设计不会命中；
+            # 兜底保留以防未来 mirror dict 扩展）。
+            continue
+
+        # 分支 5/6：drift 残留（managed sync 未能消除 / 用户修改 / 未登记文件被改过）
+        drift_count += 1
+        if force_managed:
+            label = "would overwrite user-modified (mirror)" if check else "overwrote user-modified (mirror)"
+            actions.append(f"{label} {relative}")
+            if not check:
+                _write_with_hash_guard(live, expected)
+                refreshed_state[relative] = desired_hash
+            continue
+        # 默认保守：跳过 + stderr 提示
+        actions.append(f"skipped user-modified (mirror) {relative}")
+        if not check:
+            print(
+                f"[install_repo:mirror-sync] skipping user-modified file {relative}; "
+                f"pass --force-managed to overwrite.",
+                file=sys.stderr,
+            )
+
+    if not check:
+        _save_managed_state(root, refreshed_state)
+
+    if drift_count > 0:
+        actions.append(
+            f"synced mirror→live: {drift_count} file(s) processed (created / skipped / overwrote)"
+        )
+    return actions
+
+
 def _prune_empty_dirs(path: Path) -> None:
     if not path.exists() or not path.is_dir():
         return
@@ -3242,6 +3368,15 @@ def install_repo(
     if not check:
         _write_project_profile_if_changed(root, actions)
 
+    # req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致））/
+    # chg-05（install_repo 末尾追加 mirror→live 全量同步）：
+    # 在 managed sync + project-profile 写盘之后、Update summary 之前，跑 scaffold_v2 mirror→live
+    # 全量同步 helper，让存量项目（无 managed-files.json / 缺登记）也能被推到与 mirror 一致。
+    mirror_actions = _sync_scaffold_v2_mirror_to_live(
+        root, check=check, force_managed=force_managed
+    )
+    actions.extend(mirror_actions)
+
     # ---- 合并后的尾部汇总（统一 Update summary 段，兼容原 update_repo 断言）----
     print("Update summary:")
     for action in actions:
@@ -3250,8 +3385,8 @@ def install_repo(
         print("")
         print("No files were changed.")
 
-    # req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-02：
-    # 本仓库自身 install 末尾自检；目标项目天然不触发（pyproject.toml 锚点）
+    # req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致））/
+    # chg-02 + chg-06：install 末尾自检（chg-06 解锁触发面，存量项目也跑 audit）。
     _install_self_audit(root)
     return 0
 
@@ -6512,40 +6647,21 @@ def scan_project(root: Path) -> int:
 
 
 def _install_self_audit(root: Path) -> int:
-    """req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-02：
-    install 末尾自检 helper。仅在本仓库自身（pipx 安装源）运行时启用，
-    在目标项目（用户存量项目）禁用——通过 HARNESS_DEV_REPO_ROOT env 或
-    pyproject.toml `name = "harness-workflow"` 锚点判断（使用正则解析，零新增依赖）。
+    """req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致））/
+    chg-02 + chg-06（解锁 _install_self_audit 触发面）：
+    install 末尾自检 helper。chg-02 落地时锁在本仓库自身（pyproject.toml `name = "harness-workflow"`
+    锚点）；chg-06 删除 pyproject 锚点段，触发面默认全开（任何 install 都跑），仅保留
+    ``HARNESS_DEV_REPO_ROOT`` env 作开发期 escape hatch（env 设置 + 路径不匹配时跳过）。
 
     返回：drift 计数。命中差异时 stderr 逐条 + 末尾 WARNING；零差异时静默 return 0。
     """
-    # 1) 触发面判定
+    # 1) 触发面判定（仅保留 env-based escape hatch；pyproject 锚点已由 chg-06 删除）
     dev_root_env = os.environ.get("HARNESS_DEV_REPO_ROOT")
-    if dev_root_env:
-        if Path(dev_root_env).resolve() != root.resolve():
-            return 0
-    else:
-        pyproject = root / "pyproject.toml"
-        if not pyproject.exists():
-            return 0
-        try:
-            content = pyproject.read_text(encoding="utf-8")
-            # 最简正则解析 name 字段（零新增依赖，缓解 R-E tomllib 版本风险）
-            import re as _re
-            match = _re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, _re.MULTILINE)
-            if not match or match.group(1) != "harness-workflow":
-                return 0
-        except Exception:
-            return 0
+    if dev_root_env and Path(dev_root_env).resolve() != root.resolve():
+        return 0
 
-    # 2) 白名单（承 requirement.md §2.3 C 段 12 条 + A27 missing-log.yaml 特殊处理）
-    whitelist_substrings = (
-        "state/sessions", "state/requirements", "state/bugfixes", "state/feedback",
-        "state/runtime.yaml", "state/action-log.md",
-        "flow/archive", "flow/requirements", "flow/suggestions",
-        "context/backup", "context/experience/stage", "workflow/archive",
-        "tools/index/missing-log.yaml",  # A27 运行时累积，mirror 是模板态空值
-    )
+    # 2) 白名单复用 chg-05 抽出的模块级常量 _SCAFFOLD_V2_MIRROR_WHITELIST
+    whitelist_substrings = _SCAFFOLD_V2_MIRROR_WHITELIST
 
     # 3) live vs mirror diff（mirror 全量 dict）
     mirror = _scaffold_v2_file_contents(root, include_agents=False, include_claude=False, language="cn")
@@ -6579,7 +6695,7 @@ def _install_self_audit(root: Path) -> int:
     if drift_count > 0:
         print(
             f"[install_repo:self-audit] WARNING: {drift_count} drift(s) detected; "
-            f"run chg-03 reconcile or see audit.md",
+            f"pass --force-managed to overwrite, or see {root}/.workflow/audit.md",
             file=sys.stderr,
         )
     return drift_count

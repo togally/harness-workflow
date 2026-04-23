@@ -52,3 +52,29 @@
 {"ts": "2026-04-23T01:20:14.970588+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-23T01:20:16.438799+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 1.472676}}
 {"ts": "2026-04-23T01:20:16.438926+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-23T02:04:19.833235+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 2643.397258}}
+{"ts": "2026-04-23T02:04:19.833459+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "planning"}}
+{"ts": "2026-04-23T02:53:04.977677+00:00", "event": "stage_skip", "data": {"from_stage": "planning"}}
+{"ts": "2026-04-23T02:53:04.977994+00:00", "event": "ff", "data": {"from_stage": "planning"}}
+{"ts": "2026-04-23T02:53:12.170740+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 7.196854}}
+{"ts": "2026-04-23T02:53:12.170854+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-23T03:18:17.693231+00:00", "event": "regression_created", "data": {"regression_id": "reg-01", "dir_name": "reg-01-req-36-ac-5-未达-harness-install-不同步-scaffold_v2-到存量项目-yh-platform-验证-43-项-drift-install_repo-只刷-managed-子集-_install_self_audit-被-pyproject-锚点锁死-存量项目不触发"}}
+{"ts": "2026-04-23T03:23:13.638820+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 1801.470407}}
+{"ts": "2026-04-23T03:23:13.639105+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-23T03:32:20.950128+00:00", "event": "stage_duration", "data": {"stage": "planning", "duration_seconds": 547.315672}}
+{"ts": "2026-04-23T03:32:20.950375+00:00", "event": "stage_advance", "data": {"from_stage": "planning", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-23T03:32:29.498048+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 8.552003}}
+{"ts": "2026-04-23T03:32:29.498310+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-23T04:02:35.506628+00:00", "event": "regression_created", "data": {"regression_id": "reg-02", "dir_name": "reg-02-req-36-ac-5-收口-cli-路由-packaging-双根因-install-不调-install_repo-update-flag-仍走-install_repo-pyproject-漏装-mirror"}}
+{"ts": "2026-04-23T04:10:31.482077+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 2281.988095}}
+{"ts": "2026-04-23T04:10:31.482398+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-23T04:20:49.329799+00:00", "event": "stage_duration", "data": {"stage": "planning", "duration_seconds": 617.850884}}
+{"ts": "2026-04-23T04:20:49.329940+00:00", "event": "stage_advance", "data": {"from_stage": "planning", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-23T04:20:49.752324+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 0.425142}}
+{"ts": "2026-04-23T04:20:49.752438+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-23T04:43:27.728373+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 1357.978271}}
+{"ts": "2026-04-23T04:43:27.728624+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-23T04:53:29.045242+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 601.320744}}
+{"ts": "2026-04-23T04:53:29.045498+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-23T06:00:20.565723+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 4011.524308}}
+{"ts": "2026-04-23T06:00:20.565962+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
