@@ -580,7 +580,31 @@ def main() -> int:
         if not done_reqs:
             print("No done requirements available to archive.")
             return 1
-        selected = prompt_requirement_selection(done_reqs, preselect=args.requirement)
+        # bugfix-3 / 缺陷 3：archive 默认目标必须 = runtime.current_requirement，
+        # 不得盲取 done_reqs[0]。优先用 args.requirement（用户显式传入），否则读
+        # runtime.current_requirement 当 preselect。non-tty 场景下
+        # prompt_requirement_selection 会直接返回 preselect。
+        preselect_value = args.requirement
+        if not preselect_value:
+            try:
+                runtime_path = root / ".workflow" / "state" / "runtime.yaml"
+                if runtime_path.exists():
+                    rt_data = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+                    preselect_value = str(rt_data.get("current_requirement", "")).strip() or None
+                    # 若 current_requirement 不在 done 列表，仍传 preselect=None
+                    # 让用户面对原始候选，避免悄悄选了一个 stage != done 的 id。
+                    if preselect_value and not any(
+                        r["req_id"] == preselect_value for r in done_reqs
+                    ):
+                        print(
+                            f"[archive] current_requirement {preselect_value!r} 不在 done 列表中，"
+                            "默认改为提示用户选择。",
+                            file=sys.stderr,
+                        )
+                        preselect_value = None
+            except Exception:
+                preselect_value = None
+        selected = prompt_requirement_selection(done_reqs, preselect=preselect_value)
         if not selected:
             print("No requirement selected.")
             return 1

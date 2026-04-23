@@ -1,9 +1,9 @@
 operation_type: "bugfix"
 operation_target: "bugfix-3"
-current_requirement: "bugfix-3"
-current_requirement_title: "CLI sug-12 / sug-13 复发：harness next 在 regression/planning 后吞 stage（执行至 testing 跳过应有的 planning/executing），且 runtime.yaml ↔ state/requirements/req-*.yaml 的 stage 字段不同步（多次手工修复）"
-stage: "regression"
-stage_entered_at: "2026-04-23T07:50:00.000000+00:00"
+current_requirement: ""
+current_requirement_title: ""
+stage: "done"
+stage_entered_at: "2026-04-23T07:59:21.513686+00:00"
 conversation_mode: "harness"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -22,5 +22,4 @@ ff_stage_history:
   - testing
   - acceptance
   - done
-active_requirements:
-  - bugfix-3
+active_requirements: []

@@ -389,18 +389,27 @@ def load_requirement_runtime(root: Path) -> dict[str, object]:
     # req-28 / chg-02（AC-12）：懒回填 operation_type / operation_target。
     # 若 runtime.yaml 中缺失（被旧版本 save 裁剪、或人工清空），从 current_requirement
     # 的前缀推断。仅在字段为空时触发，不覆盖已存在的显式值。
+    # bugfix-3 / 缺陷 2（sug-13 复发）扩展：若 operation_type / operation_target
+    # 与 current_requirement 前缀**不一致**（如 enter bugfix 后 operation_type 残留
+    # "requirement"），强制按 current_requirement 自愈，避免后续 _sync_stage_to_state_yaml
+    # 写到错误子目录。
     current_req = str(payload.get("current_requirement", "")).strip()
     operation_type = str(payload.get("operation_type", "")).strip()
     operation_target = str(payload.get("operation_target", "")).strip()
-    if current_req and not operation_type:
-        if current_req.startswith("bugfix-"):
-            payload["operation_type"] = "bugfix"
-        elif current_req.startswith("sug-"):
-            payload["operation_type"] = "suggestion"
-        else:
-            payload["operation_type"] = "requirement"
-    if current_req and not operation_target:
-        payload["operation_target"] = current_req
+
+    def _infer_op_type(req_id: str) -> str:
+        if req_id.startswith("bugfix-"):
+            return "bugfix"
+        if req_id.startswith("sug-"):
+            return "suggestion"
+        return "requirement"
+
+    if current_req:
+        expected_type = _infer_op_type(current_req)
+        if not operation_type or operation_type != expected_type:
+            payload["operation_type"] = expected_type
+        if not operation_target or operation_target != current_req:
+            payload["operation_target"] = current_req
     return payload
 
 
@@ -6159,6 +6168,84 @@ def _reset_ff_mode_after_done_archive(runtime: dict, new_stage: str) -> dict:
     return runtime
 
 
+# bugfix-3 / 缺陷 1（sug-12 复发）：合法路由 stage 白名单（含三套 sequence 的并集）。
+_REGRESSION_ROUTE_VALID_STAGES = frozenset(
+    set(WORKFLOW_SEQUENCE) | set(BUGFIX_SEQUENCE) | set(SUGGESTION_SEQUENCE)
+)
+
+
+def _parse_decision_route(text: str) -> str | None:
+    """从 regression decision.md 文本中解析路由 stage。
+
+    bugfix-3 / 缺陷 1（sug-12 复发，``harness next`` 在 regression 后吞 stage）：
+    诊断师在 ``decision.md`` 写"路由：planning"等指示，``harness next`` 必须可机读
+    优先级：
+
+    1. yaml frontmatter ``route_to: <stage>``（推荐写法，模板已加占位）
+    2. 文本 marker：``路由[:：=]\\s*(\\w+)`` / ``harness next\\s*[→\\->\\s]+(\\w+)`` /
+       英文 ``route\\s*[:：=]\\s*(\\w+)``
+    3. 返回值必须落在 ``_REGRESSION_ROUTE_VALID_STAGES`` 内，否则视为未命中（None）。
+
+    设计取舍：保持 best-effort，无路由 / 路由非法 → 返回 None，让 ``workflow_next``
+    fallback 到默认 sequence + 1，向后兼容历史 decision.md。
+    """
+    import re as _re
+
+    if not text:
+        return None
+
+    # 1) yaml frontmatter
+    fm_match = _re.match(r"\A---\s*\n(.*?)\n---\s*\n", text, _re.DOTALL)
+    if fm_match:
+        fm_body = fm_match.group(1)
+        rt_match = _re.search(r"^\s*route_to\s*:\s*['\"]?([\w_-]+)['\"]?\s*$",
+                              fm_body, _re.MULTILINE)
+        if rt_match:
+            candidate = rt_match.group(1).strip()
+            if candidate in _REGRESSION_ROUTE_VALID_STAGES:
+                return candidate
+
+    # 2) 文本 marker：覆盖中文 "路由"/"路由动作" + 英文 "route"
+    patterns = [
+        r"路由\s*[:：=]\s*([\w_]+)",
+        r"路由动作\s*[:：=]\s*[^\n]*?harness\s+next\s*[→\->\s]+([\w_]+)",
+        r"harness\s+next\s*[→\->\s]+([\w_]+)",
+        r"\broute\s*[:：=]\s*([\w_]+)",
+    ]
+    for pat in patterns:
+        for m in _re.finditer(pat, text, _re.IGNORECASE):
+            candidate = m.group(1).strip()
+            if candidate in _REGRESSION_ROUTE_VALID_STAGES:
+                return candidate
+    return None
+
+
+def _resolve_regression_route(root: Path, regression_id: str) -> str | None:
+    """根据 regression id 定位 decision.md 并解析路由 stage。
+
+    bugfix-3 / 缺陷 1：``workflow_next`` 入口若 ``current_regression`` 非空，调用本
+    helper 优先消费 reg.decision 路由。未命中（无目录 / 无 decision.md / 文本无
+    可识别路由）→ 返回 None，由调用方走默认 sequence。
+    """
+    if not regression_id:
+        return None
+    try:
+        config = ensure_config(root)
+    except SystemExit:
+        return None
+    reg_dir = _locate_regression_dir(root, regression_id, config["language"])
+    if reg_dir is None:
+        return None
+    decision_path = reg_dir / "decision.md"
+    if not decision_path.exists():
+        return None
+    try:
+        text = decision_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return _parse_decision_route(text)
+
+
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
     current_stage = str(runtime.get("stage", "")).strip()
@@ -6174,16 +6261,32 @@ def workflow_next(root: Path, execute: bool = False) -> int:
 
     if not current_stage:
         raise SystemExit("No active workflow stage. Run `harness requirement <title>` to begin.")
-    if current_stage == "done":
-        raise SystemExit("Workflow is already complete.")
-    if current_stage not in sequence:
-        raise SystemExit(f"Unknown stage: {current_stage}")
 
-    idx = sequence.index(current_stage)
-    if current_stage == "ready_for_execution" and not execute:
-        raise SystemExit("Workflow is ready_for_execution. Run `harness next --execute` to confirm execution start.")
+    # bugfix-3 / 缺陷 1（sug-12 复发）：若 current_regression 非空，优先读
+    # decision.md 路由覆盖默认 sequence + 1。命中后清空 current_regression，
+    # 防止下次 next 重复消费同一 regression 决策。
+    # 路由检查放到 sequence 校验之前，让"主线已 done 但 reg 决定回到 planning"
+    # 这种场景也能走通（否则 done 触发 SystemExit）。
+    current_regression = str(runtime.get("current_regression", "")).strip()
+    routed_stage_from_reg: str | None = None
+    if current_regression:
+        routed_stage_from_reg = _resolve_regression_route(root, current_regression)
 
-    next_stage = sequence[idx + 1] if idx + 1 < len(sequence) else current_stage
+    if routed_stage_from_reg is None:
+        # 无 reg 路由 → 走原校验
+        if current_stage == "done":
+            raise SystemExit("Workflow is already complete.")
+        if current_stage not in sequence:
+            raise SystemExit(f"Unknown stage: {current_stage}")
+        idx = sequence.index(current_stage)
+        if current_stage == "ready_for_execution" and not execute:
+            raise SystemExit("Workflow is ready_for_execution. Run `harness next --execute` to confirm execution start.")
+        next_stage = sequence[idx + 1] if idx + 1 < len(sequence) else current_stage
+    else:
+        # reg 路由命中：直接采用，跳过 sequence 校验（允许 done → planning 等回退）
+        next_stage = routed_stage_from_reg
+        runtime["current_regression"] = ""
+        runtime["current_regression_title"] = ""
 
     prev_entered_at = str(runtime.get("stage_entered_at", ""))
     runtime["stage"] = next_stage
@@ -6302,6 +6405,16 @@ def enter_workflow(root: Path, req_id: str = "") -> int:
         # req-30 / chg-01：id 变更时同步 *_title 缓存，subagent 进入 harness 模式后读 runtime
         # 即可拿到 title（场景 4：briefing 无需二次查文件）。
         runtime["current_requirement_title"] = _resolve_title_for_id(root, req_id)
+        # bugfix-3 / 缺陷 2（sug-13 复发）：切换 id 时强制重设 operation_type /
+        # operation_target，避免上次 req-X 的残留值导致 _sync_stage_to_state_yaml
+        # 写到错误的子目录（requirement→bugfix 切换后 stage 写不进 bugfix yaml）。
+        if req_id.startswith("bugfix-"):
+            runtime["operation_type"] = "bugfix"
+        elif req_id.startswith("sug-"):
+            runtime["operation_type"] = "suggestion"
+        else:
+            runtime["operation_type"] = "requirement"
+        runtime["operation_target"] = req_id
     runtime = set_conversation_mode(runtime, conversation_mode="harness")
     save_requirement_runtime(root, runtime)
     print("Entered harness mode.")

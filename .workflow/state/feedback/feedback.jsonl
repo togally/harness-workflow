@@ -86,3 +86,11 @@
 {"ts": "2026-04-23T07:40:27.454771+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-23T07:40:27.916490+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0.463113}}
 {"ts": "2026-04-23T07:40:27.916632+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-23T07:59:20.113967+00:00", "event": "stage_duration", "data": {"stage": "regression", "duration_seconds": 560.113933}}
+{"ts": "2026-04-23T07:59:20.114300+00:00", "event": "stage_advance", "data": {"from_stage": "regression", "to_stage": "executing"}}
+{"ts": "2026-04-23T07:59:20.585009+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0.472739}}
+{"ts": "2026-04-23T07:59:20.585179+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-23T07:59:21.052137+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0.46883}}
+{"ts": "2026-04-23T07:59:21.052309+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-23T07:59:21.515239+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0.465091}}
+{"ts": "2026-04-23T07:59:21.515385+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
