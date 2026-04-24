@@ -2,37 +2,25 @@
 
 > 📖 [中文文档](README.zh.md)
 
-**Structured AI workflow system** for requirement management, change tracking, multi-stage quality gates, and experience accumulation in AI-assisted software development.
+**Structured AI workflow system** for AI-assisted software development. harness-workflow gives AI agents a document-driven, role-separated, stage-gated operating model so your work is traceable, repeatable, and auditable — not just "good vibes in a big context window."
 
-Core philosophy: **govern AI development, don't just prompt it.** Document-driven, role-separated, and structurally constrained — so AI agents operate within clear boundaries, producing traceable, auditable results.
+Core philosophy: **govern AI development, don't just prompt it.**
 
----
-
-## Why harness-workflow?
-
-Most AI coding tools leave you with one big context window and hope. harness-workflow gives you:
-
-- **Stage-gated workflow** — requirements → changes → planning → execution → testing → acceptance → done
-- **Role separation** — each stage uses a dedicated agent role (analyst, architect, engineer, tester, auditor)
-- **Persistent state** — requirements and changes survive context window resets via YAML + Markdown files
-- **Experience accumulation** — lessons from each project are captured and reused in future sessions
-- **Multi-platform** — works on Claude Code, Codex, Qoder, and kimicli
+Most AI coding tools give you one large context window and hope for the best. harness-workflow adds structure:
 
 ---
 
-## Practical Principles
+## §1 What it is and what problem it solves
 
-1. **Don't compress when context is full** — start a new agent and hand off via `session-memory.md`
-2. **Separate agents per stage** — producer and evaluator must be different instances
-3. **Review beyond the code** — operate the UI, verify interactions, check results
-4. **Independent feedback loops** — role separation is the prerequisite for effective iteration
-5. **Attribute problems structurally** — when an agent fails, look inward at the constraints
-6. **Thin entry points** — directory indexes keep context lean; details surface on demand
-7. **Sustainable autonomy** — the goal is a self-running system, not perpetual hand-holding
+- **Stage-gated workflow** — requirement review → planning → executing → testing → acceptance → done
+- **Role separation** — each stage uses a dedicated agent role; the producer and evaluator are always different instances
+- **Persistent state** — requirements and changes survive context resets via YAML + Markdown files in `.workflow/`
+- **Experience accumulation** — lessons from every project are captured and fed back into future sessions
+- **Multi-platform** — Claude Code, Codex, Qoder, and kimicli
 
 ---
 
-## Installation
+## §2 Installation
 
 **Standard users** — install from GitHub:
 
@@ -40,215 +28,112 @@ Most AI coding tools leave you with one big context window and hope. harness-wor
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
-**Developers / local source editing** — install in editable mode so source changes take effect immediately without reinstalling:
+> **Note:** A `pipx`-installed binary is a snapshot. It does **not** update automatically when the upstream repo changes. To upgrade, run `pipx reinstall harness-workflow` or `pipx upgrade harness-workflow`.
+
+**Developers / local source editing** — install in editable mode so source changes take effect immediately:
 
 ```bash
 pipx install -e /path/to/harness-workflow
-# Changes to source code take effect immediately; no reinstall needed.
+# git pull inside the repo is all you need to pick up new changes
 ```
 
-Then initialize a target repository:
+**Initialize a project** — run this inside any repo you want to manage with harness:
 
 ```bash
 cd your-project
-harness install          # installs skill files for Claude Code / Codex / Qoder / kimicli
+harness install          # sets up .workflow/ scaffold + skill files for all platforms
+harness install --force  # force-overwrite existing skill files after a breaking update
 ```
 
-`harness install` is idempotent — safe to run repeatedly. It initializes the `.workflow/` scaffold, syncs skill files, migrates legacy state, and writes the experience index and project-profile (req-33 (install absorbs CLI refresh) / chg-01).
+`harness install` is idempotent — safe to run repeatedly. It initializes the scaffold, syncs skill files, migrates legacy state, and writes the experience index and project profile.
 
-If you need to overwrite existing skill files (e.g., after a breaking update):
-
-```bash
-harness install --force  # force reinstall of all platform skills
-```
+> **Refreshing templates:** to re-sync skill files and managed files in an existing project, run `harness install` again (not `harness update` — see §3).
 
 ---
 
-## Update / Upgrade
+## §3 Commands
 
-There are three distinct scenarios. Make sure you pick the right one.
+| Command | What it does |
+|---------|--------------|
+| `harness install [--force]` | Initialize / refresh scaffold and skill files (`--force` overwrites existing) |
+| `harness status` | Show current requirement, stage, and runtime state |
+| `harness validate` | Check artifact completeness for the current requirement |
+| `harness requirement "<title>"` | Create a requirement and enter review stage |
+| `harness change "<title>"` | Create a change within the current requirement |
+| `harness next` | Advance to the next stage |
+| `harness next --execute` | Confirm execution (required to enter the executing stage) |
+| `harness ff` | Fast-forward: AI auto-advances through all remaining stages |
+| `harness suggest "<content>"` | Capture an idea without starting a full requirement |
+| `harness suggest --list` | List all pending suggestions |
+| `harness suggest --apply <id>` | Promote a suggestion into a formal requirement |
+| `harness suggest --apply-all [--pack-title "..."]` | Pack all pending suggestions into one requirement |
+| `harness suggest --delete <id>` | Delete a suggestion |
+| `harness regression "<issue>"` | Start a regression diagnosis flow; closing actions auto-create an experience file |
+| `harness regression --confirm` | Confirmed real issue — proceed with fix |
+| `harness regression --reject` | False alarm — return to previous stage |
+| `harness regression --change / --requirement "<title>"` | Convert diagnosis result into a new change or requirement |
+| `harness archive <req-id> [--folder <name>]` | Archive a completed requirement (only `done` status) |
+| `harness rename requirement/change <old> <new>` | Rename a requirement or change |
+| `harness feedback` | Export usage event summary |
 
-### Scenario A — Upgrade the published harness-workflow CLI (most users)
+### `harness update` — what it actually does
 
-Fetch a new CLI version from PyPI / git (e.g., to pick up a pending-gate fix introduced in chg-03 (runtime pending + next/status gate)):
-
-```bash
-pipx reinstall harness-workflow
-# or
-pipx upgrade harness-workflow
-```
-
-> **Note:** A `pipx`-installed binary is a snapshot. It does **not** update automatically when the upstream repo changes. Run one of the commands above whenever you want the latest released CLI.
-
-### Scenario B — Editable install: sync the latest source
-
-If you installed with `pipx install -e`, a `git pull` is all you need — editable mode loads directly from source:
-
-```bash
-git pull    # inside the harness-workflow repo; changes take effect immediately
-```
-
-No reinstall required.
-
-### Scenario C — Refresh workflow templates / skill files in a harness-managed project
-
-To refresh the `.workflow/` scaffold, skill files, managed files, and experience index inside a project that uses harness:
-
-```bash
-harness install          # idempotent; absorbs all refresh duties (req-33 (install absorbs CLI refresh) / chg-01)
-harness update --check   # optional: preview drift between repo files and templates
-```
-
----
-
-## `harness update` — What it actually does
-
-`harness update` is **not** a CLI upgrade command. Do not use it to upgrade the harness tool itself (use Scenario A above).
+`harness update` is **not** a CLI upgrade command. Do not use it to upgrade the harness tool itself (use `pipx reinstall harness-workflow` for that).
 
 | Invocation | Behavior |
 |------------|----------|
-| `harness update` (no flag) | Prints a 3-line guide, then exits. To generate a project status report, say **"生成项目现状报告"** (or "项目状态" / "项目快照" / "生成 project-overview.md") inside an agent session — this triggers the project-reporter role (req-32 (new project-reporter role) / chg-02) to produce `artifacts/main/project-overview.md`. |
-| `harness update --check` | Drift preview — shows which repo files differ from the harness templates. |
-| `harness update --scan` | Project adaptation scan — detects tech stack and directory structure. |
-
-To **upgrade the CLI itself**, use `pipx reinstall harness-workflow` (Scenario A).
+| `harness update` (no flag) | Prints a short guide, then exits. To generate a project status report, say **"生成项目现状报告"** inside an agent session. |
+| `harness update --check` | Drift preview — shows which managed files differ from templates |
+| `harness update --scan` | Project adaptation scan — detects tech stack and directory layout |
 
 ---
 
-## Core Commands
+## §4 Usage scenarios
 
-| Command | Description |
-|---------|-------------|
-| `harness status` | Show current requirement, stage, and runtime state |
-| `harness validate` | Validate artifacts and run Python syntax checks for the current requirement |
-| `harness requirement "<title>"` | Create a new requirement and enter requirement_review |
-| `harness change "<title>"` | Create a new change within the current requirement |
-| `harness next` | Advance to the next workflow stage |
-| `harness next --execute` | Confirm execution (required to enter executing stage) |
-| `harness regression "<issue>"` | Start a regression analysis flow (closing actions auto-create experience file) |
-| `harness archive <req-id> [--folder <name>]` | Archive a completed requirement (only `done` status); in a Git repo, prompts to auto-commit |
-| `harness rename requirement <old> <new>` | Rename a requirement |
-| `harness rename change <old> <new>` | Rename a change |
-| `harness suggest "<content>"` | Quickly jot down an idea without starting a full requirement flow |
-| `harness suggest --list` | List all pending suggestions |
-| `harness suggest --apply <id>` | Turn a suggestion into a formal requirement and enter requirement_review |
-| `harness suggest --apply-all [--pack-title "..."]` | Pack all pending suggestions into a single requirement |
-| `harness suggest --delete <id>` | Delete a suggestion |
-| `harness ff` | Fast-forward to ready_for_execution |
-| `harness update` (no flag) | Print guide; say "生成项目现状报告" in agent chat to trigger project-reporter (req-32 (new project-reporter role) / chg-02) |
-| `harness update --check` | Drift preview: show which managed files differ from templates |
-| `harness update --scan` | Project adaptation scan: detect tech stack and directory layout |
-| `harness feedback` | Export usage event summary |
-
-### Quick Start
+### Scenario A: Deliver a new requirement end-to-end
 
 ```bash
-harness install
-harness requirement "Online Health Service"
-# ... discuss and confirm the requirement with the AI ...
-harness next
-# ... split into changes, review plans ...
-harness next --execute
-# ... implementation ...
-harness next          # → testing
-harness next          # → acceptance
-harness next          # → done
+harness install                          # first-time project setup
+harness requirement "Online Health API"  # enter requirement review
+# discuss and confirm scope with the AI
+harness next                             # advance to planning
+# review the change breakdown and plan
+harness next --execute                   # confirm and start execution
+# AI implements the changes
+harness next                             # → testing
+harness next                             # → acceptance
+harness next                             # → done
+harness archive req-01                   # archive the completed requirement
 ```
 
-### Capture Ideas with Suggestions
+Flow: requirement review → planning → executing → testing → acceptance → done. All four platforms (Claude Code, Codex, Qoder, kimicli) share the same `.workflow/` state.
 
-Not every idea needs a full requirement immediately. Use `harness suggest` to capture raw thoughts, then promote them when ready:
+### Scenario B: Capture a quick idea, decide later
 
 ```bash
 harness suggest "Add dark mode toggle to settings page"
-harness suggest "Refactor auth middleware to support JWT refresh tokens"
-harness suggest --list
-harness suggest --apply sug-01                   # creates req-XX and enters requirement_review
-harness suggest --apply-all                      # pack all pending suggestions into one requirement
-harness suggest --apply-all --pack-title "X"     # pack with a custom requirement title
+harness suggest "Refactor auth middleware for JWT refresh"
+harness suggest --list                         # review the backlog
+harness suggest --apply sug-01                 # promote to a formal requirement
+harness suggest --apply-all --pack-title "UI polish sprint"  # pack all into one req
 ```
 
----
+Suggestions sit in a lightweight pool — no stage overhead until you decide to act.
 
-## Local Development
-
-**Recommended:** install in editable mode from the start (see Installation above). Source changes take effect immediately without any reinstall step.
-
-If you installed the non-editable release and need to test local changes, re-inject into the pipx environment:
+### Scenario C: Something went wrong — diagnose and fix
 
 ```bash
-pipx inject harness-workflow . --force
+harness regression "Login fails after token refresh"
+# AI diagnoses root cause and writes diagnosis.md
+harness regression --confirm              # confirmed real issue → enters fixing flow
+# or
+harness regression --change "Fix token refresh edge case"   # creates a new change
+# or
+harness regression --reject               # false alarm, return to previous stage
 ```
 
----
+Regression can be triggered from any stage. Closing a regression automatically captures an experience file for future sessions.
 
-## Where Detailed Rules Live
+### Scenario D: Multi-platform setup
 
-All workflow rules, roles, and constraints are stored under `.workflow/`. Key entry points:
-
-- `WORKFLOW.md` — workflow entry point for agents
-- `.workflow/context/index.md` — loading order and routing rules
-- `.workflow/context/roles/<stage>.md` — per-stage role definitions (requirement-review, planning, executing, testing, acceptance, regression, done)
-- `.workflow/context/experience/` — accumulated project lessons
-- `.workflow/constraints/` — behavioral boundaries, risk scanning, and failure recovery paths
-- `.workflow/flow/stages.md` — stage definitions and transition conditions
-- `.workflow/tools/` — tool catalog, selection guide, and per-stage allowlists
-
-> 💡 **Tip:** You don't need to memorize the directory tree. Start with `WORKFLOW.md` and `.workflow/context/index.md`; they will route you to the right role and constraint files automatically.
-
----
-
-## Six-Layer Architecture
-
-```
-.workflow/
-├── context/        ← Layer 1: Roles, experience, project background, team standards
-├── tools/          ← Layer 2: Tool catalog, selection guide, per-stage allowlists
-├── flow/           ← Layer 3: Stage definitions, requirement docs, change plans
-├── state/          ← Layer 4: Runtime state, requirement progress, session memory
-├── evaluation/     ← Layer 5: Testing rules, acceptance criteria, regression diagnosis
-└── constraints/    ← Layer 6: Behavioral boundaries, risk scanning, failure recovery
-```
-
-### Stage Flow
-
-```
-requirement_review
-        ↓
-  changes_review
-        ↓
-   plan_review
-        ↓
-ready_for_execution
-        ↓
-    executing
-        ↓
-     testing
-        ↓
-    acceptance
-        ↓
-      done
-```
-
-Each stage has a dedicated role file in `.workflow/context/roles/` that constrains behavior, tool access, and exit conditions.
-
----
-
-## Supported Platforms
-
-| Platform | Entry Files |
-|----------|-------------|
-| Claude Code | `CLAUDE.md`, `.claude/commands/harness-*.md`, `.claude/skills/harness/` |
-| Codex | `AGENTS.md`, `.codex/skills/harness/`, `.codex/skills/harness-*/` |
-| Qoder | `.qoder/skills/harness/`, `.qoder/commands/harness-*.md`, `.qoder/rules/harness-workflow.md` |
-| kimicli | `.kimi/skills/{command}/SKILL.md` (YAML frontmatter + Markdown) |
-
----
-
-## Artifacts Repository
-
-The `artifacts/` directory serves as a knowledge base for completed requirements:
-
-- **`artifacts/requirements/`** — Auto-generated by `harness archive`. Each archived requirement produces a `{req-id}-{title}.md` summary doc covering business context, goals, scope, acceptance criteria, change list, and key design decisions. Useful for onboarding new team members.
-  > **Note:** `harness archive` only processes requirements in `done` status. Requirements that haven't completed the full workflow cannot be archived.
-- Other subdirectories (`sql/`, `api/`, etc.) are managed manually by the team.
+`harness install` writes skill files for all four platforms at once. Run `harness install --force` after a CLI upgrade to keep all platform skill files current.
