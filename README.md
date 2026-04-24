@@ -28,7 +28,13 @@ Most AI coding tools give you one large context window and hope for the best. ha
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
-> **Note:** A `pipx`-installed binary is a snapshot. It does **not** update automatically when the upstream repo changes. To upgrade, run `pipx reinstall harness-workflow` or `pipx upgrade harness-workflow`.
+**Upgrade to the latest released version** — a `pipx`-installed binary is a snapshot and does **not** auto-update when upstream changes:
+
+```bash
+pipx reinstall harness-workflow
+# or equivalently:
+pipx upgrade harness-workflow
+```
 
 **Developers / local source editing** — install in editable mode so source changes take effect immediately:
 

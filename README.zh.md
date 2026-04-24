@@ -28,7 +28,13 @@
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
-> **注意：** pipx 安装的 binary 是快照，**不会**随上游仓库自动更新。需要升级时，运行 `pipx reinstall harness-workflow` 或 `pipx upgrade harness-workflow`。
+**升级到最新发布版** — pipx 安装的 binary 是快照，**不会**随上游仓库自动更新：
+
+```bash
+pipx reinstall harness-workflow
+# 或等价：
+pipx upgrade harness-workflow
+```
 
 **开发者 / 本机要改源码** — 使用 editable 模式安装，源码改动即时生效：
 
