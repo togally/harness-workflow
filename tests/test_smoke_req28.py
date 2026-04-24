@@ -420,6 +420,15 @@ class ValidateHumanDocsSmokeTest(unittest.TestCase):
         shutil.rmtree(self.tempdir, ignore_errors=True)
 
     def test_validate_human_docs_reports_missing_and_present(self) -> None:
+        """AC-09：对人文档校验能正确区分 [✓] / [ ]。
+
+        req-77（>LEGACY_REQ_ID_CEILING=37）走新规扁平路径：
+        - req 级：需求摘要.md / 交付总结.md（废止项 testing/acceptance 已从常量删除）
+        - chg 级：req 根目录 chg-NN- 前缀文件（不再依赖 changes/ 子目录）
+
+        更新溯源：req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-02
+        （validate_human_docs 重写 + 精简废止项）。
+        """
         from harness_workflow.validate_human_docs import (
             CHANGE_LEVEL_DOCS,
             REQ_LEVEL_DOCS,
@@ -429,28 +438,32 @@ class ValidateHumanDocsSmokeTest(unittest.TestCase):
             validate_human_docs,
         )
 
-        # 构造 req-77-demo：齐 需求摘要.md / 变更简报.md，缺 其余 req-level + 实施说明.md
+        # 构造 req-77-demo（新规扁平路径）：
+        # 写 需求摘要.md + chg-01-变更简报.md，缺 交付总结.md + chg-01-实施说明.md
         req_dir = self.root / "artifacts" / "main" / "requirements" / "req-77-demo"
-        (req_dir / "changes" / "chg-01-alpha").mkdir(parents=True)
+        req_dir.mkdir(parents=True)
         (req_dir / "需求摘要.md").write_text("stub", encoding="utf-8")
-        (req_dir / "changes" / "chg-01-alpha" / "变更简报.md").write_text("stub", encoding="utf-8")
+        (req_dir / "chg-01-变更简报.md").write_text("stub", encoding="utf-8")
+        # 故意不写 交付总结.md / chg-01-实施说明.md → missing
 
         kind, target_id, items = validate_human_docs(self.root, "req-77")
         self.assertEqual(kind, "req")
         self.assertEqual(target_id, "req-77-demo")
+        # 新规：2 req-level（需求摘要 + 交付总结）+ 2 chg-level（变更简报 + 实施说明）= 4
         self.assertEqual(
             len(items),
             len(REQ_LEVEL_DOCS) + len(CHANGE_LEVEL_DOCS),
-            f"items 数应为 req-level(4) + change-level(2) = 6，实际 {items!r}",
+            f"items 数应为 req-level({len(REQ_LEVEL_DOCS)}) + change-level({len(CHANGE_LEVEL_DOCS)})，实际 {items!r}",
         )
 
         by_name = {i.filename: i for i in items}
         self.assertEqual(by_name["需求摘要.md"].status, STATUS_OK)
-        self.assertEqual(by_name["测试结论.md"].status, STATUS_MISSING)
-        self.assertEqual(by_name["验收摘要.md"].status, STATUS_MISSING)
         self.assertEqual(by_name["交付总结.md"].status, STATUS_MISSING)
-        self.assertEqual(by_name["chg-01-alpha/变更简报.md"].status, STATUS_OK)
-        self.assertEqual(by_name["chg-01-alpha/实施说明.md"].status, STATUS_MISSING)
+        self.assertEqual(by_name["chg-01-变更简报.md"].status, STATUS_OK)
+        self.assertEqual(by_name["chg-01-实施说明.md"].status, STATUS_MISSING)
+        # 废止项不再出现在 items 中
+        self.assertNotIn("测试结论.md", by_name)
+        self.assertNotIn("验收摘要.md", by_name)
 
         # format_report 含 [✓] / [ ] 两种 icon
         text = format_report(kind, target_id, items)

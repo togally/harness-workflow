@@ -84,9 +84,16 @@ class RegressionIndependentTitleTest(unittest.TestCase):
         self.assertTrue(runtime.get("current_regression", "").startswith("reg-"))
 
         # 目录 slug 必须以 "bar" 为主（parent title "parent req title foo" 不应出现）
-        regressions_dirs = list(
+        # req-99 >= 39：新扁平路径，机器型文档落 .workflow/state/sessions/req-99/regressions/
+        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）
+        state_reg_dirs = list(
+            (self.root / ".workflow" / "state" / "sessions" / "req-99" / "regressions").glob("reg-*")
+        )
+        # 也兜底扫 legacy 路径（req-id < 39 场景）
+        legacy_reg_dirs = list(
             (self.root / "artifacts" / "main" / "requirements").glob("req-*/regressions/reg-*")
         )
+        regressions_dirs = state_reg_dirs or legacy_reg_dirs
         self.assertTrue(regressions_dirs, "regression 目录必须存在")
         reg_dir_name = regressions_dirs[0].name
         self.assertIn("bar", reg_dir_name.lower())

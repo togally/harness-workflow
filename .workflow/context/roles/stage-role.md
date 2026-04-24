@@ -183,12 +183,16 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 每个 stage 角色新产出的对人文档必须落到 `artifacts/{branch}/...` 下，与制品树同构：
 
 - 需求级：`artifacts/{branch}/requirements/{req-id}-{slug}/`
-- 变更级：`artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/`
+- 变更级：`artifacts/{branch}/requirements/{req-id}-{slug}/chg-NN-变更简报.md`（平铺于需求根，不建 `changes/` 子目录）
 - Bugfix 级：`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/`
-- Regression 级：`artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/`
+- Regression 级：`artifacts/{branch}/requirements/{req-id}-{slug}/reg-NN-回归简报.md`（平铺于需求根，不建 `regressions/` 子目录）
   （如 regression 属于 bugfix，路径相应落在 bugfix 子树下）
 
+> **详细路径定义、对人文档白名单（≥ 8 类）、机器型文档迁移位（requirement.md → `.workflow/state/requirements/{req-id}/`，change.md + plan.md → `.workflow/state/sessions/{req-id}/{chg-id}/`，regression 产物 → `.workflow/state/sessions/{req-id}/regressions/{reg-id}/`）、命名前缀约定、历史存量豁免范围（req-02 ~ req-37 保留旧结构，req-39 及以后严格执行新规）见 `.workflow/flow/artifacts-layout.md`（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-01（artifacts-layout 契约底座 + stage-role 路径同构改写）新建）。**
+
 ### 契约 3：中文命名 + 阶段粒度
+
+> **完整白名单（含 SQL 脚本 / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 / 其他需人执行或阅读的产物）见 `.workflow/flow/artifacts-layout.md` §2**（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-01（artifacts-layout 契约底座 + stage-role 路径同构改写）新建）。
 
 | 阶段 | 文件名 | 粒度 | 产出角色 |
 |------|-------|------|---------|
@@ -255,6 +259,11 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 - **首次出现必须带 title**：在每一个对人文档、session-memory 新写入段、done-report、subagent briefing、action-log 新写入行、`experience/index.md` 来源列的**首次引用点**，工作项 id 必须形如 `{id}（{title}）`（全角括号 `（）`）。
 - **同上下文后续可简写**：同一文档同一上下文的后续引用可简写回纯 id，不必重复 title。
 - **裸 id = 违规**：首次引用点单独的 `req-29` / `chg-02` / `sug-05` / `bugfix-3` 视为契约 7 硬门禁违反。
+- **id 密集展示反向豁免条款（reg-01（对人汇报批量列举 id 缺 title 不可读） / chg-06（硬门禁六 + 契约 7 批量列举子条款补丁））**：以下场景"同上下文后续可简写"豁免**不生效**，每条 id 都按首次引用处理（带完整 title 或 ≤ 15 字描述，与硬门禁六批量列举子条款双向覆盖）——
+  1. **DAG 完成度 / 进度概览表**：跨多个 chg 列状态时（如 `chg-01 done | chg-02 done | chg-03 in-progress`），每行 id 必带 title。
+  2. **阶段收束汇报 / batched-report**：`本 stage 完成 chg-01 + chg-02 + chg-03 + ...` 形态属于密集展示，每个 chg id 必带 ≤ 15 字描述。
+  3. **跨 chg 索引表 / 制品目录**：`changes/` 树枚举、跨 chg 引用清单、归档索引等表格场景，id 列必带 title 列。
+  4. **触发判定**：同一段落 / 表格 / 列表内并列 ≥ 2 个不同 id 即触发反向豁免；与硬门禁六批量列举子条款共享判定边界。
 
 #### 校验方式
 

@@ -26,3 +26,4 @@ roles:
   acceptance: "sonnet"          # 对照 checklist（断言型）
   tools-manager: "sonnet"       # 工具匹配（模板化）
   reviewer: "sonnet"            # 按 checklist 审查（断言型）
+  usage-reporter: "sonnet"      # 扫 usage-log.yaml + feedback.jsonl 产出耗时与用量报告（断言型，req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-08（stage 耗时 + token 消耗统计 + usage-reporter 对人报告））

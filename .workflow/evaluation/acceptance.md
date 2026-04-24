@@ -15,7 +15,10 @@
 - 不重跑技术测试，不独立执行 R1 / revert / 契约 7 扫描（由 testing 负责）
 
 ### 2. 归档前 gate
-- 检查对人文档家族是否齐全（调用 `harness validate --human-docs`，req-28 产出，保留并列生效）
+- **[硬门禁]** acceptance 前必须执行 `harness validate --human-docs`；未绿 ABORT，退出码非零（非零退出码）则 `acceptance-report.md` `状态` 字段必须执行 = FAIL、不得 PASS 放行（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-04（acceptance gate 强执行：lint 阻塞 + 未绿 FAIL）落地升级）；路由建议：
+  - 缺 `需求摘要.md` → `harness regression` 回 requirement_review
+  - 缺 `chg-NN-变更简报.md` → `harness regression` 回 planning
+  - 缺 `chg-NN-实施说明.md` → `harness regression` 回 executing
 - 检查 runtime.yaml 与 state/requirements/{req-id}.yaml 状态一致性（sug-05 保留）
 - 列出需人工操作验证的项目（如 UI 交付），由用户最终 gate 判定
 
@@ -38,5 +41,8 @@
 ```
 
 ## 完成条件
+
+**前置硬门禁**：`harness validate --human-docs` exit code = 0 才进入人工判定；未绿则 FAIL 不走人工 gate。
+
 - 人工判定通过 → `harness next` → `done`
 - 人工判定驳回 → `harness regression "<驳回原因>"` → 路由

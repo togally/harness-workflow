@@ -49,6 +49,7 @@ class ProjectProfile:
     entrypoints: list[str] = field(default_factory=list)
     stack_tags: list[str] = field(default_factory=list)
     project_headline: str = ""
+    mcp_project_ids: dict[str, str] = field(default_factory=dict)
     parse_errors: list[str] = field(default_factory=list)
 
 
@@ -356,6 +357,16 @@ def _render_body(profile: ProjectProfile) -> str:
         for err in profile.parse_errors:
             lines.append(f"  - {err}")
     lines.append("")
+    lines.append("## MCP 项目归属（provider → project_id）")
+    lines.append("")
+    lines.append("- mcp_project_ids:")
+    if profile.mcp_project_ids:
+        for provider in sorted(profile.mcp_project_ids):
+            val = profile.mcp_project_ids[provider] or "(unset)"
+            lines.append(f"  - {provider}: {val}")
+    else:
+        lines.append("  - (none)")
+    lines.append("")
     lines.append("## 项目用途（LLM 填充）")
     lines.append("")
     lines.append("<!-- 由 CTO/主 agent 依据结构化字段与 README 摘要补全；保持 ≤ 200 字 -->")
@@ -476,7 +487,53 @@ def load_project_profile(path: Path) -> ProjectProfile | None:
                 continue
             _append_list_field(profile, current_list_key, item)
 
+    # 解析 MCP 项目归属段
+    _load_mcp_project_ids(body, profile)
+
     return profile
+
+
+_MCP_SUB_RE = re.compile(r"^\s{2,}-\s+(\w+):\s+(.+)$")
+
+
+def _load_mcp_project_ids(body: str, profile: ProjectProfile) -> None:
+    """req-38 / chg-04 / Step 3：解析 MCP 项目归属段落，填充 profile.mcp_project_ids。
+
+    段缺失或格式异常：mcp_project_ids = {} + parse_errors.append(...)；不抛异常。
+    """
+    lines = body.splitlines()
+    in_mcp_section = False
+    in_mcp_bullet = False
+    found_section = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "## MCP 项目归属（provider → project_id）":
+            in_mcp_section = True
+            found_section = True
+            continue
+        if in_mcp_section and stripped.startswith("## "):
+            # 进入下一个 section，退出
+            break
+        if not in_mcp_section:
+            continue
+        # 检测 "- mcp_project_ids:" 一级 bullet
+        if re.match(r"^-\s+mcp_project_ids:\s*$", stripped):
+            in_mcp_bullet = True
+            continue
+        if in_mcp_bullet:
+            # 子 bullet: "  - provider: value"
+            sub_match = _MCP_SUB_RE.match(line)
+            if sub_match:
+                provider = sub_match.group(1)
+                val = sub_match.group(2).strip()
+                profile.mcp_project_ids[provider] = "" if val == "(unset)" else val
+            elif stripped and not stripped.startswith("-"):
+                # 非 bullet 行，退出子 bullet 解析
+                in_mcp_bullet = False
+
+    if not found_section:
+        profile.parse_errors.append("mcp_project_ids section absent or malformed")
 
 
 def _append_list_field(profile: ProjectProfile, key: str, value: str) -> None:

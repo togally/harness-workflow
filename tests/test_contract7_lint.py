@@ -137,3 +137,75 @@ def test_status_cli_lint_flag_exit_nonzero(tmp_path: Path) -> None:
     )
     assert result.returncode == 1, f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
     assert "contract-7" in result.stdout
+
+
+def test_check_contract_7_skips_id_inside_code_fence(tmp_path: Path) -> None:
+    """req-38（api-document-upload 工具闭环）/ chg-06（硬门禁六 + 契约 7 批量列举子条款补丁）：
+    三反引号代码块内的裸 id 不应命中（过去会命中）。
+    """
+    from harness_workflow.validate_contract import check_contract_7
+
+    content = (
+        "# doc\n"
+        "正文首次引用 req-38（api-document-upload 工具闭环）合规。\n"
+        "```markdown\n"
+        "反例：req-38 裸 id 在代码块内，不应命中\n"
+        "```\n"
+    )
+    f = _write(tmp_path, "artifacts/main/requirements/req-38/plan.md", content)
+    violations = check_contract_7(tmp_path, [f])
+    assert violations == [], (
+        f"expected 0 violations (code fence content skipped), got {violations}"
+    )
+
+
+def test_check_contract_7_still_catches_bare_id_outside_code_fence(tmp_path: Path) -> None:
+    """req-38（api-document-upload 工具闭环）/ chg-06（硬门禁六 + 契约 7 批量列举子条款补丁）：
+    代码块外的裸 chg-01 仍应命中，保持原有扫描行为不变。
+    """
+    from harness_workflow.validate_contract import check_contract_7
+
+    content = (
+        "# doc\n"
+        "```markdown\n"
+        "代码块内的内容不计\n"
+        "```\n"
+        "代码块外裸引用 chg-01 无 title，应命中。\n"
+    )
+    f = _write(tmp_path, "artifacts/main/requirements/req-38/change.md", content)
+    violations = check_contract_7(tmp_path, [f])
+    assert len(violations) == 1, f"expected 1 violation (chg-01 bare outside fence), got {violations}"
+    assert violations[0].work_item_id == "chg-01"
+
+
+def test_check_contract_7_skips_id_inside_inline_backtick(tmp_path: Path) -> None:
+    """req-38（api-document-upload 工具闭环）/ chg-06（硬门禁六 + 契约 7 批量列举子条款补丁）：
+    inline 单反引号代码 span（`chg-01`）内的裸 id 不应命中。
+    """
+    from harness_workflow.validate_contract import check_contract_7
+
+    content = (
+        "# doc\n"
+        "锚点行：`chg-01` 在 inline 代码 span 内，不应命中违规。\n"
+    )
+    f = _write(tmp_path, "artifacts/main/requirements/req-38/plan.md", content)
+    violations = check_contract_7(tmp_path, [f])
+    assert violations == [], (
+        f"expected 0 violations (inline backtick span skipped), got {violations}"
+    )
+
+
+def test_check_contract_7_catches_bare_id_not_in_backtick(tmp_path: Path) -> None:
+    """req-38（api-document-upload 工具闭环）/ chg-06（硬门禁六 + 契约 7 批量列举子条款补丁）：
+    inline 反引号之外的裸 chg-01 仍应命中。
+    """
+    from harness_workflow.validate_contract import check_contract_7
+
+    content = (
+        "# doc\n"
+        "这里有 chg-01 裸引用（无 title），应命中违规；`req-38` 在 span 内不计。\n"
+    )
+    f = _write(tmp_path, "artifacts/main/requirements/req-38/plan.md", content)
+    violations = check_contract_7(tmp_path, [f])
+    assert len(violations) == 1, f"expected 1 violation (chg-01 bare outside backtick), got {violations}"
+    assert violations[0].work_item_id == "chg-01"

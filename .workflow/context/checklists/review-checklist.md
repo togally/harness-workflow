@@ -145,6 +145,10 @@
 - [ ] 经验文件已按阶段验证更新（中）
 - [ ] `artifacts/requirements/` 制品仓库无遗漏（高）
 
+### 硬门禁五 protocols/ 同步完整性（req-38（api-document-upload 工具闭环）/ chg-05（存量项目同步验证））
+
+- [ ] 若 `git diff --name-only` 命中 `.workflow/tools/protocols/` 下任意文件，**必须**同时命中 `src/harness_workflow/assets/scaffold_v2/.workflow/tools/protocols/` 对应文件；否则视为硬门禁五违反，FAIL。
+
 ### 契约 7 校验（req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ sug-26）
 
 - [ ] 已执行 `harness validate --contract 7` 或 `harness status --lint`，返回 0（高）

@@ -73,6 +73,12 @@ DEFAULT_STATE_RUNTIME = {
     "ff_stage_history": [],
     "active_requirements": [],
 }
+# req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）
+# 双轨过渡期常量：req-id ≤ LEGACY_REQ_ID_CEILING 走 legacy 路径（含 req-38 混合过渡）；
+# req-id ≥ FLAT_LAYOUT_FROM_REQ_ID 走新扁平路径（机器型文档落 .workflow/state/，对人文档落 artifacts/）。
+LEGACY_REQ_ID_CEILING = 38  # req-02 ~ req-38 走 legacy 路径（含 req-38 混合过渡）
+FLAT_LAYOUT_FROM_REQ_ID = 39  # req-39 及以后强制扁平 + state 机器型文档
+
 LEGACY_CLEANUP_ROOT = Path(".workflow") / "context" / "backup" / "legacy-cleanup"
 LEGACY_CLEANUP_TARGETS = [
     Path("flow"),
@@ -273,6 +279,9 @@ def _parse_simple_yaml_scalar(value: str) -> object:
         return True
     if text.lower() == "false":
         return False
+    # req-38 / chg-03：YAML null 字面量 → Python None。
+    if text.lower() == "null":
+        return None
     return text
 
 
@@ -282,6 +291,10 @@ def load_simple_yaml(path: Path) -> dict[str, object]:
     payload: dict[str, object] = {}
     current_collection_key = ""
     collection_indent = 0
+    # req-38 / chg-03：支持两层嵌套 dict（如 stage_pending_user_action.details.provider）。
+    # current_sub_key 追踪当前 dict 值中的子 dict key（第二层 key），sub_indent 记录其缩进。
+    current_sub_key = ""
+    sub_indent = 0
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.rstrip()
         stripped = line.strip()
@@ -293,16 +306,38 @@ def load_simple_yaml(path: Path) -> dict[str, object]:
                 if not isinstance(payload.get(current_collection_key), list):
                     payload[current_collection_key] = []
                 payload[current_collection_key].append(_parse_simple_yaml_scalar(stripped[2:].strip()))
+                current_sub_key = ""
                 continue
             if ":" in stripped:
                 if not isinstance(payload.get(current_collection_key), dict):
                     payload[current_collection_key] = {}
+                # 若当前有子 dict key 且 indent 更深，写入子 dict
+                if current_sub_key and indent > sub_indent:
+                    parent_dict = payload[current_collection_key]
+                    if isinstance(parent_dict, dict):
+                        if not isinstance(parent_dict.get(current_sub_key), dict):
+                            parent_dict[current_sub_key] = {}
+                        sk, sv = stripped.split(":", 1)
+                        sk = sk.strip()
+                        sv = sv.strip()
+                        parent_dict[current_sub_key][sk] = _parse_simple_yaml_scalar(sv)  # type: ignore[index]
+                        continue
                 sub_key, sub_value = stripped.split(":", 1)
                 sub_key = sub_key.strip()
                 sub_value = sub_value.strip()
-                payload[current_collection_key][sub_key] = _parse_simple_yaml_scalar(sub_value)
+                parent_dict2 = payload[current_collection_key]
+                if isinstance(parent_dict2, dict):
+                    if not sub_value:
+                        # 子 key 值为空 → 进入第二层 dict 模式
+                        parent_dict2[sub_key] = {}
+                        current_sub_key = sub_key
+                        sub_indent = indent
+                    else:
+                        parent_dict2[sub_key] = _parse_simple_yaml_scalar(sub_value)
+                        current_sub_key = ""
                 continue
         current_collection_key = ""
+        current_sub_key = ""
         if ":" not in stripped:
             continue
         key, value = stripped.split(":", 1)
@@ -361,7 +396,10 @@ def save_simple_yaml(path: Path, payload: dict[str, object], ordered_keys: list[
         if key not in payload:
             continue
         value = payload[key]
-        if isinstance(value, dict):
+        # req-38 / chg-03：None 值输出 YAML null，不转为空字符串。
+        if value is None:
+            lines.append(f"{key}: null")
+        elif isinstance(value, dict):
             if not value:
                 lines.append(f"{key}: {{}}")
                 continue
@@ -579,6 +617,8 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
     # `create_bugfix` 写入的 operation_type 在第一次 save→load 往返后丢失，
     # 进而触发 `workflow_next` 走错 sequence → `Unknown stage: regression`。
     # req-30 / chg-01：*_title 字段紧邻对应 id 字段，保持字段顺序稳定可读。
+    # req-38 / chg-03：stage_pending_user_action 字段——值为 None 或 {type, details} dict；
+    # 旧 runtime.yaml 无该键时 load 返回 None，不抛异常（用 .get 读取）。
     save_simple_yaml(
         root / STATE_RUNTIME_PATH,
         payload,
@@ -598,6 +638,7 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
             "ff_mode",
             "ff_stage_history",
             "active_requirements",
+            "stage_pending_user_action",
         ],
     )
 
@@ -2657,6 +2698,82 @@ def record_feedback_event(root: Path, event_type: str, data: dict[str, object]) 
         pass
 
 
+def record_subagent_usage(
+    root: Path,
+    role: str,
+    model: str,
+    usage: dict[str, object],
+    *,
+    req_id: str = "",
+    stage: str | None = None,
+    chg_id: str | None = None,
+    reg_id: str | None = None,
+) -> None:
+    """Append one subagent usage entry to .workflow/state/sessions/{req_id}/usage-log.yaml.
+
+    chg-08（stage 耗时 + token 消耗统计 + usage-reporter 对人报告）/
+    Scope-A 采集契约：主 agent 每次 Agent 工具返回后，从返回值提取 usage 对象，
+    调本 helper 追加到独立机器型文件；同步写 record_feedback_event("subagent_usage", ...)。
+
+    格式（YAML list item, append 模式）：
+      - ts: <ISO8601>
+        stage: <stage>
+        chg_id: <chg-NN>        # optional
+        reg_id: <reg-NN>        # optional
+        role: <role>
+        model: <model>
+        usage:
+          input_tokens: N
+          output_tokens: N
+          cache_read_input_tokens: N
+          cache_creation_input_tokens: N
+          total_tokens: N
+          tool_uses: N
+          duration_ms: N
+
+    Never raises.
+    """
+    try:
+        if not req_id:
+            return
+        sessions_dir = root / ".workflow" / "state" / "sessions" / req_id
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+        log_path = sessions_dir / "usage-log.yaml"
+        ts = datetime.now(timezone.utc).isoformat()
+        entry_lines = [
+            f"- ts: {ts}",
+        ]
+        if stage is not None:
+            entry_lines.append(f"  stage: {stage}")
+        if chg_id:
+            entry_lines.append(f"  chg_id: {chg_id}")
+        if reg_id:
+            entry_lines.append(f"  reg_id: {reg_id}")
+        entry_lines.append(f"  role: {role}")
+        entry_lines.append(f"  model: {model}")
+        entry_lines.append("  usage:")
+        for key in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                    "cache_creation_input_tokens", "total_tokens", "tool_uses", "duration_ms"):
+            val = usage.get(key, 0)
+            entry_lines.append(f"    {key}: {val}")
+        entry_lines.append("")
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write("\n".join(entry_lines) + "\n")
+        # Sync to feedback.jsonl for dashboard / reporter consumption
+        record_feedback_event(root, "subagent_usage", {
+            "ts": ts,
+            "req_id": req_id,
+            "stage": stage,
+            "chg_id": chg_id,
+            "reg_id": reg_id,
+            "role": role,
+            "model": model,
+            "usage": usage,
+        })
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def set_regression_mode(runtime: dict[str, object], regression_id: str = "") -> dict[str, object]:
     payload = dict(runtime)
     payload["mode"] = "regression" if regression_id else "normal"
@@ -3650,6 +3767,22 @@ def _next_suggestion_id(root: Path) -> str:
     return f"sug-{max_num + 1:02d}"
 
 
+def _use_flat_layout(req_id: str) -> bool:
+    """Return True if req_id should use the new flat layout (req-39+).
+
+    req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+    - req-id >= 39 → True（新扁平路径：机器型文档落 .workflow/state/，对人文档落 artifacts/ 平铺）
+    - req-id <= 38 → False（legacy 路径：保持旧 changes/ / regressions/ 子目录结构）
+    - req-38 特殊：混合过渡期，CLI 行为保持 legacy（MIXED_TRANSITION_REQ_ID 处理由 chg-02 负责）
+    """
+    if not req_id:
+        return False
+    m = re.match(r"^req-(\d+)$", req_id.strip())
+    if not m:
+        return False
+    return int(m.group(1)) >= FLAT_LAYOUT_FROM_REQ_ID
+
+
 def _next_regression_id(regressions_base: Path) -> str:
     """Return the next available `reg-NN` id under a regressions base directory.
 
@@ -4057,13 +4190,28 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     skipped: list[str] = []
     replacements = {"ID": req_num_id, "TITLE": requirement_title}
 
-    write_if_missing(
-        requirement_dir / "requirement.md",
-        render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
-        created,
-        skipped,
-    )
-    (requirement_dir / "changes").mkdir(parents=True, exist_ok=True)
+    if _use_flat_layout(req_num_id):
+        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+        # 新扁平路径：机器型 requirement.md 落 .workflow/state/requirements/{req-id}/
+        # artifacts/ 目录仅放对人文档（需求摘要.md placeholder），不建 changes/ 子目录
+        state_req_dir = root / ".workflow" / "state" / "requirements" / req_num_id
+        write_if_missing(
+            state_req_dir / "requirement.md",
+            render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
+            created,
+            skipped,
+        )
+        # artifacts/ 目录只建根目录，不建 changes/ 子目录（扁平结构约束）
+        requirement_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        # Legacy 路径（req-id <= 38）：保持旧 requirement.md + changes/ 子目录结构
+        write_if_missing(
+            requirement_dir / "requirement.md",
+            render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
+            created,
+            skipped,
+        )
+        (requirement_dir / "changes").mkdir(parents=True, exist_ok=True)
 
     state_file = root / ".workflow" / "state" / "requirements" / f"{dir_name}.yaml"
     if not state_file.exists():
@@ -4194,15 +4342,47 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
     return 0
 
 
-def _next_chg_id(req_dir: Path) -> str:
-    """Return the next available chg-NN id within a requirement."""
+def _next_chg_id(req_dir: Path, root: Path | None = None, req_id: str | None = None) -> str:
+    """Return the next available chg-NN id within a requirement.
+
+    req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+    - req-id >= 39（flat layout）: scans .workflow/state/sessions/{req-id}/chg-* for max id,
+      with legacy fallback to artifacts changes/ dir for conflict avoidance.
+    - req-id <= 38（legacy）: scans artifacts req_dir/changes/chg-* as before.
+    """
     max_num = 0
-    changes_dir = req_dir / "changes"
-    if changes_dir.exists():
-        for item in changes_dir.iterdir():
-            m = re.match(r"chg-(\d+)", item.name)
-            if m:
-                max_num = max(max_num, int(m.group(1)))
+    # Determine req_id from req_dir name if not provided
+    _req_id = req_id or ""
+    if not _req_id and req_dir:
+        m_dir = re.match(r"^(req-\d+)", req_dir.name)
+        if m_dir:
+            _req_id = m_dir.group(1)
+
+    if root and _req_id and _use_flat_layout(_req_id):
+        # Flat layout: scan .workflow/state/sessions/{req-id}/chg-*
+        state_sessions_dir = root / ".workflow" / "state" / "sessions" / _req_id
+        if state_sessions_dir.exists():
+            for item in state_sessions_dir.iterdir():
+                if not item.is_dir():
+                    continue
+                m = re.match(r"chg-(\d+)", item.name)
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
+        # Legacy fallback: also scan artifacts changes/ dir to avoid id conflicts
+        changes_dir = req_dir / "changes"
+        if changes_dir.exists():
+            for item in changes_dir.iterdir():
+                m = re.match(r"chg-(\d+)", item.name)
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
+    else:
+        # Legacy: scan artifacts req_dir/changes/
+        changes_dir = req_dir / "changes"
+        if changes_dir.exists():
+            for item in changes_dir.iterdir():
+                m = re.match(r"chg-(\d+)", item.name)
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
     return f"chg-{max_num + 1:02d}"
 
 
@@ -4230,22 +4410,42 @@ def create_change(
     if not req_dir:
         raise SystemExit("No active requirement. Run `harness requirement <title>` first.")
 
-    chg_num_id = change_id.strip() if change_id else _next_chg_id(req_dir)
+    chg_num_id = change_id.strip() if change_id else _next_chg_id(req_dir, root=root, req_id=req_ref)
     # req-26 / chg-02（合并 B）：`harness change` 生成的目录名必须走统一
     # slugify 清洗，与 regression 命令簇（chg-01）共用 `slugify_preserve_unicode`。
     # 保留 `chg-NN-` 前缀，空格 / 中文冒号等标点一律折叠为 `-`，保持 CJK。
     slug_part = slugify_preserve_unicode(change_title) or "change"
     dir_name = f"{chg_num_id}-{slug_part}"
-    change_dir = req_dir / "changes" / dir_name
     created: list[str] = []
     skipped: list[str] = []
     linked_requirement = req_ref
     replacements = {"ID": chg_num_id, "TITLE": change_title, "REQUIREMENT_ID": linked_requirement or "None"}
 
-    write_if_missing(change_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(change_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(change_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(change_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    if _use_flat_layout(req_ref):
+        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+        # 新扁平路径：机器型文档（change.md / plan.md / session-memory.md / regression/required-inputs.md）
+        # 落 .workflow/state/sessions/{req-id}/{chg-id}-{slug}/
+        state_chg_dir = root / ".workflow" / "state" / "sessions" / req_ref / dir_name
+        write_if_missing(state_chg_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(state_chg_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(state_chg_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(state_chg_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        # 对人文档 placeholder（chg-NN-变更简报.md）落 artifacts/ 扁平根目录，供 planning 角色填充
+        brief_placeholder = req_dir / f"{chg_num_id}-变更简报.md"
+        write_if_missing(
+            brief_placeholder,
+            f"# 变更简报：{chg_num_id} {change_title}\n\n<!-- TODO: planning 角色填写 -->\n",
+            created,
+            skipped,
+        )
+        change_dir = state_chg_dir
+    else:
+        # Legacy 路径（req-id <= 38）：保持旧 changes/ 子目录结构
+        change_dir = req_dir / "changes" / dir_name
+        write_if_missing(change_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(change_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(change_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(change_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
 
     print(f"Change workspace: {change_dir}")
     for path in created:
@@ -4283,23 +4483,67 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     # 分配 reg-NN 前缀（若调用方显式传入 regression_id 且已是 reg-\d+ 形式则沿用，否则按顺序分配）
     if regression_id and re.match(r"^reg-\d+$", regression_id.strip()):
         reg_num_id = regression_id.strip()
+    elif _use_flat_layout(req_ref):
+        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+        # 新扁平路径：扫 .workflow/state/sessions/{req-id}/regressions/reg-* 分配 id，
+        # 同时 fallback 扫 legacy regressions_base 避免冲突
+        state_reg_base = root / ".workflow" / "state" / "sessions" / req_ref / "regressions"
+        max_from_state = 0
+        if state_reg_base.exists():
+            for item in state_reg_base.iterdir():
+                if not item.is_dir():
+                    continue
+                m = re.match(r"reg-(\d+)", item.name)
+                if m:
+                    max_from_state = max(max_from_state, int(m.group(1)))
+        max_from_legacy = 0
+        if regressions_base.exists():
+            for item in regressions_base.iterdir():
+                if not item.is_dir():
+                    continue
+                m = re.match(r"reg-(\d+)", item.name)
+                if m:
+                    max_from_legacy = max(max_from_legacy, int(m.group(1)))
+        reg_num_id = f"reg-{max(max_from_state, max_from_legacy) + 1:02d}"
     else:
         reg_num_id = _next_regression_id(regressions_base)
 
     slug_part = slugify_preserve_unicode(regression_title) or "regression"
     dir_name = f"{reg_num_id}-{slug_part}"
-    regression_dir = regressions_base / dir_name
     created: list[str] = []
     skipped: list[str] = []
     # 模板里的 {{ID}} 统一填充为纯 reg-NN（与 runtime.current_regression 一致，
     # 便于后续命令通过 id 反查目录）。
     replacements = {"ID": reg_num_id, "TITLE": regression_title}
 
-    write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-    write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
+    if _use_flat_layout(req_ref):
+        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+        # 新扁平路径：机器型文档（regression.md / analysis.md / decision.md / meta.yaml / session-memory.md）
+        # 落 .workflow/state/sessions/{req-id}/regressions/{reg-id}-{slug}/
+        state_reg_dir = root / ".workflow" / "state" / "sessions" / req_ref / "regressions" / dir_name
+        regression_dir = state_reg_dir
+        write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
+        # 对人文档 placeholder（reg-NN-回归简报.md）落 artifacts/ 扁平根目录，供 regression 角色填充
+        if req_dir:
+            brief_placeholder = req_dir / f"{reg_num_id}-回归简报.md"
+            write_if_missing(
+                brief_placeholder,
+                f"# 回归简报：{reg_num_id} {regression_title}\n\n<!-- TODO: regression 角色填写 -->\n",
+                created,
+                skipped,
+            )
+    else:
+        # Legacy 路径（req-id <= 38）：保持旧 regressions/ 子目录结构
+        regression_dir = regressions_base / dir_name
+        write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
 
     runtime["current_regression"] = reg_num_id
     # req-30 / chg-01：reg-* 无独立 state yaml，title 取传入的 regression_title 作为缓存值。
@@ -5628,6 +5872,23 @@ def archive_requirement(
                 shutil.move(str(req_file), str(target / "state.yaml"))
                 break
 
+    # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+    # 若 req 是扁平 layout（req-id >= 39），额外收齐
+    # .workflow/state/requirements/{req-id}/ 下机器型文档（requirement.md 等）到归档目录。
+    # legacy req 的 .workflow/state/requirements/{dir_name}.yaml 已由上方代码处理（state.yaml）。
+    if archived_req_id and not is_bugfix and _use_flat_layout(archived_req_id):
+        state_req_machine_dir = root / ".workflow" / "state" / "requirements" / archived_req_id
+        if state_req_machine_dir.exists():
+            state_machine_dst = target / "state_requirements"
+            state_machine_dst.mkdir(parents=True, exist_ok=True)
+            for f in state_req_machine_dir.iterdir():
+                shutil.move(str(f), str(state_machine_dst / f.name))
+            try:
+                state_req_machine_dir.rmdir()
+            except OSError:
+                pass
+            print(f"Migrated state/requirements/{archived_req_id}/: {state_machine_dst.relative_to(root)}")
+
     # Update runtime active_requirements
     active_reqs = [str(r) for r in runtime.get("active_requirements", []) if str(r) != archived_req_id]
     runtime["active_requirements"] = active_reqs
@@ -5814,6 +6075,15 @@ def workflow_status(root: Path) -> int:
                 print(f"requirement_status: {status}")
             if req_stage:
                 print(f"requirement_stage: {req_stage}")
+    # req-38 / chg-03：pending 行——非空时显示 type + key_details；空/缺失时显示 None。
+    pending = runtime.get("stage_pending_user_action")
+    if isinstance(pending, dict) and pending:
+        typ = pending.get("type", "unknown")
+        key_details = _render_key_details(pending.get("details", {}))
+        detail_str = f"({key_details})" if key_details else ""
+        print(f"Pending User Action: {typ}{detail_str}")
+    else:
+        print("Pending User Action: None")
     return 0
 
 
@@ -6246,8 +6516,32 @@ def _resolve_regression_route(root: Path, regression_id: str) -> str | None:
     return _parse_decision_route(text)
 
 
+def _render_key_details(details: dict) -> str:
+    """req-38 / chg-03：把 pending details dict 拍平为简短可读字符串，用于 stderr 提示。
+
+    例：{"provider": "apifox"} → "provider=apifox"
+    """
+    if not details:
+        return ""
+    return ", ".join(f"{k}={v}" for k, v in details.items())
+
+
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
+
+    # req-38 / chg-03：pending gate——stage_pending_user_action 非空时拒绝推进。
+    # gate 置于 stage 切换逻辑最前，确保 stage_history 不追加、stage_entered_at 不刷新。
+    pending = runtime.get("stage_pending_user_action")
+    if isinstance(pending, dict) and pending:
+        typ = pending.get("type", "unknown")
+        key_details = _render_key_details(pending.get("details", {}))
+        detail_str = f"（{key_details}）" if key_details else ""
+        print(
+            f"stage 正在等待 {typ}{detail_str}，请完成用户动作后再次 harness next",
+            file=sys.stderr,
+        )
+        return 3
+
     current_stage = str(runtime.get("stage", "")).strip()
     operation_type = str(runtime.get("operation_type", "")).strip()
 

@@ -42,9 +42,7 @@ tools-manager 按关键词匹配到本工具后，executing subagent 按下方 `
 
 ### 前置检查
 
-1. 检查当前 agent 环境中是否暴露 `mcp__apifox*` 工具
-   - 检查方式：tool list 中 grep `mcp__apifox`（或调 apifox 自带的 ping/list-projects 工具无异常）
-2. 检查 `.mcp.json` 是否含 apifox server 条目（用户环境）
+引用：protocols/mcp-precheck.md（prefix=apifox, list_tool=mcp__apifox_list_projects, profile_key=mcp_project_ids.apifox）
 
 ### SOP（全部命中前置检查时）
 

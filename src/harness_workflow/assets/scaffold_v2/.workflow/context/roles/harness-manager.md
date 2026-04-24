@@ -27,7 +27,7 @@
 **适用范围**：以下五大子树下的任意**新增 / 修改 / 删除 / 重命名**动作：
 
 1. `.workflow/context/`（角色 / 索引 / role-model-map / 团队 / 项目 / checklists / experience/roles / experience/tool / experience/index.md，本子树继承 req-34（新增工具 api-document-upload + 修复 scaffold_v2 mirror 漂移） / chg-04 原契约）
-2. `.workflow/tools/`（catalog / index / stage-tools / selection-guide / maintenance / ratings.yaml，覆盖 req-34（新增工具 api-document-upload + 修复 scaffold_v2 mirror 漂移）后续工具新增 / 索引漂移）
+2. `.workflow/tools/`（catalog / index / stage-tools / selection-guide / maintenance / ratings.yaml / protocols，覆盖 req-34（新增工具 api-document-upload + 修复 scaffold_v2 mirror 漂移）后续工具新增 / 索引漂移；`protocols/` 子目录扩展自 req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）/ chg-01（protocols 目录 + catalog 单行引用 + 硬门禁五保护扩展））
 3. `.workflow/evaluation/`（acceptance / testing 评审标准，覆盖 req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））类规约更新）
 4. `.workflow/flow/`（stages.md 等流程定义，注意 flow/archive、flow/requirements、flow/suggestions 在例外白名单）
 5. `.workflow/state/experience/`（index.md 等本仓库经验沉淀，注意 state/experience/stage 在例外白名单）
@@ -237,6 +237,80 @@ harness <verb> [noun] [--flags]
 **产物**：单一文件 `artifacts/main/project-overview.md`（每次召唤覆写，不做 diff / 版本历史；历史由 git 记录）。
 
 **非召唤条件（明确不触发）**：用户要求"更新 harness" / "跑单测" / "归档需求" 等与现状报告无关的命令，不触发本召唤。
+
+#### 3.5.3 触发 usage-reporter 召唤（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-08（stage 耗时 + token 消耗统计 + usage-reporter 对人报告））
+
+**召唤判据**：用户自然语言输入**包含下列任一触发词**时，harness-manager 必须召唤 usage-reporter 角色：
+
+- `生成用量报告`
+- `耗时报告`
+- `token 消耗报告`
+- `生成耗时与用量报告`
+- `工作流效率报告`
+
+（以上 5 个触发词；近义表达如"帮我看看 token 用了多少" / "stage 耗时统计"由 harness-manager 按意图归类到以上任一。）
+
+**调度动作**：
+
+1. 按下一节 `#### 3.6 派发 Subagent` 派发协议执行；
+2. 按 Step 2.5 从 `role-model-map.yaml` 查 `usage-reporter: "sonnet"` → briefing.model = `sonnet`；
+3. 按 Step 6 用户面透出首次派发说明形如 `派发 usage-reporter（Sonnet）扫 usage-log.yaml + feedback.jsonl 产出耗时与用量报告`；
+4. 角色文件路径：`.workflow/context/roles/usage-reporter.md`。
+
+**汇报收束**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态）/ chg-01）：派发 usage-reporter 后，harness-manager 汇报形如「**已派发 usage-reporter（Sonnet）扫数据产出耗时与用量报告。本命令已执行完。**」；**禁**再列"后续可选动作"、**禁**询问"要不要也看 project-overview"。
+
+**产物**：`artifacts/main/requirements/{req-id}-{slug}/耗时与用量报告.md`（每次召唤覆写）。
+
+**非召唤条件（明确不触发）**：用户要求"更新 harness" / "归档需求" / "生成项目现状报告"等与用量报告无关的命令，不触发本召唤。
+
+#### 3.5.2 触发 api-document-upload 召唤（req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）/ chg-02（触发门禁 §3.5.2 + harness validate triggers lint））
+
+**召唤判据**：任意 agent、任意 stage，用户自然语言输入**包含下列任一触发词**时，harness-manager / 主 agent 必须召唤 tools-manager → 期待返回 `tool_id: api-document-upload` → 按 `api-document-upload.md` Provider SOP（含 pre-check 引用）执行：
+
+<!-- 镜像自 .workflow/tools/index/keywords.yaml，由 harness validate --contract triggers 保证一致 -->
+- 上传 API 文档
+- API 同步 apifox
+- 生成 openapi
+- API 文档同步
+- 接口文档上传
+- apifox 同步
+- openapi 导出
+
+（以上列表为单一权威镜像，以 `.workflow/tools/index/keywords.yaml[api-document-upload].keywords` 为权威源；本 md 镜像由 `harness validate --contract triggers` lint 保证同步，不得手工增减。）
+
+**召唤流程**：
+
+1. harness-manager / 主 agent 识别触发词后，立即按 `#### 3.6 派发 Subagent` 协议召唤 `tools-manager`；
+2. tools-manager 匹配返回 `tool_id: api-document-upload`；
+3. 按 `.workflow/tools/catalog/api-document-upload.md` 的 Provider SOP 执行，**前置检查**引用 `protocols/mcp-precheck.md`（pre-check 4 阶段状态机，chg-01（protocols 目录 + catalog 单行引用 + 硬门禁五保护扩展）落地）；
+4. `session-memory.md` 当前 stage 块追加一行，形如：`tools-manager → api-document-upload（触发词：<matched_keyword>）`。
+
+**硬门禁违反判定**：
+
+- grep 触发词命中用户输入，但主 agent 输出**未含** `召唤 tools-manager` 字样 → 硬门禁违反，reviewer 拦截；
+- `session-memory.md` 未记录 `tools-manager → api-document-upload` 行 → 硬门禁违反；
+- 主 agent 回复含以下黑名单词之一 → 硬门禁违反，reviewer grep 命中即 FAIL：
+  - `复制文件`
+  - `转 PDF`
+  - `git commit 接口定义`
+
+**示例**：
+
+合规（正确执行路径）：
+```
+用户：帮我上传接口文档
+主 agent → 召唤 tools-manager → 命中 api-document-upload → 引导 apifox pre-check 阶段 1 探测
+session-memory 追加：tools-manager → api-document-upload（触发词：帮我上传接口文档）
+```
+
+违规（给通用文件处置选项）：
+```
+用户：帮我上传接口文档
+主 agent 直接回复：你有 A. 复制文件 B. 转 PDF C. git commit 接口定义 三种方式可选。
+【reviewer FAIL：未召唤 tools-manager，回复含黑名单词"复制文件"/"转 PDF"/"git commit 接口定义"】
+```
+
+**非召唤条件（明确不触发）**：用户要求"生成代码" / "重构 API" / "测试接口" 等与接口文档上传无关的命令，不触发本召唤。
 
 #### 3.6 派发 Subagent
 

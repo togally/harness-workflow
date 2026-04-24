@@ -1,61 +1,83 @@
-"""对人文档落盘校验（req-28 / chg-05，AC-09）。
+"""对人文档落盘校验（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-02（validate_human_docs 重写 + 精简废止项））。
 
-本模块提供 ``validate_human_docs`` 函数，按 ``.workflow/context/roles/stage-role.md``
-契约 3 的对人文档映射表，逐条校验 req / bugfix 周期中各 stage 的对人文档是否
-真实落盘到 ``artifacts/{branch}/...`` 路径下。
+本模块提供 ``validate_human_docs`` 函数，按 ``.workflow/flow/artifacts-layout.md``
+§2 对人文档白名单（≥ 8 类），逐条校验 req / bugfix 周期中各 stage 的对人文档是否
+真实落盘到 ``artifacts/{branch}/...`` 扁平路径下。
 
-**单一真相**：本文件 ``HUMAN_DOC_CONTRACT`` / ``REQ_LEVEL_DOCS`` /
-``CHANGE_LEVEL_DOCS`` / ``BUGFIX_LEVEL_DOCS`` 的文件名与 stage-role.md 契约 3 的
-表格一一对应；修改契约时必须同步修改本文件。
+**扫描源（新规，req-39+）**：
+- req 级固定扫 ``需求摘要.md`` / ``交付总结.md``；``决策汇总.md`` 可选。
+- chg 级扫 req 根目录前缀 ``chg-NN-变更简报.md`` / ``chg-NN-实施说明.md``
+  （平铺，不再依赖 ``changes/`` 子目录）。
+- reg 级扫 req 根目录前缀 ``reg-NN-回归简报.md``。
+- 历史存量豁免：req-02 ~ req-37 走 legacy ``changes/`` 子目录扫描；req-38 双轨共存；
+  req-39+ 严格新扁平路径。
+
+# req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance
+# 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）废止
+# testing / acceptance 两个阶段的对人文档（已从白名单和常量移除，不再扫描）。
+
+**单一真相**：``HUMAN_DOC_CONTRACT`` / ``REQ_LEVEL_DOCS`` / ``CHANGE_LEVEL_DOCS`` /
+``BUGFIX_LEVEL_DOCS`` 的文件名与 ``.workflow/flow/artifacts-layout.md`` §2 白名单
+一一对应；修改白名单时必须同步修改本文件。
 
 **不负责**的范围：
 - 不校验对人文档的"字段内容完整性"（由各角色自检）。
 - 不自动补写缺失文档，只报告。
-- regression 级路径暂不在 V1 校验范围内（见 change.md 风险 C）。
+- regression 级路径（reg-NN-回归简报.md）在新规 req-39+ 下扫 req 根目录前缀匹配。
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
 from harness_workflow.workflow_helpers import (
+    FLAT_LAYOUT_FROM_REQ_ID,
     resolve_bugfix_root,
     resolve_requirement_reference,
     resolve_requirement_root,
 )
 
 
-# --- 契约 3 单一真相映射表 ----------------------------------------------------
+# --- 历史存量豁免常量（溯源 .workflow/flow/artifacts-layout.md §5）-----------
 #
-# stage → (对人文档文件名, 粒度) 对照 stage-role.md 契约 3 表格：
+# req-02 ~ req-37：legacy 旧结构（changes/ 子目录），全部保留不迁移。
+# req-38：混合过渡期样本，双轨并行（新扁平 chg-NN-变更简报.md 或旧 changes/ 子目录择一命中即 ok）。
+# req-39+：严格新扁平，只扫根目录前缀文件。
+
+LEGACY_REQ_ID_CEILING = 37   # req-02 ~ req-37：走 legacy 扫描，废止项已删，不报 missing
+MIXED_TRANSITION_REQ_ID = 38  # req-38：双轨共存，新扁平或旧 changes/ 子目录任一命中即 ok
+
+
+# --- 契约 3 单一真相映射表（同步 artifacts-layout.md §2）--------------------
+#
+# stage → (对人文档文件名, 粒度) 对照 .workflow/flow/artifacts-layout.md §2 白名单：
 #   | requirement_review | 需求摘要.md  | req    |
-#   | planning           | 变更简报.md  | change |
-#   | executing          | 实施说明.md  | change |
-#   | testing            | 测试结论.md  | req    |
-#   | acceptance         | 验收摘要.md  | req    |
-#   | regression         | 回归简报.md  | regression |
+#   | planning           | 变更简报.md  | chg    |
+#   | executing          | 实施说明.md  | chg    |
+#   | regression         | 回归简报.md  | reg    |
 #   | done               | 交付总结.md  | req    |
+#
+# 注：testing / acceptance 阶段对人文档已由
+# req-31 / chg-04（S-D 对人文档缩减）废止，不在白名单内（常量已移除）。
 
 HUMAN_DOC_CONTRACT: dict[str, tuple[str, str]] = {
     "requirement_review": ("需求摘要.md", "req"),
-    "planning": ("变更简报.md", "change"),
-    "executing": ("实施说明.md", "change"),
-    "testing": ("测试结论.md", "req"),
-    "acceptance": ("验收摘要.md", "req"),
+    "planning": ("变更简报.md", "chg"),
+    "executing": ("实施说明.md", "chg"),
+    "regression": ("回归简报.md", "reg"),
     "done": ("交付总结.md", "req"),
 }
 
-# req 级应产出的对人文档（落在 req 根目录）
+# req 级应产出的对人文档（落在 req 根目录，文件名唯一）
 REQ_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
     ("requirement_review", "需求摘要.md"),
-    ("testing", "测试结论.md"),
-    ("acceptance", "验收摘要.md"),
     ("done", "交付总结.md"),
 )
 
-# change 级应产出的对人文档（落在每个 change 子目录）
+# change 级应产出的对人文档（chg-NN- 前缀平铺在 req 根目录，或旧 changes/ 子目录）
 CHANGE_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
     ("planning", "变更简报.md"),
     ("executing", "实施说明.md"),
@@ -65,8 +87,6 @@ CHANGE_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
 BUGFIX_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
     ("regression", "回归简报.md"),
     ("executing", "实施说明.md"),
-    ("testing", "测试结论.md"),
-    ("acceptance", "验收摘要.md"),
     ("done", "交付总结.md"),
 )
 
@@ -110,19 +130,49 @@ def _check_doc(path: Path) -> str:
     return STATUS_OK
 
 
-def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
-    items: list[ValidationItem] = []
-    for stage, filename in REQ_LEVEL_DOCS:
-        expected = req_dir / filename
-        items.append(
-            ValidationItem(
-                stage=stage,
-                filename=filename,
-                expected_path=expected,
-                status=_check_doc(expected),
-            )
-        )
+def _extract_req_num(req_dir_name: str) -> int:
+    """解析目录名 ``req-NN-slug`` 得到 NN（整数）。
 
+    无法解析时返回 -1（视为 legacy，安全降级）。
+    """
+    m = re.match(r"req-(\d+)", req_dir_name)
+    if m:
+        return int(m.group(1))
+    return -1
+
+
+def _collect_chg_items_flat(req_dir: Path) -> list[ValidationItem]:
+    """扫 req 根目录下 chg-NN-{变更简报,实施说明}.md 前缀文件（新规扁平路径）。
+
+    返回：找到的 chg 编号集合 × CHANGE_LEVEL_DOCS 的校验条目。
+    """
+    items: list[ValidationItem] = []
+    # 收集 req 根目录下所有 chg-NN- 前缀文件，推断出 chg 编号集合
+    chg_nums: set[str] = set()
+    for f in req_dir.iterdir():
+        if f.is_file():
+            m = re.match(r"(chg-\d+)-", f.name)
+            if m:
+                chg_nums.add(m.group(1))
+
+    for chg_id in sorted(chg_nums):
+        for stage, filename in CHANGE_LEVEL_DOCS:
+            flat_name = f"{chg_id}-{filename}"
+            expected = req_dir / flat_name
+            items.append(
+                ValidationItem(
+                    stage=stage,
+                    filename=flat_name,
+                    expected_path=expected,
+                    status=_check_doc(expected),
+                )
+            )
+    return items
+
+
+def _collect_chg_items_legacy(req_dir: Path) -> list[ValidationItem]:
+    """扫 req/changes/ 子目录（legacy 路径，req-02 ~ req-37）。"""
+    items: list[ValidationItem] = []
     changes_dir = req_dir / "changes"
     change_dirs: Iterable[Path] = ()
     if changes_dir.exists() and changes_dir.is_dir():
@@ -139,6 +189,123 @@ def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
                     status=_check_doc(expected),
                 )
             )
+    return items
+
+
+def _collect_chg_items_mixed(req_dir: Path) -> list[ValidationItem]:
+    """混合过渡期（req-38）：新扁平或旧 changes/ 子目录任一命中即 ok。"""
+    items: list[ValidationItem] = []
+
+    # 收集所有 chg 编号（新扁平 + 旧 changes/ 子目录）
+    chg_nums: set[str] = set()
+    for f in req_dir.iterdir():
+        if f.is_file():
+            m = re.match(r"(chg-\d+)-", f.name)
+            if m:
+                chg_nums.add(m.group(1))
+    changes_dir = req_dir / "changes"
+    if changes_dir.exists() and changes_dir.is_dir():
+        for p in changes_dir.iterdir():
+            if p.is_dir():
+                m = re.match(r"(chg-\d+)", p.name)
+                if m:
+                    chg_nums.add(m.group(1))
+
+    for chg_id in sorted(chg_nums):
+        for stage, filename in CHANGE_LEVEL_DOCS:
+            flat_path = req_dir / f"{chg_id}-{filename}"
+            legacy_change_dir = changes_dir / chg_id if changes_dir.exists() else None
+
+            # 在 changes/ 下可能带 slug，做前缀匹配
+            legacy_path: Path | None = None
+            if legacy_change_dir is None and changes_dir.exists():
+                pass
+            if changes_dir.exists() and changes_dir.is_dir():
+                for p in changes_dir.iterdir():
+                    if p.is_dir() and p.name.startswith(chg_id):
+                        legacy_path = p / filename
+                        break
+
+            # 任一命中 → ok
+            flat_status = _check_doc(flat_path)
+            legacy_status = _check_doc(legacy_path) if legacy_path else STATUS_MISSING
+
+            if flat_status == STATUS_OK:
+                chosen_path, chosen_status = flat_path, STATUS_OK
+            elif legacy_status == STATUS_OK:
+                chosen_path, chosen_status = legacy_path, STATUS_OK  # type: ignore[assignment]
+            else:
+                # 两边都不存在，优先报 flat 路径缺失
+                chosen_path, chosen_status = flat_path, STATUS_MISSING
+
+            items.append(
+                ValidationItem(
+                    stage=stage,
+                    filename=f"{chg_id}-{filename}",
+                    expected_path=chosen_path,
+                    status=chosen_status,
+                )
+            )
+    return items
+
+
+def _collect_reg_items_flat(req_dir: Path) -> list[ValidationItem]:
+    """扫 req 根目录下 reg-NN-回归简报.md 前缀文件（新规扁平路径）。"""
+    items: list[ValidationItem] = []
+    reg_nums: set[str] = set()
+    for f in req_dir.iterdir():
+        if f.is_file():
+            m = re.match(r"(reg-\d+)-回归简报\.md$", f.name)
+            if m:
+                reg_nums.add(m.group(1))
+    for reg_id in sorted(reg_nums):
+        filename = f"{reg_id}-回归简报.md"
+        expected = req_dir / filename
+        items.append(
+            ValidationItem(
+                stage="regression",
+                filename=filename,
+                expected_path=expected,
+                status=_check_doc(expected),
+            )
+        )
+    return items
+
+
+def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
+    """根据 req-id 数字选择扫描路径策略。
+
+    - req-id ≤ LEGACY_REQ_ID_CEILING (37)：legacy changes/ 子目录扫描；废止项已从常量删，自然不报 missing。
+    - req-id == MIXED_TRANSITION_REQ_ID (38)：双轨共存，新扁平或旧 changes/ 任一命中即 ok。
+    - req-id ≥ FLAT_LAYOUT_FROM_REQ_ID (39)：严格新扁平，只扫 req 根目录前缀文件。
+    """
+    items: list[ValidationItem] = []
+
+    # req 级固定文档（对所有 req 均适用，文件名唯一，落在 req 根目录）
+    for stage, filename in REQ_LEVEL_DOCS:
+        expected = req_dir / filename
+        items.append(
+            ValidationItem(
+                stage=stage,
+                filename=filename,
+                expected_path=expected,
+                status=_check_doc(expected),
+            )
+        )
+
+    req_num = _extract_req_num(req_dir.name)
+
+    if req_num == -1 or req_num <= LEGACY_REQ_ID_CEILING:
+        # legacy：changes/ 子目录扫描
+        items.extend(_collect_chg_items_legacy(req_dir))
+    elif req_num == MIXED_TRANSITION_REQ_ID:
+        # 混合过渡期：双轨择一命中即 ok
+        items.extend(_collect_chg_items_mixed(req_dir))
+    else:
+        # 新规（req-39+）：严格扁平路径
+        items.extend(_collect_chg_items_flat(req_dir))
+        items.extend(_collect_reg_items_flat(req_dir))
+
     return items
 
 

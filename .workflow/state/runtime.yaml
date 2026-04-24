@@ -1,25 +1,16 @@
 operation_type: "requirement"
-operation_target: "req-37"
-current_requirement: ""
-current_requirement_title: ""
+operation_target: "req-39"
+current_requirement: "req-40"
+current_requirement_title: "阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）"
 stage: "done"
-stage_entered_at: "2026-04-23T09:08:40.481899+00:00"
+stage_entered_at: "2026-04-24T13:00:51.368589+00:00"
 conversation_mode: "harness"
-locked_requirement: ""
-locked_requirement_title: ""
-locked_stage: ""
+locked_requirement: "''"
+locked_requirement_title: "''"
+locked_stage: "''"
 current_regression: ""
 current_regression_title: ""
 ff_mode: false
-ff_stage_history:
-  - regression
-  - planning
-  - testing
-  - acceptance
-  - requirement_review
-  - planning
-  - executing
-  - testing
-  - acceptance
-  - done
-active_requirements: []
+ff_stage_history: []
+active_requirements:
+  - req-40

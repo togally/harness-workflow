@@ -87,6 +87,7 @@
 - [ ] 范围（包含 + 不包含）
 - [ ] 验收标准（可量化的通过条件）
 - [ ] 对人文档 `需求摘要.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] **[硬门禁]** subagent 交接前必须执行 `harness validate --human-docs`，exit code = 0 才允许 PASS；未绿立即 ABORT 并在 session-memory.md 留痕未绿项，不得自行补写后再通过（chg-03（requirement-review / planning 自检硬门禁代码化）；命令路径由 chg-02（validate_human_docs 重写）提供，若 chg-02 尚未落地保留此条款不得跳过）
 
 ## ff 模式说明
 - ff 模式下，`requirement.md` 包含背景、目标、范围、验收标准后，subagent 可直接报告完成，由主 agent 自动推进到 `planning`
@@ -101,3 +102,4 @@
 1. `requirement.md` 是否有明确的验收标准？
 2. 范围边界是否清晰（包含和不包含都写了）？
 3. 用户是否明确确认了需求内容？
+4. 是否已跑 `harness validate --human-docs` 且 exit code = 0？（未绿须 ABORT，不得放行）

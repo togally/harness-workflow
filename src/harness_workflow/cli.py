@@ -252,7 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression"],
+        choices=["all", "7", "regression", "triggers"],
         help="Run contract automation check (sug-10/sug-15/sug-25). Default scans contract-7 across all artifacts.",
     )
 

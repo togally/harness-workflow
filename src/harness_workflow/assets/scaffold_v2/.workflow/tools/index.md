@@ -13,6 +13,11 @@
 - `catalog/`：工具详细定义（每工具一文件）
 - `catalog/_template.md`：新增工具的标准模板
 
+## 子目录
+
+- `catalog/`：工具详细定义（每工具一文件）
+- `protocols/`：跨工具共享协议，不直接暴露为工具，不进入 tools-manager 关键词匹配。catalog 条目如需前置检查（如 MCP 注册检测），按 `引用：protocols/{name}.md（参数槽=...）` 形态单行引用。
+
 ## 加载规则
 - session-start：读本文件了解工具系统结构
 - before-task：读 `stage-tools.md` 确认当前 stage 可用工具

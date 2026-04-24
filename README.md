@@ -34,21 +34,27 @@ Most AI coding tools leave you with one big context window and hope. harness-wor
 
 ## Installation
 
+**Standard users** — install from GitHub:
+
 ```bash
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
+**Developers / local source editing** — install in editable mode so source changes take effect immediately without reinstalling:
+
 ```bash
-pipx reinstall harness-workflow                                                                                                                                                                                                  
+pipx install -e /path/to/harness-workflow
+# Changes to source code take effect immediately; no reinstall needed.
 ```
 
-
-Then initialize a repository:
+Then initialize a target repository:
 
 ```bash
 cd your-project
 harness install          # installs skill files for Claude Code / Codex / Qoder / kimicli
 ```
+
+`harness install` is idempotent — safe to run repeatedly. It initializes the `.workflow/` scaffold, syncs skill files, migrates legacy state, and writes the experience index and project-profile (req-33 (install absorbs CLI refresh) / chg-01).
 
 If you need to overwrite existing skill files (e.g., after a breaking update):
 
@@ -56,15 +62,56 @@ If you need to overwrite existing skill files (e.g., after a breaking update):
 harness install --force  # force reinstall of all platform skills
 ```
 
-### Refreshing change / plan templates
+---
 
-`harness change` dynamically reads its `change.md` / `plan.md` templates from the installed `harness_workflow` Python package. To pick up the latest templates, simply upgrade the package:
+## Update / Upgrade
+
+There are three distinct scenarios. Make sure you pick the right one.
+
+### Scenario A — Upgrade the published harness-workflow CLI (most users)
+
+Fetch a new CLI version from PyPI / git (e.g., to pick up a pending-gate fix introduced in chg-03 (runtime pending + next/status gate)):
 
 ```bash
-pip install -U harness-workflow
+pipx reinstall harness-workflow
+# or
+pipx upgrade harness-workflow
 ```
 
-New changes created afterwards will use the latest templates. Already-persisted historical changes are one-shot snapshots and will not (and need not) be updated.
+> **Note:** A `pipx`-installed binary is a snapshot. It does **not** update automatically when the upstream repo changes. Run one of the commands above whenever you want the latest released CLI.
+
+### Scenario B — Editable install: sync the latest source
+
+If you installed with `pipx install -e`, a `git pull` is all you need — editable mode loads directly from source:
+
+```bash
+git pull    # inside the harness-workflow repo; changes take effect immediately
+```
+
+No reinstall required.
+
+### Scenario C — Refresh workflow templates / skill files in a harness-managed project
+
+To refresh the `.workflow/` scaffold, skill files, managed files, and experience index inside a project that uses harness:
+
+```bash
+harness install          # idempotent; absorbs all refresh duties (req-33 (install absorbs CLI refresh) / chg-01)
+harness update --check   # optional: preview drift between repo files and templates
+```
+
+---
+
+## `harness update` — What it actually does
+
+`harness update` is **not** a CLI upgrade command. Do not use it to upgrade the harness tool itself (use Scenario A above).
+
+| Invocation | Behavior |
+|------------|----------|
+| `harness update` (no flag) | Prints a 3-line guide, then exits. To generate a project status report, say **"生成项目现状报告"** (or "项目状态" / "项目快照" / "生成 project-overview.md") inside an agent session — this triggers the project-reporter role (req-32 (new project-reporter role) / chg-02) to produce `artifacts/main/project-overview.md`. |
+| `harness update --check` | Drift preview — shows which repo files differ from the harness templates. |
+| `harness update --scan` | Project adaptation scan — detects tech stack and directory structure. |
+
+To **upgrade the CLI itself**, use `pipx reinstall harness-workflow` (Scenario A).
 
 ---
 
@@ -88,7 +135,9 @@ New changes created afterwards will use the latest templates. Already-persisted 
 | `harness suggest --apply-all [--pack-title "..."]` | Pack all pending suggestions into a single requirement |
 | `harness suggest --delete <id>` | Delete a suggestion |
 | `harness ff` | Fast-forward to ready_for_execution |
-| `harness update` | Refresh harness-managed files in the repository |
+| `harness update` (no flag) | Print guide; say "生成项目现状报告" in agent chat to trigger project-reporter (req-32 (new project-reporter role) / chg-02) |
+| `harness update --check` | Drift preview: show which managed files differ from templates |
+| `harness update --scan` | Project adaptation scan: detect tech stack and directory layout |
 | `harness feedback` | Export usage event summary |
 
 ### Quick Start
@@ -123,7 +172,9 @@ harness suggest --apply-all --pack-title "X"     # pack with a custom requiremen
 
 ## Local Development
 
-After modifying source code locally, you need to re-inject into the pipx environment for changes to take effect:
+**Recommended:** install in editable mode from the start (see Installation above). Source changes take effect immediately without any reinstall step.
+
+If you installed the non-editable release and need to test local changes, re-inject into the pipx environment:
 
 ```bash
 pipx inject harness-workflow . --force

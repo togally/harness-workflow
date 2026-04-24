@@ -90,6 +90,7 @@
 - [ ] 执行顺序已明确
 - [ ] 用户已确认所有计划
 - [ ] 每个 change 都在 `artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/` 下产出对人文档 `变更简报.md`，字段完整
+- [ ] **[硬门禁]** 每个 chg 必须产出每 chg 一份对人文档 `chg-NN-变更简报.md`（扁平于需求根，路径见 chg-01（artifacts-layout 契约底座 + stage-role 路径同构改写）规范）；subagent 交接前必须执行 `harness validate --human-docs`，exit code = 0 才允许 PASS；未绿立即 ABORT 并在 session-memory.md 留痕（chg-03（requirement-review / planning 自检硬门禁代码化）；命令路径由 chg-02（validate_human_docs 重写）提供，若 chg-02 尚未落地保留此条款不得跳过）
 
 ## ff 模式说明
 - ff 模式下，若 `change.md` + `plan.md` 已全部产出且执行顺序明确，subagent 可直接报告完成，由主 agent 自动推进到 `executing`
@@ -106,3 +107,4 @@
 3. 是否有变更的范围过大（应继续拆分）？
 4. 若本次 planning 拆分出的变更涉及新制品、新阶段或新角色，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新，并在相关 change.md 中记录。
 5. 若本次变更涉及 suggest 批量转换，必须确认已阅读 `.workflow/constraints/suggest-conversion.md`，并确保所有 suggest 被打包为单一需求。
+6. 是否已跑 `harness validate --human-docs` 且 exit code = 0？每 chg 是否都有 `chg-NN-变更简报.md`？（未绿须 ABORT，不得放行）

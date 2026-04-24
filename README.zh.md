@@ -58,26 +58,82 @@ ready_for_execution （等待执行确认）
 
 ## 安装
 
+**普通用户** — 从 GitHub 安装：
+
 ```bash
 pipx install git+https://github.com/togally/harness-workflow.git
 ```
 
-然后初始化仓库：
+**开发者 / 本机要改源码** — 使用 editable 模式安装，源码改动即时生效，无需 reinstall：
+
+```bash
+pipx install -e /path/to/harness-workflow
+# 本模式下改源码即生效，无需 reinstall。
+```
+
+然后在目标仓库初始化：
 
 ```bash
 cd your-project
 harness install          # 安装 Claude Code / Codex / Qoder / kimicli 的 skill 文件
 ```
 
-### 刷新 change / plan 模板到最新版本
+`harness install` 幂等运行，可重复执行。它负责初始化 `.workflow/` 脚手架、同步 skill 文件、迁移 legacy state、写盘 experience index 和 project-profile（req-33（install 吸收 update CLI 职责）/ chg-01）。
 
-`harness change` 使用的 change.md / plan.md 模板由已安装的 `harness_workflow` Python 包动态读取。要拿到最新模板，只需升级 Python 包：
+如需强制覆写已有 skill 文件（例如有 breaking update 后）：
 
 ```bash
-pip install -U harness-workflow
+harness install --force  # 强制重装所有平台 skill
 ```
 
-之后新建的 change 会用最新模板；已经落盘的历史 change 是一次性快照，不会也不需要更新。
+---
+
+## 更新 / 升级
+
+共三种场景，请按需选择。
+
+### 场景 A — 升级已发布的 harness-workflow CLI（多数用户）
+
+拉取 PyPI / git 上的新版 CLI 代码（例如获取 chg-03（runtime pending + next/status gate）新增的 pending gate）：
+
+```bash
+pipx reinstall harness-workflow
+# 或
+pipx upgrade harness-workflow
+```
+
+> **注意：** pipx 安装的 binary 是快照，**不会**随上游仓库自动更新。每次想用最新发布版时，需手动执行上述命令。
+
+### 场景 B — 本机 editable 安装，同步最新代码
+
+若你使用 `pipx install -e` 安装，`git pull` 即可；editable 模式直接从源码加载，无需 reinstall：
+
+```bash
+git pull    # 在 harness-workflow 仓库目录下执行；改动立即生效
+```
+
+无需 reinstall。
+
+### 场景 C — 在某个 harness 用户仓库里刷新 workflow 模板 / skill / managed 文件
+
+```bash
+harness install          # 幂等；已吸收原 update 全部刷新职责（req-33（install 吸收 update CLI 职责）/ chg-01）
+harness update --check   # 可选：预览仓库文件与模板的 drift
+```
+
+---
+
+## `harness update` — 它实际做什么
+
+`harness update` **不是** CLI 升级命令，请勿用它来升级 harness 工具本体（请走场景 A）。
+
+| 调用方式 | 行为 |
+|----------|------|
+| `harness update`（无 flag） | 打印 3 行引导后退出。若需生成项目现状报告，请在 agent 会话中说 **"生成项目现状报告"**（或"项目状态" / "项目快照" / "生成 project-overview.md"）——这将触发 project-reporter 角色（req-32（新设 project-reporter 角色）/ chg-02）产出 `artifacts/main/project-overview.md`。 |
+| `harness update --check` | Drift 预览——显示仓库文件与 harness 模板的差异。 |
+| `harness update --scan` | 项目适配扫描——检测技术栈和目录结构。 |
+
+**升级 CLI 本体**请用 `pipx reinstall harness-workflow`（场景 A）。
 
 ---
 
@@ -95,7 +151,9 @@ pip install -U harness-workflow
 | `harness rename requirement <旧> <新>` | 重命名需求 |
 | `harness rename change <旧> <新>` | 重命名变更 |
 | `harness ff` | 快进到 ready_for_execution |
-| `harness update` | 刷新仓库中的受管文件 |
+| `harness update`（无 flag） | 打印引导；在 agent 会话说"生成项目现状报告"召唤 project-reporter（req-32（新设 project-reporter 角色）/ chg-02） |
+| `harness update --check` | Drift 预览：显示受管文件与模板的差异 |
+| `harness update --scan` | 项目适配扫描：检测技术栈和目录结构 |
 | `harness feedback` | 导出使用事件统计摘要 |
 
 ### 快速开始
@@ -117,7 +175,9 @@ harness next          # → done
 
 ## 本地开发
 
-修改源码后，需要重新注入到 pipx 环境才能使改动生效：
+**推荐做法：** 从一开始就用 editable 模式安装（见安装章节）。源码改动即时生效，无需任何 reinstall 操作。
+
+如果你安装的是非 editable 版本，需要在本地测试改动时，重新注入到 pipx 环境：
 
 ```bash
 pipx inject harness-workflow . --force
