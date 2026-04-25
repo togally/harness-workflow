@@ -5292,99 +5292,9 @@ def rename_bugfix(root: Path, current_name: str, new_name: str, version_name: st
     return 0
 
 
-def _extract_section(text: str, heading: str) -> str:
-    """提取 Markdown 文本中包含 heading 关键词的 ## 章节内容（不含标题行本身）。"""
-    lines = text.splitlines()
-    in_section = False
-    result: list[str] = []
-    for line in lines:
-        if line.startswith("## ") and heading in line:
-            in_section = True
-            continue
-        if in_section:
-            if line.startswith("## "):
-                break
-            result.append(line)
-    return "\n".join(result).strip()
-
-
-def generate_requirement_artifact(root: Path, archive_target: Path, req_id: str, title: str) -> Path:
-    """生成需求制品文档，输出到 artifacts/requirements/{req_id}-{title}.md。"""
-    from datetime import date as _date
-    git_branch = _get_git_branch(root)
-
-    # 读取 requirement.md
-    req_md_path = archive_target / "requirement.md"
-    req_text = req_md_path.read_text(encoding="utf-8") if req_md_path.exists() else ""
-    goal = _extract_section(req_text, "Goal") or _extract_section(req_text, "目标")
-    scope = _extract_section(req_text, "Scope") or _extract_section(req_text, "范围")
-    acceptance = _extract_section(req_text, "Acceptance") or _extract_section(req_text, "验收")
-
-    # 读取各 change.md 构建变更列表
-    change_lines: list[str] = []
-    changes_dir = archive_target / "changes"
-    if changes_dir.exists():
-        for chg_dir in sorted(changes_dir.iterdir()):
-            chg_md = chg_dir / "change.md"
-            if not chg_md.exists():
-                continue
-            chg_text = chg_md.read_text(encoding="utf-8")
-            chg_title = _extract_section(chg_text, "Title").splitlines()[0].strip() if _extract_section(chg_text, "Title") else chg_dir.name
-            chg_goal_raw = _extract_section(chg_text, "Goal") or _extract_section(chg_text, "目标")
-            chg_goal = (chg_goal_raw.splitlines()[0].strip() if chg_goal_raw else "")
-            chg_id = chg_dir.name.split("-")[0] + "-" + chg_dir.name.split("-")[1] if "-" in chg_dir.name else chg_dir.name
-            if chg_goal:
-                change_lines.append(f"- **{chg_id}** {chg_title}：{chg_goal}")
-            else:
-                change_lines.append(f"- **{chg_id}** {chg_title}")
-
-    # 读取 sessions 关键决策
-    decisions_parts: list[str] = []
-    sessions_dir = archive_target / "sessions"
-    if sessions_dir.exists():
-        for chg_dir in sorted(sessions_dir.iterdir()):
-            if not chg_dir.is_dir():
-                continue
-            mem_path = chg_dir / "session-memory.md"
-            if mem_path.exists():
-                mem_text = mem_path.read_text(encoding="utf-8")
-                decisions = _extract_section(mem_text, "关键决策") or _extract_section(mem_text, "Key Decisions")
-                if decisions:
-                    decisions_parts.append(f"**{chg_dir.name}**\n{decisions}")
-
-    # 读取 done-report.md 遗留问题
-    pending_issues = ""
-    done_report_path = archive_target / "sessions" / "done-report.md"
-    if done_report_path.exists():
-        report_text = done_report_path.read_text(encoding="utf-8")
-        pending_issues = _extract_section(report_text, "遗留") or _extract_section(report_text, "Pending")
-
-    # 构建文档
-    today = _date.today().isoformat()
-    branch_label = git_branch or "unknown"
-    sections: list[str] = [
-        f"# {title}",
-        "",
-        f"> req-id: {req_id} | 完成时间: {today} | 分支: {branch_label}",
-    ]
-    if goal:
-        sections += ["", "## 需求目标", "", goal]
-    if scope:
-        sections += ["", "## 交付范围", "", scope]
-    if acceptance:
-        sections += ["", "## 验收标准", "", acceptance]
-    if change_lines:
-        sections += ["", "## 变更列表", ""] + change_lines
-    if decisions_parts:
-        sections += ["", "## 关键设计决策", ""] + decisions_parts
-    if pending_issues:
-        sections += ["", "## 遗留问题与注意事项", "", pending_issues]
-
-    out_dir = root / "artifacts" / (git_branch or "main") / "requirements"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{req_id}-{title}.md"
-    out_path.write_text("\n".join(sections) + "\n", encoding="utf-8")
-    return out_path
+# _extract_section 和 generate_requirement_artifact 已由
+# req-42（archive 重定义：对人不挪 + 摘要废止）/ chg-02（archive_requirement helper 改写）废止删除。
+# archive_requirement 不再生成摘要 md；对人 folder 原位保留（§3.1 archive 行为定义 (ii)）。
 
 
 def _get_req_id(state: dict[str, object]) -> str:
@@ -6224,14 +6134,9 @@ def archive_requirement(
         except ValueError:
             print(f"Cleaned residual: {residual_req_dir}")
 
-    # Generate artifact document（仅 requirement 分支；bugfix 目前不强求 artifact 文档）
-    if archived_req_id and not is_bugfix:
-        req_title = re.sub(r"^req-\d+-", "", req_dir.name)
-        try:
-            artifact_path = generate_requirement_artifact(root, target, archived_req_id, req_title)
-            print(f"Generated artifact: {artifact_path}")
-        except Exception as exc:
-            print(f"Warning: artifact generation failed: {exc}")
+    # Generate artifact document：已由 req-42（archive 重定义：对人不挪 + 摘要废止）/
+    # chg-02（archive_requirement helper 改写）废止。
+    # generate_requirement_artifact 函数体已删除；对人 folder 原位保留，不生成摘要 md。
 
     print(f"Archived {kind_label}: {req_dir.name}")
     print(f"Archive path: {target}")

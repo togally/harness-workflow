@@ -182,3 +182,7 @@
 {"ts": "2026-04-25T02:38:28.795033+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
 {"ts": "2026-04-25T02:44:27.756301+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 358.965693}}
 {"ts": "2026-04-25T02:44:27.756583+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-25T04:24:25.917769+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 3410.582305}}
+{"ts": "2026-04-25T04:24:25.918032+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-25T04:29:56.336354+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 330.422754}}
+{"ts": "2026-04-25T04:29:56.336592+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

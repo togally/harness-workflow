@@ -70,3 +70,16 @@
 - 产出 sessions/acceptance/session-memory.md
 - 综合判定：APPROVED
 
+
+---
+2026-04-23 | testing | req-42（archive 重定义：对人不挪 + 摘要废止）
+
+## testing 阶段完成
+- AC-1~10 端到端独立验证（testing subagent / sonnet）
+- pre-accident 状态：6/6 req-42 tests PASS，448 passed，AC-1~10 全 PASS
+- 数据丢失事件：git reset HEAD 丢失 chg-01/chg-02 未提交修改
+- 当前状态：445 passed，5 failed（3 AC-2/3 相关 + 2 pre-existing）
+- AC-5 PASS（顶层 .md = 0，req-29 orphan = 0，archive 机器型 = 0）
+- AC-7 PASS（dogfood 计划在 chg-03 session-memory §4）
+- AC-9 PARTIAL PASS（chg-02 change.md line 27 chg-04 裸引用）
+- testing-report.md 落位：.workflow/state/requirements/req-42/testing-report.md

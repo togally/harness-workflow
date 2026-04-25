@@ -134,15 +134,49 @@ req-41+ 所有机器型工件统一落 `.workflow/flow/requirements/{req-id}-{sl
 
 ---
 
+## 3.1 archive 行为定义（req-42（archive 重定义：对人不挪 + 摘要废止）/ chg-01（repository-layout 扩 archive 段））
+
+本节定义 `harness archive` 对 req-id ≥ 42 的归档行为。三条规则自 req-42（archive 重定义：对人不挪 + 摘要废止）起生效；req-id ≤ 41 走 §4 legacy / state-flat / flow 列对应的历史行为。
+
+### (i) 对人 folder 原位
+
+`artifacts/{branch}/requirements/{req-id}-{slug}/` 在 `harness archive` 执行后**不迁移**，原位即归档态。
+
+helper 约束：`archive_requirement` 不调 `shutil.move(artifacts/.../requirements/{slug})` 整 folder。
+
+适用范围：req-id ≥ 42 起生效；req-id ≤ 41 走 §4 三段式分水岭列对应行为。
+
+### (ii) 摘要 md 废止
+
+禁止产出 `artifacts/{branch}/requirements/{req-id}-{slug}.md` 形态的摘要文件。`generate_requirement_artifact` 函数已从源码删除（AC-2）；`archive_requirement` 不再调用此函数。
+
+helper 约束：`archive_requirement` 内无 `generate_requirement_artifact(...)` 调用；grep `def generate_requirement_artifact` 命中 = 0。
+
+适用范围：req-id ≥ 42 起生效。
+
+### (iii) 机器型迁 flow/archive
+
+`.workflow/flow/requirements/{req-id}-{slug}/` 整 folder（含 `requirement.md` / `changes/` / `sessions/` 等机器型子树）迁到 `.workflow/flow/archive/{branch}/{req-id}-{slug}/`。
+
+helper 约束：flow_req 分支（`is_flow_req = True`）已实现 `shutil.move(.workflow/flow/requirements/{slug}/ → .workflow/flow/archive/{branch}/{slug}/)`。
+
+适用范围：req-id ≥ 41（flow layout）起生效（flow_req 分支天然满足）；req-42 自身归档时按本规则跑通。
+
+### 自证锚点
+
+req-42（archive 重定义：对人不挪 + 摘要废止）自身归档时按本规则跑通，git diff 三条子证均存在（活证由 chg-03（17 件冗余清理 + dogfood 活证）落地）。
+
+---
+
 ## 4. 历史存量豁免与三段式分水岭
 
 ### 分水岭总览
 
-| 区间 | 布局规则 | 机器型工件位 | 对人产物位 |
-|------|---------|-------------|----------|
-| req-02（湖南 UAV MQTT 接入）~ req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）（legacy） | 旧多层 brief 结构 | `artifacts/.../changes/{chg-id}/` 等旧位 | `artifacts/.../requirements/{req-id}-{slug}/` 含 `changes/` 子目录 |
-| req-39（对人文档家族契约化 + artifacts 扁平化）~ req-40（flat layout 过渡） | 扁平对人文档 + state/ 机器型 | `.workflow/state/requirements/{req-id}/` / `.workflow/state/sessions/{req-id}/` | `artifacts/main/requirements/{req-id}-{slug}/` 扁平（无 `changes/` 子目录） |
-| req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））+（flow/ 新位） | 本文件全约束 | `.workflow/flow/requirements/{req-id}-{slug}/`（本文件 §3 权威） | `artifacts/main/requirements/{req-id}-{slug}/` 扁平（仅 §2 白名单内） |
+| 区间 | 布局规则 | 机器型工件位 | 对人产物位 | archive 时序 |
+|------|---------|-------------|----------|-------------|
+| req-02（湖南 UAV MQTT 接入）~ req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）（legacy） | 旧多层 brief 结构 | `artifacts/.../changes/{chg-id}/` 等旧位 | `artifacts/.../requirements/{req-id}-{slug}/` 含 `changes/` 子目录 | folder 整搬到 `artifacts/{branch}/archive/requirements/{slug}/` |
+| req-39（对人文档家族契约化 + artifacts 扁平化）~ req-40（flat layout 过渡） | 扁平对人文档 + state/ 机器型 | `.workflow/state/requirements/{req-id}/` / `.workflow/state/sessions/{req-id}/` | `artifacts/main/requirements/{req-id}-{slug}/` 扁平（无 `changes/` 子目录） | `state/requirements/{req-id}/` 迁 `target/state_requirements/`，对人 folder 维持 |
+| req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））+（flow/ 新位） | 本文件全约束 | `.workflow/flow/requirements/{req-id}-{slug}/`（本文件 §3 权威） | `artifacts/main/requirements/{req-id}-{slug}/` 扁平（仅 §2 白名单内） | 对人 folder 原位 + 机器型迁 `.workflow/flow/archive/{branch}/{slug}/`，无摘要 md |
 
 ### 豁免细则
 
