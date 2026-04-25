@@ -104,6 +104,12 @@ LEGACY_CLEANUP_TARGETS = [
     Path(".workflow") / "context" / "experience" / "tool" / "mysql-mcp.md",
     Path(".workflow") / "context" / "experience" / "tool" / "nacos-mcp.md",
     Path(".workflow") / "state" / "constitution.md",
+    # bugfix-4（harness install 升级清理：旧 layout 残留 / .bak / branch 名 / schema 不一致）/
+    # chg-1（install_repo cleanup 扩 layout 残留）：
+    # `.workflow/flow/artifacts-layout.md` 是 req-39（对人文档家族契约化 + artifacts 扁平化）旧契约文件；
+    # req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））将其重命名为
+    # `repository-layout.md`，存量项目应在 install 时自动清理旧文件，避免双 layout 共存。
+    Path(".workflow") / "flow" / "artifacts-layout.md",
 ]
 OPTIONAL_EMPTY_DIRS = [
     Path(".workflow") / "flow" / "archive",
@@ -3453,6 +3459,40 @@ def cleanup_legacy_workflow_artifacts(root: Path, check: bool) -> list[str]:
     return actions
 
 
+def cleanup_state_bak_files(root: Path, check: bool) -> list[str]:
+    """bugfix-4（harness install 升级清理：旧 layout 残留 / .bak / branch 名 / schema 不一致）/
+    chg-2（state .bak 残留清理 helper）：
+
+    扫描 `.workflow/state/` 下所有 `*.yaml.bak` 文件（由 `_migrate_state_files` 生成）。
+    对每个 .bak 文件：
+    - 若同名 `.yaml` 存在 → 视为迁移已完成，删除 .bak（用 unlink，不动 git）。
+    - 若同名 `.yaml` 不存在 → 保留 .bak 并 stderr 告警（用户手工恢复）。
+
+    返回 actions 列表；`check=True` 时不写盘，仅报告。
+    """
+    actions: list[str] = []
+    state_dir = root / ".workflow" / "state"
+    if not state_dir.exists():
+        return actions
+    for bak_file in sorted(state_dir.rglob("*.yaml.bak")):
+        rel = bak_file.relative_to(root).as_posix()
+        yaml_file = bak_file.with_suffix("")  # strips .bak → back to .yaml
+        if yaml_file.exists():
+            actions.append(
+                f"{'would remove' if check else 'removed'} stale bak {rel}"
+            )
+            if not check:
+                bak_file.unlink()
+        else:
+            actions.append(f"kept orphan bak {rel} (no matching .yaml; manual recovery needed)")
+            print(
+                f"[install_repo:cleanup-bak] WARNING: orphan bak {rel}: "
+                "corresponding .yaml not found; keeping for manual recovery.",
+                file=sys.stderr,
+            )
+    return actions
+
+
 def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
     _, actions = _sync_requirement_workflow_managed_files(
         root,
@@ -3673,6 +3713,10 @@ def install_repo(
     if not check:
         migrate_actions = _migrate_state_files(root)
         actions.extend(migrate_actions)
+        # bugfix-4（harness install 升级清理）/ chg-2（state .bak 残留清理）：
+        # _migrate_state_files 生成的 .bak 在迁移成功后应当清理，避免永久驻留。
+        bak_actions = cleanup_state_bak_files(root, check=False)
+        actions.extend(bak_actions)
 
     _refresh_experience_index(root)
 
@@ -3726,6 +3770,27 @@ def _migrate_state_files(root: Path) -> list[str]:
     # Migrate requirements/*.yaml
     req_state_dir = root / ".workflow" / "state" / "requirements"
     if req_state_dir.exists():
+        # bugfix-4（harness install 升级清理）/ chg-3（schema 探测扩 folder 形态 + audit 报告）：
+        # 扫描 req-XX/ folder 形态（早期 schema，req-id ≤ 38 legacy 路径），仅输出 audit 警告，
+        # 不自动删除或迁移（避免数据丢失；用户手工决定归档或迁移）。
+        import re as _re
+        _req_folder_pattern = _re.compile(r"^(req|bugfix)-\d+")
+        for child in sorted(req_state_dir.iterdir()):
+            if child.is_dir() and _req_folder_pattern.match(child.name):
+                # folder 形态 req：无对应 .yaml，仅 audit 报告
+                sibling_yaml = req_state_dir / f"{child.name}.yaml"
+                if not sibling_yaml.exists():
+                    actions.append(
+                        f"⚠️ 检测到旧 schema folder 形态：{child.name}/，"
+                        "建议手动迁移到 req-XX.yaml 或对应新 layout"
+                    )
+                    print(
+                        f"[install_repo:schema-audit] ⚠️ 检测到旧 schema folder 形态："
+                        f".workflow/state/requirements/{child.name}/，"
+                        "建议手动迁移到 req-XX.yaml 或对应新 layout。",
+                        file=sys.stderr,
+                    )
+
         for req_file in sorted(req_state_dir.rglob("*.yaml")):
             state = load_simple_yaml(req_file)
             if not state:

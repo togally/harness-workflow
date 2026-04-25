@@ -1,4 +1,9 @@
 
+## [2026-04-23] bugfix-4（harness install 升级清理：旧 layout 残留 / .bak / branch 名 / schema 不一致）executing 完成
+
+- **命令**：扩展 `LEGACY_CLEANUP_TARGETS`（追加 `.workflow/flow/artifacts-layout.md`）；新建 `cleanup_state_bak_files(root, check)` helper；在 `install_repo` 调用链加 bak 清理；`_migrate_state_files` 扩 folder 形态探测 + audit 警告；新建 `tests/test_install_cleanup.py`（5 用例）。
+- **结果**：4 修复点全部落地；5 新增测试全绿；全量 pytest 452 passed + 2 pre-existing fail（ReadmeRefreshHintTest + test_human_docs_checklist_for_req29）+ 38 skipped；零回归。
+
 ## [2026-04-23] req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-03（validate_human_docs 重写删四类 brief）executing 完成
 
 - **命令**：重写 `src/harness_workflow/validate_human_docs.py`（新增 BRIEF_DEPRECATED_FROM_REQ_ID=41 + REQ_LEVEL_DOCS_SIMPLIFIED + _collect_req_items_simplified + 四分支 _collect_req_items）；扩展 tests/test_validate_human_docs.py（22条全绿，新增7+修复5）；修复 tests/test_smoke_req28.py ValidateHumanDocsSmokeTest（req-77→req-40）；产出 chg-03-实施说明.md。
