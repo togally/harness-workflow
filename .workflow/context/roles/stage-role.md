@@ -31,6 +31,17 @@ subagent 不需要重复读取 `runtime.yaml`、`base-role.md` 或 `stage-role.m
 - **必须**在本 stage 的 `session-memory.md` 中留痕一节"default-pick 决策清单"（即使为空亦写"无"），汇总本 stage 所有按默认推进的决策与理由。
 - 汇报时**必须**把 default-pick 清单归并到 stage-role.md `## 统一精简汇报模板（req-31 / chg-02）` 字段 3"开放问题 / default-pick"；不另起新段落。
 
+#### stage 流转点豁免子条款（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+
+> 溯源：req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））；与本段原协议（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-05（S-E 决策批量化协议））**并列生效**，不替代。
+
+- 原协议（req-31 / chg-05）止于**同一 stage 内**争议点的批量化推进；本子条款把豁免面扩展到**相邻同类型 stage 的流转点**：
+  - `requirement_review → planning` 流转点**默认静默**：analyst 自主推进 chg 拆分，不邀用户对"是否进入 planning"作拍板决策（default-pick 直接按 HM-1 = A，harness-manager §3.6.1）；
+  - `planning → ready_for_execution` **保留用户拍板**（拍板对象是"需求 + 推荐拆分"合并产物，analyst batched-report 后等待用户确认一次）；
+- 豁免仅适用于 analyst 承载的两 stage（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）） 方向 C）；其他 stage 流转（executing → testing / testing → acceptance 等）不在本条款豁免面内，规约不变；
+- 与 base-role 硬门禁四例外条款（数据丢失 / 不可回滚 / 合规三类）+ 硬门禁七（Ra/Rb/Rc 周转汇报）**并列生效**，不替代；任何数据丢失 / 不可回滚 / 合规风险仍须中断并报告；
+- 用户 override 后门：用户说出 escape hatch 触发词（`我要自拆` / `我自己拆` / `让我自己拆` / `我拆 chg`）之一时，豁免撤销，回退手工拆分路径（详见 technical-director §6.2）。
+
 ## 继承自 base-role 的执行清单
 
 `stage-role.md` 是所有 stage 角色的公共父类，必须将 `base-role.md` 中的抽象要求翻译为可执行、可检查的子类行为。以下清单中的每一项都**必须**在具体 stage 角色的 SOP 或职责描述中有明确的执行步骤和检查点。
@@ -158,7 +169,7 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 
 ```
 **产出**：
-- artifacts/main/requirements/req-31（角色功能优化整合与交互精简...）/changes/chg-02/：change.md + plan.md + 变更简报.md 各 1 份。
+- .workflow/flow/requirements/req-31（角色功能优化整合与交互精简...）/changes/chg-02/：change.md + plan.md 各 1 份（落位见 repository-layout.md §3）。
 - pytest 288 passed，零回归。
 
 **状态**：PASS。四字段新章节已在 stage-role.md 落地；executing/testing/acceptance 三份 role.md 汇报段已替换为引用新模板。
@@ -180,48 +191,39 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 
 ### 契约 2：路径同构
 
-每个 stage 角色新产出的对人文档必须落到 `artifacts/{branch}/...` 下，与制品树同构：
+每个 stage 角色新产出的对人文档必须落到 `artifacts/{branch}/...` 下，与制品树同构。
 
-- 需求级：`artifacts/{branch}/requirements/{req-id}-{slug}/`
-- 变更级：`artifacts/{branch}/requirements/{req-id}-{slug}/chg-NN-变更简报.md`（平铺于需求根，不建 `changes/` 子目录）
-- Bugfix 级：`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/`
-- Regression 级：`artifacts/{branch}/requirements/{req-id}-{slug}/reg-NN-回归简报.md`（平铺于需求根，不建 `regressions/` 子目录）
-  （如 regression 属于 bugfix，路径相应落在 bugfix 子树下）
-
-> **详细路径定义、对人文档白名单（≥ 8 类）、机器型文档迁移位（requirement.md → `.workflow/state/requirements/{req-id}/`，change.md + plan.md → `.workflow/state/sessions/{req-id}/{chg-id}/`，regression 产物 → `.workflow/state/sessions/{req-id}/regressions/{reg-id}/`）、命名前缀约定、历史存量豁免范围（req-02 ~ req-37 保留旧结构，req-39 及以后严格执行新规）见 `.workflow/flow/artifacts-layout.md`（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-01（artifacts-layout 契约底座 + stage-role 路径同构改写）新建）。**
+> **详细路径定义、对人文档白名单（≥ 8 类）、机器型文档落位（见 `.workflow/flow/repository-layout.md` §3）、命名前缀约定、历史存量豁免范围（req-02 ~ req-37 保留旧结构，req-41+ 严格执行新规）见 `.workflow/flow/repository-layout.md`（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） / chg-01（repository-layout 契约底座）升格为权威定义）。**
 
 ### 契约 3：中文命名 + 阶段粒度
 
-> **完整白名单（含 SQL 脚本 / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 / 其他需人执行或阅读的产物）见 `.workflow/flow/artifacts-layout.md` §2**（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-01（artifacts-layout 契约底座 + stage-role 路径同构改写）新建）。
+> **完整白名单（含 SQL 脚本 / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 / 其他需人执行或阅读的产物）见 `.workflow/flow/repository-layout.md` §2**（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） / chg-01（repository-layout 契约底座）权威定义）。
 
 | 阶段 | 文件名 | 粒度 | 产出角色 |
 |------|-------|------|---------|
-| requirement_review | 需求摘要.md | req | 需求分析师 |
-| planning | 变更简报.md | change | 架构师 |
-| executing | 实施说明.md | change | 开发者 |
 | ~~testing~~ | ~~测试结论.md~~ **不要求产出**（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）废止，数据写入 test-report.md） | ~~req~~ | ~~测试工程师~~ |
 | ~~acceptance~~ | ~~验收摘要.md~~ **不要求产出**（req-31 / chg-04 废止，数据写入 acceptance-report.md） | ~~req~~ | ~~验收官~~ |
-| regression | 回归简报.md | regression | 诊断师 |
 | done | 交付总结.md | req | 主 agent（done） |
 
-（命名本身不得变更；planning 阶段可在不偏离契约 1/2 的前提下微调表述措辞。）
+> **req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） 废止**：requirement_review / planning / executing / regression 四类对人 brief（需求摘要.md / 变更简报.md / 实施说明.md / 回归简报.md）已由 req-41 废止，**req-id ≥ 41 起不再产出**；legacy req（req-02 ~ req-40）保留旧结构原地存档，不迁移。req-id ≥ 41 起，req 级对人文档仅为 `交付总结.md`（done 阶段产出）+ raw `requirement.md` 副本（artifacts/ 副本供外部审阅）；其他 stage 不产出对人 brief。
 
-- `决策汇总.md`（ff --auto 模式产出，acceptance 前由 chg-03 工具自动生成，路径
-  artifacts/{branch}/requirements/{req-id}-{slug}/决策汇总.md，字段按 DecisionPoint）
+（命名本身不得变更。）
+
+- `决策汇总.md`（ff --auto 模式产出，acceptance 前由 chg-03 工具自动生成，落位见 repository-layout.md §2，字段按 DecisionPoint）
 
 #### 跨文档引用 frontmatter（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减））
 
-- `需求摘要.md` 头部 frontmatter 新增：`delivery_link: artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`
-- `交付总结.md` 头部 frontmatter 新增：`requirement_link: artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`
+- `交付总结.md` 头部 frontmatter：`requirement_link: <path-to-requirement.md>`（路径见 repository-layout.md §3 req 级落位）
 - 字段名采用 default-pick P-8 = A（英文语义化）；存量历史文档不回填。
 
 ### 契约 4：硬门禁
 
-- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）精简**：testing / acceptance 两阶段的对人文档已废止，契约 4 "对人文档 `{文件名}.md` 已产出" 硬门禁对这两阶段**豁免**；其 agent 过程文档 `test-report.md` / `acceptance-report.md` 即结论载体。
-- 每个 stage 角色的"退出条件"清单中**必须**包含一条："对人文档 `{文件名}.md` 已产出且字段完整"。
+- **req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）精简**：testing / acceptance 两阶段的对人文档已废止，契约 4 硬门禁对这两阶段**豁免**；其 agent 过程文档 `test-report.md` / `acceptance-report.md` 即结论载体。
+- **req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） 废止**：req-id ≥ 41 起，req 级对人文档仅为 `交付总结.md`（done 阶段产出）+ raw `requirement.md` 副本；requirement_review / planning / executing / regression 四 stage 不产出对人 brief；契约 4 "对人文档已产出"硬门禁对以上四 stage（req-id ≥ 41 作用域）**豁免**。
+- `done` 阶段退出条件**必须**包含："`交付总结.md` 已产出且字段完整"（落位见 repository-layout.md §2）。
 - 每份对人文档必须 ≤ 1 页（屏幕一屏内读完），字段按各角色文件中的最小模板执行（字段名与字段顺序不得变更）。
 - 禁止把对人文档写到 `.workflow/flow/` 或其他位置；禁止用 agent 过程文档（如 session-memory）替代对人文档。
-- **req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ sug-15 升格条款**：每个 stage 角色在其 SOP 交接步骤之前、产出对人文档落盘后，**必须**执行 `harness validate --contract all`（或 `harness status --lint` 对当前 artifacts 子树扫描）；若输出违规则阻塞 stage 推进，返回开发者 / 架构师修正。该自检同时覆盖契约 3 / 4 / 6 / 7，regression 阶段额外执行 `harness validate --contract regression`（sug-10）。
+- **req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ sug-15 升格条款**：stage 角色在 SOP 交接步骤之前，**必须**执行 `harness validate --contract all`（或 `harness status --lint`）；若输出违规则阻塞 stage 推进。该自检同时覆盖契约 3 / 4 / 6 / 7。
 
 ### 契约 5：反例核对
 
@@ -263,7 +265,7 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
   1. **DAG 完成度 / 进度概览表**：跨多个 chg 列状态时（如 `chg-01 done | chg-02 done | chg-03 in-progress`），每行 id 必带 title。
   2. **阶段收束汇报 / batched-report**：`本 stage 完成 chg-01 + chg-02 + chg-03 + ...` 形态属于密集展示，每个 chg id 必带 ≤ 15 字描述。
   3. **跨 chg 索引表 / 制品目录**：`changes/` 树枚举、跨 chg 引用清单、归档索引等表格场景，id 列必带 title 列。
-  4. **触发判定**：同一段落 / 表格 / 列表内并列 ≥ 2 个不同 id 即触发反向豁免；与硬门禁六批量列举子条款共享判定边界。
+  4. **触发判定**：同一段落 / 表格 / 列表 / TaskList / commit message / CLI stdout 中并列 ≥ 2 个不同 id 即触发反向豁免；与硬门禁六批量列举子条款共享判定边界。**注意**：TaskList / 进度条 / commit message 不在"id 密集展示反向豁免"的豁免面（即"同上下文后续可简写"豁免）之内——这些场景本身即属于密集展示，每条 id 必须带 title 或 ≤ 15 字描述，不得简写为裸 id。
 
 #### 校验方式
 
@@ -278,7 +280,7 @@ subagent 在被主 agent 派发任务后，除读取本 stage 特有文档外，
 #### 参考实现与自证样本
 
 - 实现：`src/harness_workflow/workflow_helpers.py::render_work_item_id`（runtime 缓存 → state fallback → sug frontmatter → `(no title)` 降级）。
-- 自证：req-30（slug 沟通可读性增强：全链路透出 title）自身的 `requirement.md` / 各 `change.md` / `plan.md` / `实施说明.md` / `变更简报.md` 首次引用工作项 id 时均带完整 title，作为新约定示范样本。
+- 自证：req-30（slug 沟通可读性增强：全链路透出 title）自身的 `requirement.md` / 各 `change.md` / `plan.md` 首次引用工作项 id 时均带完整 title，作为新约定示范样本。
 
 ## task_context_index 回退语义（req-32 / chg-03）
 

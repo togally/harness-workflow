@@ -160,6 +160,14 @@ context_chain:
 - 遇到 regression 时启动诊断流程，诊断完成后按流程图路由到正确 stage
 - **流转前确认**：更新 `runtime.yaml` 前，确认 `session-memory.md` 已保存
 
+#### 6.2 requirement_review → planning 自动静默推进（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+
+- analyst 在 requirement_review 完成 requirement.md 产出并取得用户对需求内容的拍板后，technical-director **不再邀请用户对"是否进入 planning"作决策**；
+- technical-director 直接更新 `runtime.yaml` stage → planning，由 analyst 在同一会话续跑变更拆分（default-pick HM-1 = A，详见 harness-manager §3.6.1）；
+- analyst 在 planning 完成 change.md + plan.md 全集产出后，batched-report 一次给用户（"需求 + 推荐拆分"合并报告），用户对此联合产出拍板一次即进入 ready_for_execution；
+- **保留 escape hatch（自动推进后门）**：若用户在 requirement_review 或 planning 任一时刻明确说出触发词 `我要自拆` / `我自己拆` / `让我自己拆` / `我拆 chg` 之一，analyst 退化为只产 requirement.md + §5 推荐拆分，**不产** change.md / plan.md；用户自己敲 `harness change "<title>"` 手动拆分；触发词为精确字面匹配，模糊语义走 default-pick C-1 = 按字面，不臆测；
+- 与 base-role 硬门禁四（同阶段不打断 + 例外三类：数据丢失 / 不可回滚 / 合规）+ 硬门禁七（周转汇报 Ra/Rb/Rc）**并列生效**，不替代任何一条既有硬门禁。
+
 ### Step 7: done 阶段六层回顾
 - 当 `stage=done` 时，主 agent 亲自执行六层回顾检查
 - 输出回顾报告到 `session-memory.md`

@@ -55,42 +55,22 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
-## 对人文档输出（req-26）
+## 对人文档输出（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-04（S-A 角色去路径化 + brief 模板删）废止）
 
-- **文件名**：`变更简报.md`（固定，不得改名）
-- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/变更简报.md`
-- **粒度**：change 级，每个 change 一份；**上限**：≤ 1 页
+本阶段不产出对人 brief（req-41 方向 C 废止，适用 req-id ≥ 41）；req 级对人产物由 done 阶段产出 `交付总结.md`（落位见 `.workflow/flow/repository-layout.md`）。
 
-### 最小字段模板（字段名与顺序不得变更）
+机器型产物（`change.md` / `plan.md`）落位见 `.workflow/flow/repository-layout.md` §3。
 
-> **req-30（slug 沟通可读性增强：全链路透出 title）契约 7**：首行 `{chg-id}` 与 `{title}` 不可省略；首次引用时形如 `{id}（{title}）`，裸 id 视为违反。
+**契约 7**（req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03）：`change.md` / `plan.md` 正文首次引用 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`，裸 id 视为违反。
 
-```markdown
-# 变更简报：{chg-id} {title}
-
-## 变更名
-- 一句话自我介绍。
-
-## 解决什么问题
-- 关联上层 AC 编号 + 一句话问题描述。
-
-## 怎么做
-- 3-5 条实施要点（不是详细步骤，是决策摘要）。
-
-## 影响范围
-- 列涉及的主要文件 / 命令 / 用户路径。
-
-## 预期验证
-- 3-5 条用户可自行核对的断言。
-```
+> **legacy req（req-02 ~ req-40）**：本角色为 legacy alias，原有 `变更简报.md` 行为维持兼容，不追溯删改。
 
 ## 退出条件
 - [ ] 所有变更都有 `change.md`（目标、范围、验收）
 - [ ] 所有变更都有 `plan.md`（步骤、产物、依赖）
 - [ ] 执行顺序已明确
 - [ ] 用户已确认所有计划
-- [ ] 每个 change 都在 `artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/` 下产出对人文档 `变更简报.md`，字段完整
-- [ ] **[硬门禁]** 每个 chg 必须产出每 chg 一份对人文档 `chg-NN-变更简报.md`（扁平于需求根，路径见 chg-01（artifacts-layout 契约底座 + stage-role 路径同构改写）规范）；subagent 交接前必须执行 `harness validate --human-docs`，exit code = 0 才允许 PASS；未绿立即 ABORT 并在 session-memory.md 留痕（chg-03（requirement-review / planning 自检硬门禁代码化）；命令路径由 chg-02（validate_human_docs 重写）提供，若 chg-02 尚未落地保留此条款不得跳过）
+- [ ] **[硬门禁]** subagent 交接前必须执行 `harness validate --human-docs`，exit code = 0 才允许 PASS；未绿立即 ABORT 并在 session-memory.md 留痕（chg-03（requirement-review / planning 自检硬门禁代码化）；命令路径由 chg-02（validate_human_docs 重写）提供，若 chg-02 尚未落地保留此条款不得跳过）
 
 ## ff 模式说明
 - ff 模式下，若 `change.md` + `plan.md` 已全部产出且执行顺序明确，subagent 可直接报告完成，由主 agent 自动推进到 `executing`
@@ -107,4 +87,4 @@
 3. 是否有变更的范围过大（应继续拆分）？
 4. 若本次 planning 拆分出的变更涉及新制品、新阶段或新角色，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新，并在相关 change.md 中记录。
 5. 若本次变更涉及 suggest 批量转换，必须确认已阅读 `.workflow/constraints/suggest-conversion.md`，并确保所有 suggest 被打包为单一需求。
-6. 是否已跑 `harness validate --human-docs` 且 exit code = 0？每 chg 是否都有 `chg-NN-变更简报.md`？（未绿须 ABORT，不得放行）
+6. 是否已跑 `harness validate --human-docs` 且 exit code = 0？（未绿须 ABORT，不得放行）

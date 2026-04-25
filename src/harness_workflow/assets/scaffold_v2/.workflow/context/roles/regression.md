@@ -55,46 +55,19 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
-## 对人文档输出（req-26）
+## 对人文档输出（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-04（S-A 角色去路径化 + brief 模板删）废止）
 
-在完成 `regression/diagnosis.md` 并确定路由方向后，必须**为本次 regression**额外产出一份面向用户的精炼中文文档：
+本阶段不产出对人 brief（req-41 方向 C 废止，适用 req-id ≥ 41）；req 级对人产物由 done 阶段产出 `交付总结.md`（落位见 `.workflow/flow/repository-layout.md`）。
 
-- **文件名**：`回归简报.md`（固定，不得改名）
-- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/回归简报.md`
-  （如 regression 属于 bugfix，路径落在 `artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/regressions/{reg-id}-{slug}/`）
-- **粒度**：regression 级，每次 regression 一份
-- **上限**：≤ 1 页
-- **与 `diagnosis.md` 的关系**：对人文档不替代 `regression/diagnosis.md`，后者仍维持原路径作为详细诊断记录。
+机器型产物（`regression.md` / `analysis.md` / `decision.md` / `session-memory.md`）落位见 `.workflow/flow/repository-layout.md` §3。
 
-### 最小字段模板（字段名与顺序不得变更）
-
-> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{reg-id}` 与 `{issue}` 不可省略；"影响"段首次引用父需求 / 关联 chg / 关联 bugfix 时形如 `{id}（{title}）`。
->
-> 向主 agent 汇报示例：
-> - "reg-02（CLI stdout 缺 title 导致跨 agent 沟通摩擦）已诊断为真实问题，根因 render 层缺失，路由到 executing 执行 req-30（slug 沟通可读性增强：全链路透出 title）的 chg-02（CLI 渲染 — render_work_item_id helper）。"
-
-```markdown
-# 回归简报：{reg-id} {issue}
-
-## 问题
-- 一句话描述用户感知到的问题。
-
-## 根因
-- 一句话描述独立诊断后的根因。
-
-## 影响
-- 列受影响的需求 / 变更 / 命令。
-
-## 路由决策
-- 决定回到哪个 stage 继续（requirement_review / planning / executing / testing / acceptance / 确认无需回退）。
-```
+**契约 7**（req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03（requirement-review / planning 自检硬门禁代码化））：`diagnosis.md` / `session-memory.md` 正文首次引用 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`，裸 id 视为违反。
 
 ## 退出条件
-- [ ] `regression/diagnosis.md` 已产出（问题描述/根因/路由决定）
+- [ ] `regression/diagnosis.md` 已产出（问题描述/根因/路由决定）；落位见 repository-layout.md
 - [ ] 已明确：真实问题 或 误判
 - [ ] 路由方向已确定
-- [ ] 对人文档 `回归简报.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/`（或对应 bugfix 子树）下产出，字段完整
-- [ ] 已执行 `harness validate --contract regression` 得绿（sug-10：《回归简报.md》契约 3 / 4 字段自检 — req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug））
+- [ ] 已执行 `harness validate --contract regression` 得绿（sug-10）
 
 ## ff 模式说明
 - ff 模式下，诊断师完成 `diagnosis.md` 并明确路由方向后，由主 agent 根据诊断结果自动决定下一步：

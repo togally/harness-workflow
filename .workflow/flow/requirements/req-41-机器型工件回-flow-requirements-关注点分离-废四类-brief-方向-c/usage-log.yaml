@@ -1,0 +1,14 @@
+- ts: 2026-04-24T17:22:23.353785+00:00
+  stage: executing
+  chg_id: chg-07
+  role: executing
+  model: claude-sonnet-4-6
+  usage:
+    input_tokens: 48320
+    output_tokens: 12450
+    cache_read_input_tokens: 38200
+    cache_creation_input_tokens: 2100
+    total_tokens: 60770
+    tool_uses: 42
+    duration_ms: 187400
+

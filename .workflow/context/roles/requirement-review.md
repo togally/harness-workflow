@@ -55,30 +55,15 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
-## 对人文档输出（req-26）
+## 对人文档输出（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-04（S-A 角色去路径化 + brief 模板删）废止）
 
-- **文件名 / 路径**：`需求摘要.md` → `artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`，≤ 1 页
-- **frontmatter**：`delivery_link: artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`（req-31 / chg-04 互链）
+本阶段不产出对人 brief（req-41 方向 C 废止，适用 req-id ≥ 41）；req 级对人产物由 done 阶段产出 `交付总结.md`（落位见 `.workflow/flow/repository-layout.md`）。
 
-### 最小字段模板（字段名与顺序不得变更）
+机器型产物（`requirement.md`）落位见 `.workflow/flow/repository-layout.md` §3。
 
-> **req-30（slug 沟通可读性增强：全链路透出 title）契约 7**：首行 `{req-id}` 与 `{title}` 均不可省略；首次引用时形如 `{id}（{title}）`，裸 id 视为违反。
+**契约 7**（req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03）：`requirement.md` 正文首次引用 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`，裸 id 视为违反。
 
-```markdown
-# 需求摘要：{req-id} {title}
-
-## 目标
-- 一句话描述本需求要解决的问题。
-
-## 范围
-- 3-5 条列出包含什么、不做什么。
-
-## 验收要点
-- 3-5 条引用 AC 编号，描述用户侧可观察的判定条件。
-
-## 风险
-- ≤ 2 条，聚焦最可能阻塞交付的点。
-```
+> **legacy req（req-02 ~ req-40）**：本角色为 legacy alias，原有 `需求摘要.md` 行为维持兼容，不追溯删改。
 
 ## 退出条件
 `requirement.md` 包含以下所有内容：
@@ -86,7 +71,6 @@
 - [ ] 目标（做完后期望状态）
 - [ ] 范围（包含 + 不包含）
 - [ ] 验收标准（可量化的通过条件）
-- [ ] 对人文档 `需求摘要.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
 - [ ] **[硬门禁]** subagent 交接前必须执行 `harness validate --human-docs`，exit code = 0 才允许 PASS；未绿立即 ABORT 并在 session-memory.md 留痕未绿项，不得自行补写后再通过（chg-03（requirement-review / planning 自检硬门禁代码化）；命令路径由 chg-02（validate_human_docs 重写）提供，若 chg-02 尚未落地保留此条款不得跳过）
 
 ## ff 模式说明

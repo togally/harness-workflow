@@ -1,14 +1,22 @@
-"""对人文档落盘校验（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-02（validate_human_docs 重写 + 精简废止项））。
+"""对人文档落盘校验（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-02（validate_human_docs 重写 + 精简废止项）/ req-41（废四类 brief）/ chg-03（validate_human_docs 重写删四类 brief））。
 
-本模块提供 ``validate_human_docs`` 函数，按 ``.workflow/flow/artifacts-layout.md``
-§2 对人文档白名单（≥ 8 类），逐条校验 req / bugfix 周期中各 stage 的对人文档是否
+本模块提供 ``validate_human_docs`` 函数，按 ``.workflow/flow/repository-layout.md``
+§2 对人文档白名单，逐条校验 req / bugfix 周期中各 stage 的对人文档是否
 真实落盘到 ``artifacts/{branch}/...`` 扁平路径下。
 
-**扫描源（新规，req-39+）**：
+**扫描源（req-id ≥ 41，精简扫描，req-41+）**：
+- req 级只扫 ``requirement.md``（raw artifacts 副本）/ ``交付总结.md``。
+- 不再要求 ``需求摘要.md`` / ``chg-NN-变更简报.md`` / ``chg-NN-实施说明.md`` /
+  ``reg-NN-回归简报.md`` 四类 brief；已存在的空壳 brief 静默忽略。
+- ``BRIEF_DEPRECATED_FROM_REQ_ID = 41``：req-id ≥ 此值不扫四类 brief。
+
+**扫描源（req-39 / req-40，现行扫描）**：
 - req 级固定扫 ``需求摘要.md`` / ``交付总结.md``；``决策汇总.md`` 可选。
 - chg 级扫 req 根目录前缀 ``chg-NN-变更简报.md`` / ``chg-NN-实施说明.md``
   （平铺，不再依赖 ``changes/`` 子目录）。
 - reg 级扫 req 根目录前缀 ``reg-NN-回归简报.md``。
+
+**扫描源（req-02 ~ req-38，legacy / mixed 扫描）**：
 - 历史存量豁免：req-02 ~ req-37 走 legacy ``changes/`` 子目录扫描；req-38 双轨共存；
   req-39+ 严格新扁平路径。
 
@@ -17,13 +25,14 @@
 # testing / acceptance 两个阶段的对人文档（已从白名单和常量移除，不再扫描）。
 
 **单一真相**：``HUMAN_DOC_CONTRACT`` / ``REQ_LEVEL_DOCS`` / ``CHANGE_LEVEL_DOCS`` /
-``BUGFIX_LEVEL_DOCS`` 的文件名与 ``.workflow/flow/artifacts-layout.md`` §2 白名单
-一一对应；修改白名单时必须同步修改本文件。
+``BUGFIX_LEVEL_DOCS`` / ``REQ_LEVEL_DOCS_SIMPLIFIED`` 的文件名与
+``.workflow/flow/repository-layout.md`` §2 白名单一一对应；修改白名单时必须同步修改本文件。
 
 **不负责**的范围：
 - 不校验对人文档的"字段内容完整性"（由各角色自检）。
 - 不自动补写缺失文档，只报告。
-- regression 级路径（reg-NN-回归简报.md）在新规 req-39+ 下扫 req 根目录前缀匹配。
+- regression 级路径（reg-NN-回归简报.md）在 req-39/40 下扫 req 根目录前缀匹配；
+  req-41+ 不扫 regression brief（精简扫描）。
 """
 
 from __future__ import annotations
@@ -41,24 +50,36 @@ from harness_workflow.workflow_helpers import (
 )
 
 
-# --- 历史存量豁免常量（溯源 .workflow/flow/artifacts-layout.md §5）-----------
+# --- 历史存量豁免常量（溯源 .workflow/flow/repository-layout.md §5）-----------
 #
 # req-02 ~ req-37：legacy 旧结构（changes/ 子目录），全部保留不迁移。
 # req-38：混合过渡期样本，双轨并行（新扁平 chg-NN-变更简报.md 或旧 changes/ 子目录择一命中即 ok）。
-# req-39+：严格新扁平，只扫根目录前缀文件。
+# req-39 / req-40：严格新扁平，只扫根目录前缀文件（含四类 brief）。
+# req-41+：精简扫描，只扫 raw requirement.md（artifacts 副本）+ 交付总结.md；
+#           四类 brief 不再列入白名单（BRIEF_DEPRECATED_FROM_REQ_ID 标记废止边界）。
 
 LEGACY_REQ_ID_CEILING = 37   # req-02 ~ req-37：走 legacy 扫描，废止项已删，不报 missing
 MIXED_TRANSITION_REQ_ID = 38  # req-38：双轨共存，新扁平或旧 changes/ 子目录任一命中即 ok
 
+# req-id >= BRIEF_DEPRECATED_FROM_REQ_ID 时，四类 brief（需求摘要 / 变更简报 / 实施说明 / 回归简报）
+# 不再列入白名单扫描（req-41（废四类 brief）/ chg-03（validate_human_docs 重写删四类 brief））。
+BRIEF_DEPRECATED_FROM_REQ_ID = 41
 
-# --- 契约 3 单一真相映射表（同步 artifacts-layout.md §2）--------------------
+
+# --- 契约 3 单一真相映射表（同步 repository-layout.md §2）--------------------
 #
-# stage → (对人文档文件名, 粒度) 对照 .workflow/flow/artifacts-layout.md §2 白名单：
+# stage → (对人文档文件名, 粒度) 对照 .workflow/flow/repository-layout.md §2 白名单：
+#
+# req-39 / req-40（现行扫描，四类 brief 仍在白名单）：
 #   | requirement_review | 需求摘要.md  | req    |
 #   | planning           | 变更简报.md  | chg    |
 #   | executing          | 实施说明.md  | chg    |
 #   | regression         | 回归简报.md  | reg    |
 #   | done               | 交付总结.md  | req    |
+#
+# req-41+（精简扫描，四类 brief 已从白名单废止）：
+#   | raw_artifact       | requirement.md | req  |  （raw artifacts 副本，方便外部审阅）
+#   | done               | 交付总结.md    | req  |
 #
 # 注：testing / acceptance 阶段对人文档已由
 # req-31 / chg-04（S-D 对人文档缩减）废止，不在白名单内（常量已移除）。
@@ -69,15 +90,26 @@ HUMAN_DOC_CONTRACT: dict[str, tuple[str, str]] = {
     "executing": ("实施说明.md", "chg"),
     "regression": ("回归简报.md", "reg"),
     "done": ("交付总结.md", "req"),
+    # req-41+ 精简扫描新增（四类 brief 废止后的最小集合）
+    "raw_artifact": ("requirement.md", "req"),
 }
 
 # req 级应产出的对人文档（落在 req 根目录，文件名唯一）
+# 适用范围：req-39 / req-40（含四类 brief 的现行扫描）
 REQ_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
     ("requirement_review", "需求摘要.md"),
     ("done", "交付总结.md"),
 )
 
+# req-41+ 精简扫描：只校验 raw requirement.md（artifacts 副本）+ 交付总结.md
+# 四类 brief（需求摘要 / 变更简报 / 实施说明 / 回归简报）不再列入（BRIEF_DEPRECATED_FROM_REQ_ID）
+REQ_LEVEL_DOCS_SIMPLIFIED: tuple[tuple[str, str], ...] = (
+    ("raw_artifact", "requirement.md"),
+    ("done", "交付总结.md"),
+)
+
 # change 级应产出的对人文档（chg-NN- 前缀平铺在 req 根目录，或旧 changes/ 子目录）
+# 适用范围：req-39 / req-40；req-41+ 不再校验 change 级 brief
 CHANGE_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
     ("planning", "变更简报.md"),
     ("executing", "实施说明.md"),
@@ -272,16 +304,47 @@ def _collect_reg_items_flat(req_dir: Path) -> list[ValidationItem]:
     return items
 
 
+def _collect_req_items_simplified(req_dir: Path) -> list[ValidationItem]:
+    """req-41+ 精简扫描：只校验 raw requirement.md（artifacts 副本）+ 交付总结.md。
+
+    四类 brief（需求摘要.md / chg-NN-变更简报.md / chg-NN-实施说明.md / reg-NN-回归简报.md）
+    不再列入白名单；已存在的空壳 brief 文件静默忽略（不报期望项也不报额外错）。
+
+    溯源：req-41（废四类 brief）/ chg-03（validate_human_docs 重写删四类 brief）。
+    """
+    items: list[ValidationItem] = []
+    for stage, filename in REQ_LEVEL_DOCS_SIMPLIFIED:
+        expected = req_dir / filename
+        items.append(
+            ValidationItem(
+                stage=stage,
+                filename=filename,
+                expected_path=expected,
+                status=_check_doc(expected),
+            )
+        )
+    return items
+
+
 def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
     """根据 req-id 数字选择扫描路径策略。
 
+    - req-id ≥ BRIEF_DEPRECATED_FROM_REQ_ID (41)：精简扫描，只查 raw requirement.md + 交付总结.md；
+      四类 brief 不再校验（废止）。
     - req-id ≤ LEGACY_REQ_ID_CEILING (37)：legacy changes/ 子目录扫描；废止项已从常量删，自然不报 missing。
     - req-id == MIXED_TRANSITION_REQ_ID (38)：双轨共存，新扁平或旧 changes/ 任一命中即 ok。
-    - req-id ≥ FLAT_LAYOUT_FROM_REQ_ID (39)：严格新扁平，只扫 req 根目录前缀文件。
+    - req-id ∈ [39, 40]（FLAT_LAYOUT_FROM_REQ_ID ~ BRIEF_DEPRECATED_FROM_REQ_ID-1）：
+      严格新扁平，扫 req 根目录前缀文件（含四类 brief）。
     """
+    req_num = _extract_req_num(req_dir.name)
+
+    # req-41+：精简扫描（四类 brief 废止）
+    if req_num >= BRIEF_DEPRECATED_FROM_REQ_ID:
+        return _collect_req_items_simplified(req_dir)
+
     items: list[ValidationItem] = []
 
-    # req 级固定文档（对所有 req 均适用，文件名唯一，落在 req 根目录）
+    # req 级固定文档（req-39/40 现行扫描：需求摘要 + 交付总结，落在 req 根目录）
     for stage, filename in REQ_LEVEL_DOCS:
         expected = req_dir / filename
         items.append(
@@ -293,8 +356,6 @@ def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
             )
         )
 
-    req_num = _extract_req_num(req_dir.name)
-
     if req_num == -1 or req_num <= LEGACY_REQ_ID_CEILING:
         # legacy：changes/ 子目录扫描
         items.extend(_collect_chg_items_legacy(req_dir))
@@ -302,7 +363,7 @@ def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
         # 混合过渡期：双轨择一命中即 ok
         items.extend(_collect_chg_items_mixed(req_dir))
     else:
-        # 新规（req-39+）：严格扁平路径
+        # 新规（req-39 / req-40）：严格扁平路径（含四类 brief）
         items.extend(_collect_chg_items_flat(req_dir))
         items.extend(_collect_reg_items_flat(req_dir))
 

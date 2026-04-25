@@ -1,9 +1,14 @@
 id: "req-40"
 title: "阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）"
-stage: "requirement_review"
+stage: "acceptance"
 status: "active"
 created_at: "2026-04-24"
 started_at: "2026-04-24"
 completed_at: ""
-stage_timestamps: {}
+stage_timestamps:
+  planning: "2026-04-24T13:59:42.283568+00:00"
+  ready_for_execution: "2026-04-24T14:16:29.802166+00:00"
+  executing: "2026-04-24T14:17:50.581236+00:00"
+  testing: "2026-04-24T14:50:25.098003+00:00"
+  acceptance: "2026-04-24T14:57:13.637534+00:00"
 description: ""

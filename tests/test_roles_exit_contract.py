@@ -74,10 +74,14 @@ def test_requirement_review_exit_requires_human_docs_lint():
 def test_planning_exit_requires_per_chg_brief_lint():
     """
     AC-4 assertion: .workflow/context/roles/planning.md must contain
-    'harness validate --human-docs' and a per-chg brief requirement
-    ('每 chg 一份' or 'chg-NN-变更简报.md') in proximity (±3 lines).
+    'harness validate --human-docs' in exit conditions.
 
-    Covers: req-39 / chg-03 / AC-4
+    NOTE: req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） /
+    chg-04（角色去路径化 + brief 模板删 + usage-reporter 废止）废止了四类对人 brief，
+    planning.md 不再要求 per-chg 变更简报（'每 chg 一份' / 'chg-NN-变更简报.md'）。
+    本测试收窄为只验证 harness validate --human-docs 仍然在 planning.md 中出现。
+
+    Covers: req-39 / chg-03 / AC-4（收窄，brief 部分废止）
     """
     content = _load_role("planning.md")
 
@@ -85,30 +89,4 @@ def test_planning_exit_requires_per_chg_brief_lint():
     assert "harness validate --human-docs" in content, (
         "planning.md must contain 'harness validate --human-docs' "
         "in exit conditions (chg-03 / AC-4)"
-    )
-
-    # Assert per-chg brief requirement appears
-    has_per_chg = "每 chg 一份" in content or "chg-NN-变更简报.md" in content
-    assert has_per_chg, (
-        "planning.md must contain '每 chg 一份' or 'chg-NN-变更简报.md' "
-        "to enforce per-change brief requirement (chg-03 / AC-4)"
-    )
-
-    # Assert co-occurrence within ±3 lines
-    lines_near_validate = _lines_near(content, "harness validate --human-docs", window=3)
-    per_chg_near_validate = any(
-        "每 chg 一份" in line or "chg-NN-变更简报.md" in line
-        for line in lines_near_validate
-    )
-
-    lines_near_per_chg_1 = _lines_near(content, "每 chg 一份", window=3)
-    lines_near_per_chg_2 = _lines_near(content, "chg-NN-变更简报.md", window=3)
-    validate_near_per_chg = any(
-        "harness validate --human-docs" in line
-        for line in lines_near_per_chg_1 + lines_near_per_chg_2
-    )
-
-    assert per_chg_near_validate or validate_near_per_chg, (
-        "planning.md: '每 chg 一份' or 'chg-NN-变更简报.md' must appear within ±3 lines of "
-        "'harness validate --human-docs' (chg-03 / AC-4 proximity check)"
     )

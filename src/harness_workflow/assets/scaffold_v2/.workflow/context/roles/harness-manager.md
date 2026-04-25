@@ -198,8 +198,8 @@ harness <verb> [noun] [--flags]
 
 | 命令 | 处理逻辑 |
 |------|----------|
-| `harness requirement` | 创建需求，加载 `requirement-review` 角色 |
-| `harness change` | 创建变更，加载 `planning` 角色 |
+| `harness requirement` | 创建需求，加载 `analyst` 角色（原 requirement-review，req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））合并；如命中 requirement-review 派发语境，等同 analyst） |
+| `harness change` | 创建变更，加载 `analyst` 角色（原 planning，req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））合并；如命中 planning 派发语境，等同 analyst） |
 | `harness bugfix` | 创建 bugfix，加载 `regression` 角色 |
 | `harness archive` | 归档需求，执行归档操作 |
 | `harness rename` | 重命名工件，执行重命名操作 |
@@ -237,31 +237,6 @@ harness <verb> [noun] [--flags]
 **产物**：单一文件 `artifacts/main/project-overview.md`（每次召唤覆写，不做 diff / 版本历史；历史由 git 记录）。
 
 **非召唤条件（明确不触发）**：用户要求"更新 harness" / "跑单测" / "归档需求" 等与现状报告无关的命令，不触发本召唤。
-
-#### 3.5.3 触发 usage-reporter 召唤（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-08（stage 耗时 + token 消耗统计 + usage-reporter 对人报告））
-
-**召唤判据**：用户自然语言输入**包含下列任一触发词**时，harness-manager 必须召唤 usage-reporter 角色：
-
-- `生成用量报告`
-- `耗时报告`
-- `token 消耗报告`
-- `生成耗时与用量报告`
-- `工作流效率报告`
-
-（以上 5 个触发词；近义表达如"帮我看看 token 用了多少" / "stage 耗时统计"由 harness-manager 按意图归类到以上任一。）
-
-**调度动作**：
-
-1. 按下一节 `#### 3.6 派发 Subagent` 派发协议执行；
-2. 按 Step 2.5 从 `role-model-map.yaml` 查 `usage-reporter: "sonnet"` → briefing.model = `sonnet`；
-3. 按 Step 6 用户面透出首次派发说明形如 `派发 usage-reporter（Sonnet）扫 usage-log.yaml + feedback.jsonl 产出耗时与用量报告`；
-4. 角色文件路径：`.workflow/context/roles/usage-reporter.md`。
-
-**汇报收束**（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态）/ chg-01）：派发 usage-reporter 后，harness-manager 汇报形如「**已派发 usage-reporter（Sonnet）扫数据产出耗时与用量报告。本命令已执行完。**」；**禁**再列"后续可选动作"、**禁**询问"要不要也看 project-overview"。
-
-**产物**：`artifacts/main/requirements/{req-id}-{slug}/耗时与用量报告.md`（每次召唤覆写）。
-
-**非召唤条件（明确不触发）**：用户要求"更新 harness" / "归档需求" / "生成项目现状报告"等与用量报告无关的命令，不触发本召唤。
 
 #### 3.5.2 触发 api-document-upload 召唤（req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）/ chg-02（触发门禁 §3.5.2 + harness validate triggers lint））
 
@@ -359,6 +334,14 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 - 与 Step 2.5 briefing `model` 字段**并列生效**，缺一违反 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段）） 硬门禁。
 - 目的：用户可直接从派发说明观察 role→model 映射生效，不需要读 yaml 或 briefing JSON。
 - **base-role 硬门禁六（req-35（base-role 加硬门禁：对人汇报 ID 必带简短描述（契约 7 扩展）） / chg-02）**：派发说明里 `{task_short}` 出现 reg/req/chg/sug/bugfix id 时必须紧随 ≤ 15 字简短描述，例：`派发 executing subagent（Sonnet）完成 chg-03（端到端自证）`。
+- **briefing 正文首次引用约束（chg-08（硬门禁六扩 TaskList + 进度条 + stdout + 提交信息））**：派发 subagent 时写入的 briefing 正文（task_description）中**首次提及** req / chg / sug / bugfix / reg id 时，必须形如 `{id}（{title}）`；briefing 属于跨 agent 传递的对人可读文档，适用契约 7 + 硬门禁六双重约束；后续同一 briefing 内相同 id 可简写。
+
+#### 3.6.1 req_review / planning 统一派发 analyst（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+
+- `req_review` stage 与 `planning` stage 的派发目标统一为 `analyst` 角色（role_key=analyst，model=opus）；旧 role_key `requirement-review` / `planning` 仍在 `role-model-map.yaml` 保留作别名指 opus（chg-02（角色索引 + role-model-map 更新）落地），兼容归档引用。
+- **default-pick HM-1 = A**：requirement_review PASS 后，technical-director **默认让 analyst 在同一会话续跑 planning 任务**（不新开 subagent 会话），以保持上下文连贯；退化路径 B（两次派发 analyst）保留作 fallback，当上下文达到 70% 阈值需 /compact 时使用。
+- 派发说明 model 透出：`派发 analyst（Opus 4.7）执行需求澄清 + 变更拆分`（对人文案 Opus 大写，briefing / yaml 保持 lowercase）。
+- legacy role_key `requirement-review` / `planning` 仍兼容，如命中旧名派发语境，等同 analyst 派发，不报错。
 
 3. **派发 subagent**：
    使用 Agent 工具，注入以下 prompt：
@@ -384,6 +367,38 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
    ```
 
 4. **处理返回**：
+
+   > **硬门禁（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） / chg-06（harness-manager Step 4 派发硬门禁））**：
+   > 每次 Agent 工具返回后，主 agent **必调** `record_subagent_usage(root, role, model, usage, req_id=..., stage=..., chg_id=..., reg_id=...)`；
+   > 漏调视为契约违反（done 六层回顾 State 层强校验）。
+
+   **字段 mapping 示例（从 Agent 返回值提取 usage）**：
+
+   ```python
+   # 从 Agent 工具返回值提取 usage（Claude API 格式）：
+   usage = {
+       "input_tokens": response.usage.input_tokens,
+       "output_tokens": response.usage.output_tokens,
+       "cache_read_input_tokens": response.usage.cache_read_input_tokens or 0,
+       "cache_creation_input_tokens": response.usage.cache_creation_input_tokens or 0,
+       "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
+       "tool_uses": len([b for b in response.content if b.type == "tool_use"]),
+       "duration_ms": elapsed_ms,
+   }
+   record_subagent_usage(
+       root,
+       role=dispatched_role,      # 如 "analyst" / "executing"
+       model=dispatched_model,    # 如 "opus" / "sonnet"
+       usage=usage,
+       req_id=current_req_id,
+       stage=current_stage,
+       chg_id=current_chg_id,     # 可为 None
+       reg_id=current_reg_id,     # 可为 None
+   )
+   ```
+
+   **异常降级**：若 Agent 返回无 `usage` 字段（mock / test），`record_subagent_usage` 按 `usage=None` 写 stub entry（记录 role / model / timestamp，token 字段空）；不硬失败，不阻塞后续流程。
+
    - 读取 subagent 的 session-memory.md
    - 更新当前 session-memory.md
    - 决定下一步
@@ -616,7 +631,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 2. 创建需求目录 `.workflow/state/requirements/req-25/`
 3. 生成 requirement.md 模板
 4. 更新 runtime.yaml 的 active_requirements
-5. 加载 requirement-review 角色进行需求澄清
+5. 加载 analyst 角色（原 requirement-review，req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））合并）进行需求澄清
 
 #### D.2 `harness change <title>`
 
@@ -627,7 +642,7 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 2. 创建变更目录 `.workflow/state/changes/req-XX/chg-01/`
 3. 生成 change.md 模板
 4. 关联到当前 requirement
-5. 加载 planning 角色进行变更规划
+5. 加载 analyst 角色（原 planning，req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））合并）进行变更规划
 
 #### D.3 `harness bugfix <title>`
 

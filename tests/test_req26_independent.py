@@ -30,27 +30,11 @@ ROLES_DIR = REPO_ROOT / ".workflow" / "context" / "roles"
 
 
 STAGE_HUMAN_DOC_SPEC = {
-    "requirement-review.md": {
-        "filename": "需求摘要.md",
-        "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/",
-        "granularity": "req",
-    },
-    "planning.md": {
-        "filename": "变更简报.md",
-        "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/",
-        "granularity": "change",
-    },
-    "executing.md": {
-        "filename": "实施说明.md",
-        "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/",
-        "granularity": "change",
-    },
+    # requirement-review.md / planning.md / executing.md / regression.md:
+    # 四类对人 brief（需求摘要.md / 变更简报.md / 实施说明.md / 回归简报.md）已由
+    # req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） / chg-04
+    # 废止（req-id ≥ 41 不再产出），故从静态检查 spec 中移除。
     # testing.md / acceptance.md: 对人文档废止（req-31 / chg-04 S-D），不再产出 测试结论.md / 验收摘要.md
-    "regression.md": {
-        "filename": "回归简报.md",
-        "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/regressions/",
-        "granularity": "regression",
-    },
     "done.md": {
         "filename": "交付总结.md",
         "path_prefix": "artifacts/{branch}/requirements/{req-id}-{slug}/",

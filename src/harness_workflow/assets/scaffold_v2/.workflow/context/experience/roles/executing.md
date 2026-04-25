@@ -267,3 +267,37 @@ bugfix-3（新） — `.harness/feedback.jsonl` 落层归位（问题 2）
 ### 来源
 
 req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-05（install_repo 末尾追加 mirror→live 全量同步） + chg-06（解锁 _install_self_audit 触发面）
+
+---
+
+## 经验十二：CLI 路由迁移契约——helper 跨 req 重定义入口时必须同时迁旧入口透传 + 旧测试断言
+
+### 场景
+
+req-33（install 吸收 update 的 CLI 职责 + harness update 契约层重定义为触发 project-reporter）
+把 `update_repo` 主实现合并到 `install_repo`，但 CLI 层只做了 update --flag → install_repo
+的兼容透传 hack，**没把 install 入口接到 install_repo**。reg-02 实证：
+- `harness install` 仍只调 install_agent（单平台 skill 落盘），不跑 install_repo（mirror 同步 + audit）；
+- `harness update --check / --force-managed / --all-platforms / --agent` 仍走 install_repo（旧 hack）；
+- 单测 296 passed 全绿（因为旧测试只覆盖 update --flag → install_repo 路径），下游用户 `harness install` 跑不出 mirror 同步效果，存量项目漂移沉默。
+
+### 经验内容
+
+1. **helper 跨 req 重定义主入口时**：必须同时迁三件事：
+   - **新入口接通**（`harness install` → install_repo）；
+   - **旧入口透传 hack 移除**（`harness update --flag` 硬 fail + stderr 迁移提示）；
+   - **旧测试断言迁移**（test_cli.py 中 update --flag 的断言改写为 install --flag 或硬 fail 提示）。
+   只迁一件 → 单测全绿但下游用户跑不通；只迁两件 → 测试套件内部前后矛盾。
+2. **硬 fail 优于静默兼容**：迁移过渡期的旧 flag 应该 stderr `请改用 harness install --{flag}` + exit 1，让用户立刻看到迁移路径，而不是静默继续走旧 hack（debug 困难）。
+3. **保留 `--scan` 类正交分支**：与新主入口（install_repo）无关的辅助分支（如 `update --scan` → scan_project）应保留不删，避免把 update 子命令清空。
+4. **CLI 路由测试用文件副作用代理 + stderr 模式断言**：subprocess 黑盒下，install_repo 调用证据用 stdout `"Update summary"` 行 + 文件状态变化（`--check` 不写 / `--force-managed` 覆盖 / `--all-platforms` 跨 agent）替代 monkeypatch spy，更接近真实用户使用路径。
+5. **STEP-1 红用例必须明确标注期望失败原因**：不只是 `assert False`，而是 docstring 写 "current 状态 → 失败原因 → STEP-2 绿后通过"，让红 → 绿过渡过程可追溯。
+
+### 反例
+
+- req-33 / bugfix-1 阶段只做了 `update --flag → install_repo` 透传 hack 没接 `install → install_repo`，单测全绿但 reg-02 真跑（Yh-platform 存量项目）发现 mirror 漂移沉默——典型"测试覆盖路径与生产路径分叉"反例。
+- 删除 update 子命令所有 flag 处理（含 `--scan`）→ scan_project 分支被误清，必须保留 `--scan` 单独分支。
+
+### 来源
+
+req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致）） / chg-07（CLI 路由修正：harness install 接 install_repo + 移除 harness update --flag 的 install_repo hack） / reg-02（CLI 路由 + packaging 双根因）实证教训。

@@ -74,10 +74,14 @@ DEFAULT_STATE_RUNTIME = {
     "active_requirements": [],
 }
 # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）
-# 双轨过渡期常量：req-id ≤ LEGACY_REQ_ID_CEILING 走 legacy 路径（含 req-38 混合过渡）；
-# req-id ≥ FLAT_LAYOUT_FROM_REQ_ID 走新扁平路径（机器型文档落 .workflow/state/，对人文档落 artifacts/）。
+# 三级布局常量：
+#   req-id ≤ LEGACY_REQ_ID_CEILING (<=38)：legacy 路径（含 req-38 混合过渡）
+#   FLAT_LAYOUT_FROM_REQ_ID <= req-id <= 40 (39-40)：state-flat 路径（机器型文档落 .workflow/state/，对人文档落 artifacts/）
+#   req-id >= FLOW_LAYOUT_FROM_REQ_ID (>=41)：flow 路径（机器型工件落 .workflow/flow/requirements/{req-id}-{slug}/）
 LEGACY_REQ_ID_CEILING = 38  # req-02 ~ req-38 走 legacy 路径（含 req-38 混合过渡）
 FLAT_LAYOUT_FROM_REQ_ID = 39  # req-39 及以后强制扁平 + state 机器型文档
+# req-41（机器型工件回 flow/requirements + 关注点分离）/ chg-02（CLI 路径迁移 flow layout）
+FLOW_LAYOUT_FROM_REQ_ID = 41  # req-41 及以后机器型工件落 .workflow/flow/requirements/
 
 LEGACY_CLEANUP_ROOT = Path(".workflow") / "context" / "backup" / "legacy-cleanup"
 LEGACY_CLEANUP_TARGETS = [
@@ -2774,6 +2778,187 @@ def record_subagent_usage(
         pass
 
 
+# ---------------------------------------------------------------------------
+# done 阶段效率聚合 helper（chg-05 / req-41 Scope-效率字段）
+# ---------------------------------------------------------------------------
+
+_NO_DATA = "⚠️ 无数据"
+
+
+def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[str, object]:
+    """Aggregate efficiency & cost data for the done 交付总结 §效率与成本 section.
+
+    Reads:
+    - ``.workflow/flow/requirements/{req-id}-{slug}/usage-log.yaml``
+      (subagent_usage entries written by record_subagent_usage)
+    - req yaml ``stage_timestamps`` (dict {stage: ISO8601} or list of {stage, entered_at})
+
+    Returns a dict::
+
+        {
+            "total_duration_s": int | str,          # seconds or _NO_DATA
+            "total_duration_human": str,            # "约 N 分钟" or _NO_DATA
+            "total_tokens": dict | str,             # {input, output, cache_read, cache_creation, total} or _NO_DATA
+            "stage_durations": list[dict] | str,    # [{stage, entered_at, duration_s}] or _NO_DATA
+            "role_tokens": list[dict] | str,        # [{role, model, total_tokens, tool_uses}] or _NO_DATA
+        }
+
+    If any data source is missing or empty, the corresponding field is _NO_DATA.
+    禁止编造。
+    """
+    # Locate usage-log
+    slug_part = f"-{slug}" if slug else ""
+    req_dir = root / ".workflow" / "flow" / "requirements" / f"{req_id}{slug_part}"
+    usage_log_path = req_dir / "usage-log.yaml"
+
+    entries: list[dict] = []
+    if usage_log_path.exists():
+        try:
+            import yaml as _yaml  # type: ignore[import]
+            raw = _yaml.safe_load(usage_log_path.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                entries = [e for e in raw if isinstance(e, dict)]
+        except Exception:  # noqa: BLE001
+            entries = []
+
+    # Aggregate token totals per role × model
+    role_map: dict[tuple[str, str], dict[str, int]] = {}
+    for e in entries:
+        role = e.get("role", "unknown")
+        model = e.get("model", "unknown")
+        usage = e.get("usage", {}) if isinstance(e.get("usage"), dict) else {}
+        key = (role, model)
+        if key not in role_map:
+            role_map[key] = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0,
+                "total_tokens": 0,
+                "tool_uses": 0,
+            }
+        for field in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                      "cache_creation_input_tokens", "total_tokens", "tool_uses"):
+            role_map[key][field] += int(usage.get(field, 0))
+
+    if not entries:
+        return {
+            "total_duration_s": _NO_DATA,
+            "total_duration_human": _NO_DATA,
+            "total_tokens": _NO_DATA,
+            "stage_durations": _NO_DATA,
+            "role_tokens": _NO_DATA,
+        }
+
+    # Total token sums across all entries
+    total_input = sum(e.get("usage", {}).get("input_tokens", 0) for e in entries if isinstance(e.get("usage"), dict))
+    total_output = sum(e.get("usage", {}).get("output_tokens", 0) for e in entries if isinstance(e.get("usage"), dict))
+    total_cache_read = sum(e.get("usage", {}).get("cache_read_input_tokens", 0) for e in entries if isinstance(e.get("usage"), dict))
+    total_cache_creation = sum(e.get("usage", {}).get("cache_creation_input_tokens", 0) for e in entries if isinstance(e.get("usage"), dict))
+    total_all = sum(e.get("usage", {}).get("total_tokens", 0) for e in entries if isinstance(e.get("usage"), dict))
+
+    total_tokens_dict = {
+        "input": total_input,
+        "output": total_output,
+        "cache_read": total_cache_read,
+        "cache_creation": total_cache_creation,
+        "total": total_all,
+    }
+
+    # Role × model rows sorted by total_tokens descending
+    role_rows = sorted(
+        [
+            {
+                "role": k[0],
+                "model": k[1],
+                "total_tokens": v["total_tokens"],
+                "tool_uses": v["tool_uses"],
+            }
+            for k, v in role_map.items()
+        ],
+        key=lambda r: r["total_tokens"],
+        reverse=True,
+    )
+
+    # Stage duration from req yaml stage_timestamps
+    req_yaml_candidates = list(req_dir.glob("*.yaml")) + list(req_dir.glob("*.yml"))
+    stage_timestamps: dict[str, str] = {}
+    for candidate in req_yaml_candidates:
+        if candidate.name == "usage-log.yaml":
+            continue
+        try:
+            import yaml as _yaml2  # type: ignore[import]
+            data = _yaml2.safe_load(candidate.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "stage_timestamps" in data:
+                raw_ts = data["stage_timestamps"]
+                if isinstance(raw_ts, dict):
+                    stage_timestamps = raw_ts
+                elif isinstance(raw_ts, list):
+                    for item in raw_ts:
+                        if isinstance(item, dict) and "stage" in item and "entered_at" in item:
+                            stage_timestamps[item["stage"]] = item["entered_at"]
+                break
+        except Exception:  # noqa: BLE001
+            continue
+
+    stage_order = [
+        "requirement_review", "planning", "executing", "testing", "acceptance", "done"
+    ]
+
+    stage_rows: list[dict] = _NO_DATA  # type: ignore[assignment]
+    total_duration_s: object = _NO_DATA
+    total_duration_human: object = _NO_DATA
+
+    if stage_timestamps:
+        from datetime import datetime as _dt, timezone as _tz
+
+        def _parse(ts: str) -> "_dt | None":
+            for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+                try:
+                    return _dt.fromisoformat(ts)
+                except ValueError:
+                    continue
+            return None
+
+        ordered_stages = [s for s in stage_order if s in stage_timestamps]
+        remaining = [s for s in stage_timestamps if s not in stage_order]
+        all_stages = ordered_stages + remaining
+
+        rows: list[dict] = []
+        for i, stage_name in enumerate(all_stages):
+            entered_at = stage_timestamps[stage_name]
+            duration_s: object = _NO_DATA
+            if i + 1 < len(all_stages):
+                t_start = _parse(str(entered_at))
+                t_end = _parse(str(stage_timestamps[all_stages[i + 1]]))
+                if t_start and t_end:
+                    duration_s = int((t_end - t_start).total_seconds())
+            rows.append({"stage": stage_name, "entered_at": entered_at, "duration_s": duration_s})
+
+        stage_rows = rows
+
+        # Total duration = from first stage to last stage
+        if len(all_stages) >= 2:
+            t_first = _parse(str(stage_timestamps[all_stages[0]]))
+            t_last = _parse(str(stage_timestamps[all_stages[-1]]))
+            if t_first and t_last:
+                secs = int((t_last - t_first).total_seconds())
+                total_duration_s = secs
+                mins = secs // 60
+                if mins >= 60:
+                    total_duration_human = f"约 {mins // 60} 小时 {mins % 60} 分钟"
+                else:
+                    total_duration_human = f"约 {mins} 分钟"
+
+    return {
+        "total_duration_s": total_duration_s,
+        "total_duration_human": total_duration_human,
+        "total_tokens": total_tokens_dict,
+        "stage_durations": stage_rows,
+        "role_tokens": role_rows,
+    }
+
+
 def set_regression_mode(runtime: dict[str, object], regression_id: str = "") -> dict[str, object]:
     payload = dict(runtime)
     payload["mode"] = "regression" if regression_id else "normal"
@@ -3774,6 +3959,8 @@ def _use_flat_layout(req_id: str) -> bool:
     - req-id >= 39 → True（新扁平路径：机器型文档落 .workflow/state/，对人文档落 artifacts/ 平铺）
     - req-id <= 38 → False（legacy 路径：保持旧 changes/ / regressions/ 子目录结构）
     - req-38 特殊：混合过渡期，CLI 行为保持 legacy（MIXED_TRANSITION_REQ_ID 处理由 chg-02 负责）
+
+    注：_use_flow_layout(x) → True 蕴含 _use_flat_layout(x) → True（flow ⊂ flat）。
     """
     if not req_id:
         return False
@@ -3781,6 +3968,25 @@ def _use_flat_layout(req_id: str) -> bool:
     if not m:
         return False
     return int(m.group(1)) >= FLAT_LAYOUT_FROM_REQ_ID
+
+
+def _use_flow_layout(req_id: str) -> bool:
+    """Return True if req_id should use the flow layout (req-41+).
+
+    req-41（机器型工件回 flow/requirements + 关注点分离）/ chg-02（CLI 路径迁移 flow layout）:
+    - req-id >= 41 → True（flow 路径：机器型工件落 .workflow/flow/requirements/{req-id}-{slug}/）
+    - req-id <= 40 → False（state-flat 或 legacy 路径）
+    - 非法 id（空串 / None / 非 req-\\d+ 形式）→ False
+
+    语义：_use_flow_layout(x) → True 蕴含 _use_flat_layout(x) → True（flow ⊂ flat）；
+    三分支互斥顺序：flow → flat → legacy。
+    """
+    if not req_id:
+        return False
+    m = re.match(r"^req-(\d+)$", req_id.strip())
+    if not m:
+        return False
+    return int(m.group(1)) >= FLOW_LAYOUT_FROM_REQ_ID
 
 
 def _next_regression_id(regressions_base: Path) -> str:
@@ -4190,7 +4396,20 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     skipped: list[str] = []
     replacements = {"ID": req_num_id, "TITLE": requirement_title}
 
-    if _use_flat_layout(req_num_id):
+    if _use_flow_layout(req_num_id):
+        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+        # flow 路径：机器型 requirement.md 落 .workflow/flow/requirements/{req-id}-{slug}/requirement.md
+        # artifacts/ 目录仅放对人文档（需求摘要.md placeholder），不建 changes/ 子目录
+        flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+        write_if_missing(
+            flow_req_dir / "requirement.md",
+            render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
+            created,
+            skipped,
+        )
+        # artifacts/ 目录只建根目录，不建 changes/ 子目录（扁平结构约束）
+        requirement_dir.mkdir(parents=True, exist_ok=True)
+    elif _use_flat_layout(req_num_id):
         # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
         # 新扁平路径：机器型 requirement.md 落 .workflow/state/requirements/{req-id}/
         # artifacts/ 目录仅放对人文档（需求摘要.md placeholder），不建 changes/ 子目录
@@ -4345,7 +4564,8 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
 def _next_chg_id(req_dir: Path, root: Path | None = None, req_id: str | None = None) -> str:
     """Return the next available chg-NN id within a requirement.
 
-    req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
+    三级布局扫描策略：
+    - req-id >= 41（flow layout）: scans .workflow/flow/requirements/{req-id}-{slug}/changes/chg-* for max id.
     - req-id >= 39（flat layout）: scans .workflow/state/sessions/{req-id}/chg-* for max id,
       with legacy fallback to artifacts changes/ dir for conflict avoidance.
     - req-id <= 38（legacy）: scans artifacts req_dir/changes/chg-* as before.
@@ -4358,7 +4578,18 @@ def _next_chg_id(req_dir: Path, root: Path | None = None, req_id: str | None = N
         if m_dir:
             _req_id = m_dir.group(1)
 
-    if root and _req_id and _use_flat_layout(_req_id):
+    if root and _req_id and _use_flow_layout(_req_id):
+        # Flow layout: scan .workflow/flow/requirements/{req-id}-{slug}/changes/chg-*
+        # req_dir is already the flow req dir; scan its changes/ subdir
+        changes_dir = req_dir / "changes"
+        if changes_dir.exists():
+            for item in changes_dir.iterdir():
+                if not item.is_dir():
+                    continue
+                m = re.match(r"chg-(\d+)", item.name)
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
+    elif root and _req_id and _use_flat_layout(_req_id):
         # Flat layout: scan .workflow/state/sessions/{req-id}/chg-*
         state_sessions_dir = root / ".workflow" / "state" / "sessions" / _req_id
         if state_sessions_dir.exists():
@@ -4404,9 +4635,21 @@ def create_change(
     req_dir = None
     if req_ref:
         branch = _get_git_branch(root) or "main"
-        req_dir = resolve_requirement_reference(
-            root / "artifacts" / branch / "requirements", req_ref, config["language"]
-        )
+        if _use_flow_layout(req_ref):
+            # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+            # flow 路径：req_dir 在 .workflow/flow/requirements/{req-id}-{slug}/
+            req_dir = resolve_requirement_reference(
+                root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+            )
+            # artifacts/ req dir 仍需用于 _next_chg_id 兼容（如无则用 flow req_dir）
+            artifacts_req_dir = resolve_requirement_reference(
+                root / "artifacts" / branch / "requirements", req_ref, config["language"]
+            ) or req_dir
+        else:
+            req_dir = resolve_requirement_reference(
+                root / "artifacts" / branch / "requirements", req_ref, config["language"]
+            )
+            artifacts_req_dir = req_dir
     if not req_dir:
         raise SystemExit("No active requirement. Run `harness requirement <title>` first.")
 
@@ -4421,7 +4664,17 @@ def create_change(
     linked_requirement = req_ref
     replacements = {"ID": chg_num_id, "TITLE": change_title, "REQUIREMENT_ID": linked_requirement or "None"}
 
-    if _use_flat_layout(req_ref):
+    if _use_flow_layout(req_ref):
+        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+        # flow 路径：机器型文档（change.md / plan.md / session-memory.md / regression/required-inputs.md）
+        # 落 .workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/
+        flow_chg_dir = req_dir / "changes" / dir_name
+        write_if_missing(flow_chg_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(flow_chg_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(flow_chg_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(flow_chg_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        change_dir = flow_chg_dir
+    elif _use_flat_layout(req_ref):
         # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
         # 新扁平路径：机器型文档（change.md / plan.md / session-memory.md / regression/required-inputs.md）
         # 落 .workflow/state/sessions/{req-id}/{chg-id}-{slug}/
@@ -4431,7 +4684,7 @@ def create_change(
         write_if_missing(state_chg_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
         write_if_missing(state_chg_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
         # 对人文档 placeholder（chg-NN-变更简报.md）落 artifacts/ 扁平根目录，供 planning 角色填充
-        brief_placeholder = req_dir / f"{chg_num_id}-变更简报.md"
+        brief_placeholder = artifacts_req_dir / f"{chg_num_id}-变更简报.md"
         write_if_missing(
             brief_placeholder,
             f"# 变更简报：{chg_num_id} {change_title}\n\n<!-- TODO: planning 角色填写 -->\n",
@@ -4475,14 +4728,33 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     req_ref = str(runtime.get("current_requirement", "")).strip()
     req_dir = None
     if req_ref:
-        req_dir = resolve_requirement_reference(
-            resolve_requirement_root(root), req_ref, config["language"]
-        )
+        if _use_flow_layout(req_ref):
+            # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+            # flow 路径：req_dir 在 .workflow/flow/requirements/{req-id}-{slug}/
+            req_dir = resolve_requirement_reference(
+                root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+            )
+        else:
+            req_dir = resolve_requirement_reference(
+                resolve_requirement_root(root), req_ref, config["language"]
+            )
     regressions_base = (req_dir / "regressions") if req_dir else (resolve_requirement_root(root).parent / "regressions")
 
     # 分配 reg-NN 前缀（若调用方显式传入 regression_id 且已是 reg-\d+ 形式则沿用，否则按顺序分配）
     if regression_id and re.match(r"^reg-\d+$", regression_id.strip()):
         reg_num_id = regression_id.strip()
+    elif _use_flow_layout(req_ref):
+        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+        # flow 路径：扫 .workflow/flow/requirements/{req-id}-{slug}/regressions/reg-* 分配 id
+        max_from_flow = 0
+        if regressions_base.exists():
+            for item in regressions_base.iterdir():
+                if not item.is_dir():
+                    continue
+                m = re.match(r"reg-(\d+)", item.name)
+                if m:
+                    max_from_flow = max(max_from_flow, int(m.group(1)))
+        reg_num_id = f"reg-{max_from_flow + 1:02d}"
     elif _use_flat_layout(req_ref):
         # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
         # 新扁平路径：扫 .workflow/state/sessions/{req-id}/regressions/reg-* 分配 id，
@@ -4516,7 +4788,18 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     # 便于后续命令通过 id 反查目录）。
     replacements = {"ID": reg_num_id, "TITLE": regression_title}
 
-    if _use_flat_layout(req_ref):
+    if _use_flow_layout(req_ref):
+        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+        # flow 路径：机器型文档（regression.md / analysis.md / decision.md / meta.yaml / session-memory.md）
+        # 落 .workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/
+        flow_reg_dir = regressions_base / dir_name
+        regression_dir = flow_reg_dir
+        write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+        write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
+    elif _use_flat_layout(req_ref):
         # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
         # 新扁平路径：机器型文档（regression.md / analysis.md / decision.md / meta.yaml / session-memory.md）
         # 落 .workflow/state/sessions/{req-id}/regressions/{reg-id}-{slug}/
@@ -5762,10 +6045,18 @@ def archive_requirement(
     is_bugfix = raw_ref.startswith("bugfix-")
     kind_label = "bugfix" if is_bugfix else "requirement"
 
+    # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+    # flow req (req-id >= 41)：source_root = .workflow/flow/requirements/
+    is_flow_req = not is_bugfix and _use_flow_layout(raw_ref)
+
     if is_bugfix:
         source_root = resolve_bugfix_root(root)
         state_subdir = "bugfixes"
         archive_subdir = "bugfixes"
+    elif is_flow_req:
+        source_root = root / ".workflow" / "flow" / "requirements"
+        state_subdir = "requirements"
+        archive_subdir = "requirements"
     else:
         source_root = resolve_requirement_root(root)
         state_subdir = "requirements"
@@ -5816,38 +6107,47 @@ def archive_requirement(
     if not folder:
         folder = current_branch
 
-    # req-26 / chg-04 AC-05：修复归档路径双层 branch。
-    # ``resolve_archive_root`` 的 primary 分支（``artifacts/{branch}/archive``）已经
-    # 把 branch 段烙在路径里；若调用方再拼一次 ``folder=branch``，就会产生
-    # ``artifacts/main/archive/main/req-xx`` 的双层 branch。
-    # 修复策略：若 archive_base 的直接父目录已是当前 branch（primary 形态），
-    # 则跳过这一层拼接；legacy 形态（``.workflow/flow/archive``）不含 branch，
-    # 照旧拼一层 folder。历史已存在的双层 branch 目录保持不动（AC-05 Excluded）。
-    archive_base = resolve_archive_root(root)
-
-    def _archive_base_already_has_branch(base: Path, branch: str) -> bool:
-        # primary 形态：``<root>/artifacts/{branch}/archive``，base.parent.name == branch
-        if not branch:
-            return False
-        try:
-            return base.parent.name == branch and base.name == "archive"
-        except Exception:
-            return False
-
-    if folder and _archive_base_already_has_branch(archive_base, current_branch) and folder == current_branch:
-        # primary：base 已经含 branch，折叠一层避免双拼
-        target_parent = archive_base / archive_subdir
+    if is_flow_req:
+        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
+        # flow 路径：target = .workflow/flow/archive/{branch}/req-{req-id}-{slug}/
+        flow_archive_base = root / ".workflow" / "flow" / "archive"
+        target_parent = flow_archive_base / current_branch
+        target_parent.mkdir(parents=True, exist_ok=True)
+        target = target_parent / req_dir.name
+        shutil.move(str(req_dir), str(target))
     else:
-        # legacy / 自定义 folder：保持原 ``archive/{folder}/<dir>`` 结构
-        # 对 bugfix 仍在 folder 下再拼一层 ``bugfixes/``，区分 requirement / bugfix
-        if folder:
-            target_parent = archive_base / folder / archive_subdir
-        else:
-            target_parent = archive_base / archive_subdir
-    target_parent.mkdir(parents=True, exist_ok=True)
+        # req-26 / chg-04 AC-05：修复归档路径双层 branch。
+        # ``resolve_archive_root`` 的 primary 分支（``artifacts/{branch}/archive``）已经
+        # 把 branch 段烙在路径里；若调用方再拼一次 ``folder=branch``，就会产生
+        # ``artifacts/main/archive/main/req-xx`` 的双层 branch。
+        # 修复策略：若 archive_base 的直接父目录已是当前 branch（primary 形态），
+        # 则跳过这一层拼接；legacy 形态（``.workflow/flow/archive``）不含 branch，
+        # 照旧拼一层 folder。历史已存在的双层 branch 目录保持不动（AC-05 Excluded）。
+        archive_base = resolve_archive_root(root)
 
-    target = target_parent / req_dir.name
-    shutil.move(str(req_dir), str(target))
+        def _archive_base_already_has_branch(base: Path, branch: str) -> bool:
+            # primary 形态：``<root>/artifacts/{branch}/archive``，base.parent.name == branch
+            if not branch:
+                return False
+            try:
+                return base.parent.name == branch and base.name == "archive"
+            except Exception:
+                return False
+
+        if folder and _archive_base_already_has_branch(archive_base, current_branch) and folder == current_branch:
+            # primary：base 已经含 branch，折叠一层避免双拼
+            target_parent = archive_base / archive_subdir
+        else:
+            # legacy / 自定义 folder：保持原 ``archive/{folder}/<dir>`` 结构
+            # 对 bugfix 仍在 folder 下再拼一层 ``bugfixes/``，区分 requirement / bugfix
+            if folder:
+                target_parent = archive_base / folder / archive_subdir
+            else:
+                target_parent = archive_base / archive_subdir
+        target_parent.mkdir(parents=True, exist_ok=True)
+
+        target = target_parent / req_dir.name
+        shutil.move(str(req_dir), str(target))
 
     # req-31（批量建议合集（20条））/ chg-04（归档迁移 + 数据管道）/ Step 1+5（sug-22）：
     # 归档目录落盘 _meta.yaml（origin_stage="done"，因为走的是正常归档路径）。
@@ -5907,7 +6207,8 @@ def archive_requirement(
     save_requirement_runtime(root, runtime)
 
     # Migrate state/sessions/{id}/ to archive directory（仅 requirement 分支保留 sessions 迁移）
-    if archived_req_id and not is_bugfix:
+    # flow req 的 sessions 已内嵌于 .workflow/flow/requirements/ 子树，随整目录移动，无需额外迁移。
+    if archived_req_id and not is_bugfix and not is_flow_req:
         sessions_src = root / ".workflow" / "state" / "sessions" / archived_req_id
         if sessions_src.exists():
             sessions_dst = target / "sessions"

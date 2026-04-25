@@ -68,8 +68,8 @@ def test_workflow_next_resets_ff_mode_when_advancing_to_done(tmp_path: Path) -> 
     state.mkdir(parents=True)
     (state / "runtime.yaml").write_text(
         "operation_type: requirement\n"
-        "operation_target: req-99\n"
-        "current_requirement: req-99\n"
+        "operation_target: req-40\n"
+        "current_requirement: req-40\n"
         "current_requirement_title: fixture\n"
         "stage: acceptance\n"
         "conversation_mode: open\n"
@@ -79,7 +79,7 @@ def test_workflow_next_resets_ff_mode_when_advancing_to_done(tmp_path: Path) -> 
         "current_regression: ''\n"
         "current_regression_title: ''\n"
         "ff_mode: true\n"
-        "active_requirements:\n  - req-99\n",
+        "active_requirements:\n  - req-40\n",
         encoding="utf-8",
     )
     # bare requirement dir (workflow_next only needs runtime + state yaml; 无 state yaml 也可)
@@ -99,18 +99,18 @@ def test_archive_requirement_resets_ff_mode(tmp_path: Path, monkeypatch) -> None
     (root / ".workflow/state").mkdir()
     (root / ".workflow/state/requirements").mkdir()
     (root / ".workflow/state/bugfixes").mkdir()
-    (root / "artifacts/main/requirements/req-99-fixture").mkdir(parents=True)
-    (root / "artifacts/main/requirements/req-99-fixture/requirement.md").write_text(
-        "# req-99（fixture）\n", encoding="utf-8"
+    (root / "artifacts/main/requirements/req-40-fixture").mkdir(parents=True)
+    (root / "artifacts/main/requirements/req-40-fixture/requirement.md").write_text(
+        "# req-40（fixture）\n", encoding="utf-8"
     )
-    (root / ".workflow/state/requirements/req-99-fixture.yaml").write_text(
-        "id: req-99\ntitle: fixture\nstage: done\nstatus: done\n",
+    (root / ".workflow/state/requirements/req-40-fixture.yaml").write_text(
+        "id: req-40\ntitle: fixture\nstage: done\nstatus: done\n",
         encoding="utf-8",
     )
     (root / ".workflow/state/runtime.yaml").write_text(
         "operation_type: requirement\n"
-        "operation_target: req-99\n"
-        "current_requirement: req-99\n"
+        "operation_target: req-40\n"
+        "current_requirement: req-40\n"
         "current_requirement_title: fixture\n"
         "stage: done\n"
         "conversation_mode: open\n"
@@ -120,7 +120,7 @@ def test_archive_requirement_resets_ff_mode(tmp_path: Path, monkeypatch) -> None
         "current_regression: ''\n"
         "current_regression_title: ''\n"
         "ff_mode: true\n"
-        "active_requirements:\n  - req-99\n",
+        "active_requirements:\n  - req-40\n",
         encoding="utf-8",
     )
     # 跳过 git prompt
@@ -128,7 +128,7 @@ def test_archive_requirement_resets_ff_mode(tmp_path: Path, monkeypatch) -> None
     import builtins
     monkeypatch.setattr(builtins, "input", lambda *a, **k: "n")
 
-    rc = wh.archive_requirement(root, "req-99")
+    rc = wh.archive_requirement(root, "req-40")
     assert rc == 0
     runtime = wh.load_requirement_runtime(root)
     assert runtime.get("ff_mode") is False, f"ff_mode should be False after archive; got {runtime}"

@@ -43,6 +43,13 @@
 ### Step 6: 输出回顾报告与建议转 suggest 池
 - 将回顾结果写入 `session-memory.md`
 - 提取 `done-report.md` 中的改进建议，自动创建 suggest 文件
+- **Step 6.x 聚合效率与成本数据**：
+  1. 读取 `.workflow/flow/requirements/{req-id}-{slug}/usage-log.yaml`（含若干 subagent_usage entries，字段见 `record_subagent_usage` 格式）；
+  2. 读取 req yaml `stage_timestamps`；
+  3. 按 stage 时序聚合耗时（duration_s = next_stage.entered_at − this_stage.entered_at）；
+  4. 按 role × model 聚合 token（sum input/output/cache_read/cache_creation/total + count tool_uses）；
+  5. 写入交付总结 §效率与成本四子字段（总耗时 / 总 token / 各阶段耗时分布 / 各阶段 token 分布）；
+  6. 若任一数据源缺失（usage-log.yaml 不存在或 entries 为空），对应子字段标 `⚠️ 无数据`，禁止编造。
 
 ### Step 7: 交接
 - 确认 `done-report.md`、`session-memory.md`、suggest 文件等关键产出已保存
@@ -91,8 +98,8 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 
 ## 对人文档输出（req-26）
 
-- **文件名 / 路径**：`交付总结.md` → `artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`，≤ 1 页
-- **frontmatter**：`requirement_link: artifacts/{branch}/requirements/{req-id}-{slug}/需求摘要.md`（req-31 / chg-04 互链）
+- **文件名**：`交付总结.md`，路径：`artifacts/{branch}/requirements/{req-id}-{slug}/交付总结.md`（落位见 `.workflow/flow/repository-layout.md` §2，对人文档白名单），≤ 1 页
+- **frontmatter**：`requirement_link: <path-to-requirement.md>`（路径见 repository-layout.md §3 req 级落位）
 
 ### 最小字段模板（字段名与顺序不得变更）
 
@@ -112,6 +119,33 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 
 ## 后续建议
 - ≤ 3 条，指向下一步改进或新需求线索。
+
+## 效率与成本
+
+> 禁止编造；若 usage-log 为空则各子字段标 `⚠️ 无数据`，不得回填虚构值。
+> 字段顺序不得变更，变更须走新 req。
+
+### 总耗时
+
+- `{duration_s} s`（约 `{human_readable}`，如 20 分钟）
+
+### 总 token
+
+| input | output | cache_read | cache_creation | total |
+|-------|--------|------------|----------------|-------|
+| ...   | ...    | ...        | ...            | ...   |
+
+### 各阶段耗时分布
+
+| stage | entered_at | duration_s |
+|-------|-----------|-----------|
+| ...   | ...       | ...       |
+
+### 各阶段 token 分布
+
+| role | model | total_tokens | tool_uses |
+|------|-------|-------------|-----------|
+| ...  | ...   | ...         | ...       |
 ```
 
 ## 退出条件
@@ -120,7 +154,7 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 - [ ] `session-memory.md` 的 `## done 阶段回顾报告` 区块已产出
 - [ ] `done-report.md` 中的改进建议已提取（如有）
 - [ ] **经验沉淀已强制验证**（sug-06: experience/ 目录相关文件已确认包含本轮教训）
-- [ ] 对人文档 `交付总结.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/` 下产出，字段完整
+- [ ] 对人文档 `交付总结.md` 已产出且字段完整（落位见 repository-layout.md §2）
 - [ ] **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：本需求产出文档首次引用工作项 id 时均带 title（grep 校验通过）
 
 ## ff 模式说明

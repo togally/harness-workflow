@@ -16,8 +16,9 @@
 
 | 角色名称 | 职责 | 文件路径 | model |
 |---------|------|---------|-------|
-| **需求分析师**（yaml key: requirement-review） | 澄清用户意图，识别边界和风险，编写并确认 `requirement.md` | `.workflow/context/roles/requirement-review.md` | opus |
-| **架构师**（yaml key: planning） | 将需求拆分为独立变更，为每个变更制定 `change.md` + `plan.md` | `.workflow/context/roles/planning.md` | opus |
+| **分析师**（yaml key: analyst） | 澄清用户意图 + 拆分变更 + 制定 plan.md；两 stage（requirement_review + planning）由同一角色执行 | `.workflow/context/roles/analyst.md` | opus |
+
+> 原 requirement-review（需求分析师）+ planning（架构师）合并为 analyst，落地于 req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））。legacy role_key 仍在 role-model-map.yaml 保留作别名，兼容历史归档引用。
 | **开发者**（yaml key: executing） | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` | sonnet |
 | **测试工程师**（yaml key: testing） | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` | sonnet |
 | **验收官**（yaml key: acceptance） | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` | sonnet |
@@ -32,7 +33,6 @@
 | **工具管理员（toolsManager）**（yaml key: tools-manager） | 在其他 agent 执行操作前，为其搜索、匹配并推荐最合适的工具 | `.workflow/context/roles/tools-manager.md` | sonnet |
 | **审查员（reviewer）**（yaml key: reviewer） | 按 checklist 逐条审查变更产物，客观评估产出质量 | `.workflow/context/roles/reviewer.md` | sonnet |
 | **项目现状报告官（project-reporter）**（yaml key: project-reporter） | 按 10 节精简模板扫本仓库实况、产出 `artifacts/main/project-overview.md`；禁编造 / 禁推测 / 禁代写 §11（req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/project-overview.md）） | `.workflow/context/roles/project-reporter.md` | opus |
-| **用量报告官（usage-reporter）**（yaml key: usage-reporter） | 扫 usage-log.yaml + feedback.jsonl，产出 `耗时与用量报告.md`；禁编造 / 禁推测 / 不改代码（req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-08（stage 耗时 + token 消耗统计 + usage-reporter 对人报告）） | `.workflow/context/roles/usage-reporter.md` | sonnet |
 
 ### 抽象父类
 

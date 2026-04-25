@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
-def _init_harness_repo(root: Path, parent_req_id: str = "req-99", parent_req_title: str = "parent req title foo") -> None:
+def _init_harness_repo(root: Path, parent_req_id: str = "req-40", parent_req_title: str = "parent req title foo") -> None:
     (root / ".workflow" / "state" / "requirements").mkdir(parents=True)
     (root / ".workflow" / "state" / "sessions").mkdir(parents=True)
     (root / ".workflow" / "flow" / "suggestions").mkdir(parents=True)
@@ -84,10 +84,10 @@ class RegressionIndependentTitleTest(unittest.TestCase):
         self.assertTrue(runtime.get("current_regression", "").startswith("reg-"))
 
         # 目录 slug 必须以 "bar" 为主（parent title "parent req title foo" 不应出现）
-        # req-99 >= 39：新扁平路径，机器型文档落 .workflow/state/sessions/req-99/regressions/
+        # req-40 >= 39：新扁平路径，机器型文档落 .workflow/state/sessions/req-40/regressions/
         # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）
         state_reg_dirs = list(
-            (self.root / ".workflow" / "state" / "sessions" / "req-99" / "regressions").glob("reg-*")
+            (self.root / ".workflow" / "state" / "sessions" / "req-40" / "regressions").glob("reg-*")
         )
         # 也兜底扫 legacy 路径（req-id < 39 场景）
         legacy_reg_dirs = list(

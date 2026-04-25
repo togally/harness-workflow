@@ -13,8 +13,9 @@ default: "sonnet"
 roles:
   # ---- 开放型 / 创意型 / 综合判断型 → opus ----
   harness-manager: "opus"       # 命令意图解析 + 角色调度（综合判断）
-  requirement-review: "opus"    # 需求澄清 / 边界识别（开放型）
-  planning: "opus"              # 变更拆分 + 计划制定（创意型）
+  analyst: "opus"               # 需求澄清 + 变更拆分（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））角色物理合并）
+  requirement-review: "opus"    # 需求澄清 / 边界识别（开放型）legacy alias — route to analyst（req-40）
+  planning: "opus"              # 变更拆分 + 计划制定（创意型）legacy alias — route to analyst（req-40）
   regression: "opus"            # 独立诊断 + 根因判断（开放型）
   done: "opus"                  # 六层回顾（跨上下文关联）
   technical-director: "opus"    # 流程编排 + 异常监控（综合判断）
@@ -26,4 +27,3 @@ roles:
   acceptance: "sonnet"          # 对照 checklist（断言型）
   tools-manager: "sonnet"       # 工具匹配（模板化）
   reviewer: "sonnet"            # 按 checklist 审查（断言型）
-  usage-reporter: "sonnet"      # 扫 usage-log.yaml + feedback.jsonl 产出耗时与用量报告（断言型，req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-08（stage 耗时 + token 消耗统计 + usage-reporter 对人报告））

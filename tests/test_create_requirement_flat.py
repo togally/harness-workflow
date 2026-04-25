@@ -59,10 +59,10 @@ class CreateRequirementFlatPathTest(unittest.TestCase):
         from harness_workflow.workflow_helpers import create_requirement
 
         _init_harness_repo_for_req(self.root)
-        rc = create_requirement(self.root, None, requirement_id="req-99", title="flat req test")
+        rc = create_requirement(self.root, None, requirement_id="req-40", title="flat req test")
         self.assertEqual(rc, 0)
 
-        state_req_file = self.root / ".workflow" / "state" / "requirements" / "req-99" / "requirement.md"
+        state_req_file = self.root / ".workflow" / "state" / "requirements" / "req-40" / "requirement.md"
         self.assertTrue(
             state_req_file.exists(),
             f"requirement.md 应落在 state 目录 {state_req_file}，实际不存在",
@@ -73,12 +73,12 @@ class CreateRequirementFlatPathTest(unittest.TestCase):
         from harness_workflow.workflow_helpers import create_requirement
 
         _init_harness_repo_for_req(self.root)
-        create_requirement(self.root, None, requirement_id="req-99", title="flat req no changes")
+        create_requirement(self.root, None, requirement_id="req-40", title="flat req no changes")
 
         # Find the artifacts req dir
         artifacts_req_base = self.root / "artifacts" / "main" / "requirements"
-        req_dirs = list(artifacts_req_base.glob("req-99-*"))
-        self.assertTrue(req_dirs, "artifacts/ 下应存在 req-99-* 目录")
+        req_dirs = list(artifacts_req_base.glob("req-40-*"))
+        self.assertTrue(req_dirs, "artifacts/ 下应存在 req-40-* 目录")
         changes_dir = req_dirs[0] / "changes"
         self.assertFalse(
             changes_dir.exists(),
@@ -171,33 +171,33 @@ class NextChgIdFlatScanTest(unittest.TestCase):
         return req_dir
 
     def test_next_chg_id_three_existing_returns_chg_04(self) -> None:
-        """fixture: state/sessions/req-99/chg-01 ~ chg-03 → 下一个应 chg-04."""
+        """fixture: state/sessions/req-40/chg-01 ~ chg-03 → 下一个应 chg-04."""
         from harness_workflow.workflow_helpers import _next_chg_id
 
         req_dir = self._init_repo_with_existing_chgs(
-            "req-99", "test req 99",
+            "req-40", "test req 99",
             ["chg-01", "chg-02", "chg-03"],
         )
-        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-99")
+        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-40")
         self.assertEqual(next_id, "chg-04", f"chg-01~03 已存在，下一个应为 chg-04，实际得到 {next_id}")
 
     def test_next_chg_id_six_existing_returns_chg_07(self) -> None:
-        """fixture: state/sessions/req-99/chg-01 ~ chg-06 → 下一个应 chg-07."""
+        """fixture: state/sessions/req-40/chg-01 ~ chg-06 → 下一个应 chg-07."""
         from harness_workflow.workflow_helpers import _next_chg_id
 
         req_dir = self._init_repo_with_existing_chgs(
-            "req-99", "test req 99",
+            "req-40", "test req 99",
             ["chg-01", "chg-02", "chg-03", "chg-04", "chg-05", "chg-06"],
         )
-        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-99")
+        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-40")
         self.assertEqual(next_id, "chg-07", f"chg-01~06 已存在，下一个应为 chg-07，实际得到 {next_id}")
 
     def test_next_chg_id_no_existing_returns_chg_01(self) -> None:
-        """fixture: state/sessions/req-99/ 为空 → 下一个应 chg-01."""
+        """fixture: state/sessions/req-40/ 为空 → 下一个应 chg-01."""
         from harness_workflow.workflow_helpers import _next_chg_id
 
-        req_dir = self._init_repo_with_existing_chgs("req-99", "test req 99", [])
-        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-99")
+        req_dir = self._init_repo_with_existing_chgs("req-40", "test req 99", [])
+        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-40")
         self.assertEqual(next_id, "chg-01", f"无既有 chg，下一个应为 chg-01，实际得到 {next_id}")
 
     def test_next_chg_id_scans_state_not_artifacts_changes(self) -> None:
@@ -205,11 +205,11 @@ class NextChgIdFlatScanTest(unittest.TestCase):
         from harness_workflow.workflow_helpers import _next_chg_id
 
         req_dir = self._init_repo_with_existing_chgs(
-            "req-99", "test req 99",
+            "req-40", "test req 99",
             ["chg-01", "chg-02"],
         )
         # 即使 artifacts/changes/ 为空，也应从 state/sessions 扫到 chg-02 → 返回 chg-03
-        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-99")
+        next_id = _next_chg_id(req_dir, root=self.root, req_id="req-40")
         self.assertEqual(next_id, "chg-03", f"state 扫到 chg-02，下一个应为 chg-03，实际得到 {next_id}")
 
 

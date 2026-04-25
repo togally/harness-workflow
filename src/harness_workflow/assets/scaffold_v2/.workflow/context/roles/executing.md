@@ -58,44 +58,18 @@
 ## 职责外问题
 遇到职责范围外的问题，不自行处理，记录并上报给主 agent。规则见 `.workflow/constraints/boundaries.md#职责外问题处理规则`。
 
-## 对人文档输出（req-26）
+## 对人文档输出（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-04（S-A 角色去路径化 + brief 模板删）废止）
 
-在完成 `plan.md` 所有步骤并通过内部测试后，必须**为当前 change**额外产出一份面向用户的精炼中文文档：
+本阶段不产出对人 brief（req-41 方向 C 废止，适用 req-id ≥ 41）；req 级对人产物由 done 阶段产出 `交付总结.md`（落位见 `.workflow/flow/repository-layout.md`）。
 
-- **文件名**：`实施说明.md`（固定，不得改名）
-- **路径**：`artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/实施说明.md`
-- **粒度**：change 级，每个 change 一份
-- **上限**：≤ 1 页
-- **与 `session-memory.md` 的关系**：对人文档不替代 session-memory，后者仍维持在原路径作为 agent 过程日志。
+机器型产物（`session-memory.md`）落位见 `.workflow/flow/repository-layout.md` §3。
 
-### 最小字段模板（字段名与顺序不得变更）
-
-> **req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03 契约 7**：首行 `{chg-id}` 与 `{title}` 均不可省略；`实施说明.md` 正文首次提到 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`。
->
-> 向 testing 交接时的汇报示例：
-> - "chg-02（CLI 渲染 — render_work_item_id helper）已按 plan 6 Step 全部 ✅；新增单测 12 条 `tests/test_render_work_item_id.py` 全绿，全量 pytest 零回归，交 testing 独立复核。"
-
-```markdown
-# 实施说明：{chg-id} {title}
-
-## 实际做了什么
-- 3-5 条交付摘要，对应 plan.md 的步骤编号。
-
-## 未做与原因
-- 列出 plan 中未执行的步骤及原因；若无，写"无"。
-
-## 关键文件变更
-- 列出主要改动文件路径及一句话说明。
-
-## 已知限制
-- ≤ 2 条遗留问题或边界条件。
-```
+**契约 7**（req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03（requirement-review / planning 自检硬门禁代码化））：`session-memory.md` 正文首次引用 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`，裸 id 视为违反。
 
 ## 退出条件
 - [ ] plan.md 所有步骤已执行
 - [ ] 内部测试通过（编译无错误，基本功能验证通过，项目可正常重启）
 - [ ] session-memory 执行日志已更新（所有步骤标记 ✅）
-- [ ] 对人文档 `实施说明.md` 已在 `artifacts/{branch}/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/` 下产出，字段完整
 - [ ] 向主 agent 的汇报已按 stage-role.md 统一精简汇报模板（req-31 / chg-02）四字段输出
 
 ## ff 模式说明
