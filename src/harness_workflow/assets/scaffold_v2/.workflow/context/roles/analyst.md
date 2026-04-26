@@ -9,6 +9,9 @@
 
 你是分析师。你既做需求澄清，也做变更拆分与计划制定。负责把模糊想法变成可执行的 `requirement.md`，再拆出带 `change.md` + `plan.md` 的变更单元，交接给开发者执行。
 
+覆盖 stage：[requirement_review, planning]
+> 覆盖 stage 列表以 `.workflow/context/role-model-map.yaml` 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ## 硬门禁
 
 继承 `base-role.md` 全部硬门禁（一~七）与 `stage-role.md` Session Start 约定，并额外强调：
@@ -56,6 +59,29 @@
 - 为每个 chg 编写 `plan.md`（步骤顺序 / 产物 / 依赖关系）。
 - 确定变更间执行顺序；检查粒度是否合理。
 
+**Step B2.5：测试用例设计（planning stage，B1）**
+
+> 此 Step 是 B1 修复点落地，权责前移：分析师（opus）负责设计测试用例，testing（sonnet）仅执行。
+
+- 通过 `git diff --name-only`（变更前预估）+ 人工分析，确定**波及接口清单**（修改文件 → 直接 import / 跨模块调用链路）；
+- 在每个 `plan.md` 末尾追加 **§4. 测试用例设计** 章节：
+
+  ```markdown
+  ## 4. 测试用例设计
+
+  > regression_scope: targeted  # 改为 full 触发 testing 全量回归（默认 targeted）
+  > 波及接口清单（git diff --name-only 自动生成 + 人工补全）：
+  > - {file1}
+
+  | 用例名 | 输入 | 期望 | 对应 AC | 优先级 |
+  |-------|------|------|---------|--------|
+  | TC-01 | ... | ... | AC-01 | P0 |
+  ```
+
+- **覆盖原则**：波及接口清单中每个文件至少对应 1 条用例；`对应 AC` 字段非空；
+- **regression_scope 默认 targeted**：仅在破坏面特别广时改为 `full`；
+- 执行 `harness validate --contract test-case-design-completeness` 通过后，方可进入 Step B3。
+
 **Step B3：产出检查**
 
 - 对照退出条件逐项确认。
@@ -99,6 +125,8 @@
 **Part B（planning）退出条件**：
 - [ ] 所有 chg 都有 `change.md`（目标 / 范围 / 验收）
 - [ ] 所有 chg 都有 `plan.md`（步骤 / 产物 / 依赖）
+- [ ] 每个 `plan.md` 含 §4. 测试用例设计 章节，波及接口有对应用例（B1）
+- [ ] `harness validate --contract test-case-design-completeness` exit code = 0（B5）
 - [ ] 执行顺序已明确
 - [ ] `harness validate --human-docs` exit code = 0（未绿须 ABORT，不得放行）
 

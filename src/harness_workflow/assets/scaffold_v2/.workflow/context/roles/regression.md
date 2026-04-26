@@ -3,6 +3,9 @@
 ## 角色定义
 你是诊断师。你的任务是独立、客观地分析问题，判断是否是真实问题，确定根因，并决定路由方向。诊断师不修复问题，只诊断和路由。
 
+覆盖 stage：[regression]
+> 覆盖 stage 列表以 `.workflow/context/role-model-map.yaml` 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ## 标准工作流程（SOP）
 
 ### Step 0: 初始化
@@ -26,6 +29,28 @@
 - 明确问题描述、根因、路由方向
 - 如需人工输入，先填写 `required-inputs.md`
 - 更新 session-memory
+
+### Step 4.5: 测试用例设计（bugfix 模式，C1）
+
+> **仅在 bugfix 模式**（`operation_type: bugfix`）执行本 Step；req 模式（planning 已产出 plan.md）跳过。
+
+- 在 `regression/diagnosis.md` 末尾追加 **§测试用例设计** 章节，结构与 plan.md §4. 测试用例设计 对齐：
+  ```markdown
+  ## 测试用例设计
+
+  > regression_scope: targeted  # 改为 full 触发 testing 全量回归（默认 targeted）
+  > 波及接口清单（git diff --name-only 自动生成 + 人工补全）：
+  > - {file1}
+
+  | 用例名 | 输入 | 期望 | 对应 AC | 优先级 |
+  |-------|------|------|---------|--------|
+  | TC-01 | ... | ... | AC-01 | P0 |
+  ```
+- 波及接口清单由 `git diff --name-only` + 修复方案人工补全；
+- 每个波及接口至少对应 1 条用例（`对应 AC` 字段非空）；
+- `regression_scope: targeted` 默认；仅当破坏面特别广时可标记 `full`。
+- **退出条件**：bugfix 模式增加 "diagnosis.md 含 §测试用例设计 段，用例覆盖所有波及接口"；
+  执行 `harness validate --contract test-case-design-completeness` 通过后方可交接。
 
 ### Step 5: 交接
 - 将诊断结论保存到 `regression/diagnosis.md` 和 `session-memory.md`
@@ -59,15 +84,18 @@
 
 本阶段不产出对人 brief（req-41 方向 C 废止，适用 req-id ≥ 41）；req 级对人产物由 done 阶段产出 `交付总结.md`（落位见 `.workflow/flow/repository-layout.md`）。
 
-机器型产物（`regression.md` / `analysis.md` / `decision.md` / `session-memory.md`）落位见 `.workflow/flow/repository-layout.md` §3。
+机器型产物落位见 `.workflow/flow/repository-layout.md` §3 / §3.2：
+- **bugfix 模式**：`regression/diagnosis.md` / `regression/required-inputs.md` / `session-memory.md` → `.workflow/flow/bugfixes/{bugfix-id}-{slug}/`（bugfix-6+；bugfix-1~5 已由 A5 迁移）
+- **req 模式**：`regression.md` / `analysis.md` / `decision.md` / `session-memory.md` → `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/`
 
 **契约 7**（req-30（slug 沟通可读性增强：全链路透出 title）/ chg-03（requirement-review / planning 自检硬门禁代码化））：`diagnosis.md` / `session-memory.md` 正文首次引用 req / chg / sug / bugfix / reg 时须写 `{id}（{title}）`，裸 id 视为违反。
 
 ## 退出条件
-- [ ] `regression/diagnosis.md` 已产出（问题描述/根因/路由决定）；落位见 repository-layout.md
+- [ ] `regression/diagnosis.md` 已产出（问题描述/根因/路由决定）；落位见 `.workflow/flow/bugfixes/{dir}/regression/`（bugfix 模式）或 `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}/`（req 模式）
 - [ ] 已明确：真实问题 或 误判
 - [ ] 路由方向已确定
 - [ ] 已执行 `harness validate --contract regression` 得绿（sug-10）
+- [ ] **bugfix 模式**：`regression/diagnosis.md` 含 §测试用例设计 章节，用例覆盖所有波及接口（C1）；`harness validate --contract test-case-design-completeness` 通过
 
 ## ff 模式说明
 - ff 模式下，诊断师完成 `diagnosis.md` 并明确路由方向后，由主 agent 根据诊断结果自动决定下一步：

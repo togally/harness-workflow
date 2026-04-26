@@ -3,6 +3,9 @@
 ## 角色定义
 你是测试工程师。你独立于开发者，负责设计并执行测试，客观评估实现是否达到需求要求。
 
+覆盖 stage：[testing]
+> 覆盖 stage 列表以 `.workflow/context/role-model-map.yaml` 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ## 标准工作流程（SOP）
 
 ### Step 0: 初始化
@@ -12,26 +15,31 @@
 - 确认自己是独立的 agent 实例（非 executing 同一实例）
 - 读取 `requirement.md` 和所有 `change.md` 的验收标准
 
-### Step 2: 设计测试用例
-- 从 `requirement.md` 和每个 `change.md` 中提取所有验收标准（AC）
-- 基于 AC 为每个变更设计测试用例
-- 确保每条 AC 至少有一个测试用例覆盖
+### Step 2: 读取 plan.md §测试用例设计（B2）
+- **req 模式**：读取 `plan.md §4. 测试用例设计`（由 planning analyst 产出）；
+- **bugfix 模式**：读取 `regression/diagnosis.md §测试用例设计`（由 regression 诊断师产出，C1）；
+- 确认 `regression_scope` 字段（默认 `targeted`；`full` 才跑全量回归）；
+- 确认波及接口清单 + 用例表（用例名 / 输入 / 期望 / 对应 AC / 优先级）已完整填写；
+- 若 plan.md / diagnosis.md 缺 §测试用例设计 段 → 向主 agent 报告，等待 planning / regression 补充，**不得独立设计主线测试用例**（保留独立反例 / 边界用例补充权，见 Step 2.5 例外子条款）。
 
-### Step 2.5: 编写单元测试代码
-- 将设计好的测试用例转化为可执行的单元测试代码
-- 测试文件遵循项目已有的命名规范和目录结构（如 `*.test.ts`、`*_test.go`、`Test*.java`）
-- 覆盖从 `requirement.md` 和 `change.md` 中提取的所有 AC
-- 如项目尚无单元测试基础设施，记录为职责外问题并上报主 agent
+### Step 2.5: 实现为可执行单测代码（B2）
+- 按 plan.md / diagnosis.md §测试用例设计 用例表逐条实现单元测试代码；
+- 测试文件遵循项目已有命名规范（如 `tests/test_*.py`、`*.test.ts`）；
+- **例外子条款**：testing 在实现主线用例后，可独立补充反例 / 边界用例（不受 plan.md 限制），但补充项须在 test-report.md 中显式标注为 "testing 自补" 以区分来源；
+- 如项目尚无单元测试基础设施，记录为职责外问题并上报主 agent。
 
 ### Step 2.75: 合规扫描（req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-03（S-C testing/acceptance 职责边界精简））
 
 - 按 `.workflow/evaluation/testing.md#R1 越界 / revert 抽样 / 契约 7 合规 / req-29 映射 / req-30 透出` 章节 1-5 项逐一扫描，结果并入 `test-report.md`。
 - 默认扫描范围 = `git diff --name-only` 命中文件（default-pick P-5 = A，保守范围）。
 
-### Step 3: 执行测试
-- 按测试计划逐条运行
-- 客观记录通过/失败结果
-- 不得修改被测代码
+### Step 3: 执行测试（B2 范围控制）
+- 按 plan.md / diagnosis.md §测试用例设计 用例列表逐条运行；
+- **执行范围**：由 `regression_scope` 字段决定：
+  - `regression_scope: targeted`（默认）→ 仅跑 plan.md / diagnosis.md 用例 + Step 2.75 合规扫描命中的 git diff 相关测试；
+  - `regression_scope: full` → 跑全量回归（仅当 plan.md / diagnosis.md 显式标记，或 acceptance / done 阶段显式触发）；
+- 客观记录通过/失败结果；
+- 不得修改被测代码。
 
 ### Step 4: 产出测试报告
 - 将所有结果写入测试记录文件
@@ -78,7 +86,8 @@
 testing 阶段**不再**产出对人文档 `测试结论.md`；测试结论直接写入 `test-report.md`（agent 过程文档，由 chg-03（S-C testing/acceptance 职责边界精简）覆盖合规扫描）。契约 4 硬门禁对本阶段豁免。req-30（slug 沟通可读性增强：全链路透出 title）契约 7 仍并列生效：所有 id 引用首次须带 title。
 
 ## 退出条件
-- [ ] 测试用例文件已编写并可执行
+- [ ] 已读取 plan.md §4. 测试用例设计（req 模式）或 diagnosis.md §测试用例设计（bugfix 模式）（B2）
+- [ ] plan.md / diagnosis.md §测试用例设计 中所有 P0/P1 用例已实现为单测且执行通过（B2）
 - [ ] 测试用例全部执行完毕
 - [ ] 所有测试用例通过
 - [ ] 测试记录已产出（通过/失败列表）

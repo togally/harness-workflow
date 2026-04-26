@@ -16,13 +16,13 @@ migrated_from: ".workflow/flow/artifacts-layout.md（req-39（对人文档家族
 
 ## 1. 三大子树语义总览
 
-全仓库按"用途"划分三大子树，每类文档**只能**落在对应子树，不得越界：
+全仓库按"用途"划分三大子树，每类文档**只能**落在对应子树，不得越界。**此约束适用于任意任务类型**（req / bugfix / sug-direct / 任何未来类型），不限于 requirement 路径。
 
 | 子树 | 语义 | 典型内容 | 产出者 | 消费者 |
 |------|------|---------|--------|--------|
-| `.workflow/state/` | Runtime 真·实时数据。只装工作流引擎的瞬态运行时状态；**不**承载 req/chg/regression 周期工件（req-41+ 起）。 | `runtime.yaml` / `feedback/feedback.jsonl` / `action-log.md` / `experience/index.md` | harness CLI / 主 agent | 主 agent / harness CLI |
-| `.workflow/flow/` | 权威工作流工件。包含本文件（布局契约）/ 流程定义文件（`stages.md` 等）/ **req 周期机器型文档**（req-41+ 落位，见 §3）/ 归档（`archive/{branch}/`）。 | `repository-layout.md` / `stages.md` / `requirements/{req-id}-{slug}/` 子树 / `archive/` | harness CLI / subagent | harness CLI / subagent / 主 agent |
-| `artifacts/{branch}/` | 对人可读签字执行产物。只装人可直接阅读、执行或签字的产物；**不**出现机器型文档。 | raw `requirement.md` 副本 / `交付总结.md` / `决策汇总.md` / SQL / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 | subagent（done / analyst） | 业务方 / PM / 运维 / 外部审阅者 |
+| `.workflow/state/` | Runtime 真·实时数据。只装工作流引擎的瞬态运行时状态；**不**承载 req/chg/bugfix/regression 周期工件（req-41+ 起）。 | `runtime.yaml` / `feedback/feedback.jsonl` / `action-log.md` / `experience/index.md` | harness CLI / 主 agent | 主 agent / harness CLI |
+| `.workflow/flow/` | 权威工作流工件。包含本文件（布局契约）/ 流程定义文件（`stages.md` 等）/ **任意任务类型机器型文档**（req-41+ 落位，见 §3；bugfix-6+ 落位，见 §3.2）/ 归档（`archive/{branch}/`）。 | `repository-layout.md` / `stages.md` / `requirements/{req-id}-{slug}/` 子树 / `bugfixes/{bugfix-id}-{slug}/` 子树 / `archive/` | harness CLI / subagent | harness CLI / subagent / 主 agent |
+| `artifacts/{branch}/` | 对人可读签字执行产物。只装人可直接阅读、执行或签字的产物；**不**出现机器型文档。**任意任务类型**（req / bugfix / sug 等）均遵守此约束（bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） A4）。 | raw `requirement.md` 副本 / `交付总结.md` / `决策汇总.md` / SQL / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 / 对人产物占位 README | subagent（done / analyst） | 业务方 / PM / 运维 / 外部审阅者 |
 
 ### `.workflow/flow/requirements/` 子树结构（req-41+ 新位）
 
@@ -131,6 +131,27 @@ req-41+ 所有机器型工件统一落 `.workflow/flow/requirements/{req-id}-{sl
 | `session-memory.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/session-memory.md` | `.workflow/state/sessions/{req-id}/regressions/{reg-id}/session-memory.md` |
 
 **注意**：机器型文档路径迁移由 chg-02（CLI 路径迁移（FLOW_LAYOUT_FROM_REQ_ID + create_/archive_ 改写））落地 CLI 行为（req-id ≥ 41 走 flow/ 新位，req-id ∈ [39, 40] 维持 state/ legacy fallback）；本 chg-01（repository-layout 契约底座（git mv + 三大子树 §2 重写））只定义权威落位，不执行 CLI 迁移。
+
+---
+
+## 3.2 bugfix 机器型文档权威落位（bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） A4）
+
+bugfix-6+ 所有机器型工件统一落 `.workflow/flow/bugfixes/{bugfix-id}-{slug}/` 子树。
+
+```
+.workflow/flow/bugfixes/
+└── {bugfix-id}-{slug}/                  # 例：bugfix-6-工作流契约统一加固/
+    ├── bugfix.md                        # bugfix 权威机器型定义
+    ├── session-memory.md                # 执行记忆（executing 产出）
+    ├── test-evidence.md                 # 测试证据（testing 产出）
+    └── regression/
+        ├── diagnosis.md                 # 诊断文档（regression 产出，含 §测试用例设计）
+        └── required-inputs.md          # 所需人工输入（regression 产出）
+```
+
+**artifacts/ 对人占位**：`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/README.md` 为对人产物预留目录（bugfix 无对人交付产物时仅留 README）；有对人产物（SQL / 部署文档 / 对外报告等）可放于此目录。
+
+**存量迁移**：bugfix-1 ~ bugfix-5 历史机器型文档已通过 `harness migrate bugfix-layout` 迁移（A5）；bugfix-6 自身在 executing 结束后处理。
 
 ---
 

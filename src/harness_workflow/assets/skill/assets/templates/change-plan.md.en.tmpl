@@ -33,3 +33,16 @@
 
 <!-- Describe dependencies on other changes or systems, and any hard ordering inside this change. -->
 - {{Dependencies and ordering notes}}
+
+## 4. Test Case Design
+
+<!-- bugfix-6 B4: analyst produces this in planning; testing consumes directly. -->
+<!-- Change regression_scope to full to trigger full regression in testing (default: targeted). -->
+
+> regression_scope: targeted
+> Affected interfaces (auto-generated from git diff --name-only + human supplement):
+> - {{file1}}
+
+| Test Case | Input | Expected | AC Reference | Priority |
+|-----------|-------|----------|--------------|----------|
+| TC-01 | {{input}} | {{expected result}} | AC-01 | P0 |

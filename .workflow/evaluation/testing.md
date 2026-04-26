@@ -1,8 +1,32 @@
 # Testing Stage 规则
 
+## 0. 测试范围默认 targeted（B3）
+
+> bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） B3 落地。
+
+### 默认范围
+
+testing 阶段默认执行 **targeted 回归**：
+- `plan.md §4. 测试用例设计`（req 模式）或 `regression/diagnosis.md §测试用例设计`（bugfix 模式）中明确列出的用例；
+- Step 2.75 合规扫描：`git diff --name-only` 命中文件相关测试（default-pick P-5 = A，保守范围）。
+
+### 全量回归触发条件（任一即可）
+
+满足以下任一条件时，testing 方可跑全量回归：
+
+1. `plan.md §4. 测试用例设计` 段头标记 `regression_scope: full`；
+2. `regression/diagnosis.md §测试用例设计` 段头标记 `regression_scope: full`；
+3. acceptance / done 阶段主 agent 显式触发（非 testing 自发）；
+4. 用户在 briefing 中**显式写明** "跑全量回归"（仅当含明确用户指令时）。
+
+### 禁止行为
+
+- **禁止**主 agent 在 briefing 中**默认要求** testing 跑全量（未经触发条件约束 = over-instructing）；
+- testing subagent 自发跑 `pytest tests/ -x` 全量 = 违反 targeted 默认原则，须在 test-report.md 标注触发条件来源。
+
 ## 核心要求
 - 测试工程师必须是独立 subagent，不得是执行过 executing 阶段的 agent
-- 测试标准来自 `requirement.md` 的验收标准，不得自行降低
+- 测试标准来自 `requirement.md` 的验收标准以及 `plan.md / diagnosis.md §测试用例设计`（B2），不得自行降低
 - 测试记录必须客观，不带开发者视角的解释
 
 ## 测试活动

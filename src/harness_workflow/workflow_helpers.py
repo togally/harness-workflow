@@ -82,6 +82,9 @@ LEGACY_REQ_ID_CEILING = 38  # req-02 ~ req-38 走 legacy 路径（含 req-38 混
 FLAT_LAYOUT_FROM_REQ_ID = 39  # req-39 及以后强制扁平 + state 机器型文档
 # req-41（机器型工件回 flow/requirements + 关注点分离）/ chg-02（CLI 路径迁移 flow layout）
 FLOW_LAYOUT_FROM_REQ_ID = 41  # req-41 及以后机器型工件落 .workflow/flow/requirements/
+# bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A1：
+# bugfix-6 起强制 flow layout；bugfix-1 ~ bugfix-5 走 A5 存量迁移。
+BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID = 6
 
 LEGACY_CLEANUP_ROOT = Path(".workflow") / "context" / "backup" / "legacy-cleanup"
 LEGACY_CLEANUP_TARGETS = [
@@ -4537,6 +4540,20 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     return 0
 
 
+def _use_flow_layout_for_bugfix(bugfix_id: str) -> bool:
+    """判定 bugfix 是否走 flow layout（机器型文档落 .workflow/flow/bugfixes/）。
+
+    bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A1：
+    bugfix-id >= BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID（6）时走 flow layout；
+    bugfix-1 ~ bugfix-5 走 A5 存量迁移，新建时已不再触发（历史已存在）。
+    """
+    try:
+        num = int(bugfix_id.replace("bugfix-", "").strip())
+        return num >= BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID
+    except (ValueError, AttributeError):
+        return True  # 未知格式默认 flow layout
+
+
 def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, title: str | None = None) -> int:
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
@@ -4550,10 +4567,28 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
     slug_part = _path_slug(bugfix_title)
     dir_name = f"{bfx_num_id}-{slug_part}" if slug_part else bfx_num_id
     branch = _get_git_branch(root) or "main"
-    bugfix_dir = root / "artifacts" / branch / "bugfixes" / dir_name
     created: list[str] = []
     skipped: list[str] = []
     replacements = {"ID": bfx_num_id, "TITLE": bugfix_title}
+
+    # bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A1：
+    # flow layout（bugfix-6+）：机器型文档落 .workflow/flow/bugfixes/{dir}/；
+    # artifacts/ 路径仅创建 README.md 占位说明"对人产物预留目录"。
+    use_flow = _use_flow_layout_for_bugfix(bfx_num_id)
+    if use_flow:
+        bugfix_dir = root / ".workflow" / "flow" / "bugfixes" / dir_name
+        artifacts_dir = root / "artifacts" / branch / "bugfixes" / dir_name
+        # 在 artifacts/ 创建占位 README 说明"对人产物预留目录"
+        readme_content = (
+            f"# {bfx_num_id}（{bugfix_title}）对人产物预留目录\n\n"
+            "本目录为对人可读产物（如 SQL 脚本、部署文档、对外报告等）的预留位置。\n"
+            "机器型工件（bugfix.md / session-memory.md / regression/diagnosis.md 等）\n"
+            f"已迁至 `.workflow/flow/bugfixes/{dir_name}/`。\n\n"
+            "如本次 bugfix 有对人产物（如部署脚本），请将其放置于本目录。\n"
+        )
+        write_if_missing(artifacts_dir / "README.md", readme_content, created, skipped)
+    else:
+        bugfix_dir = root / "artifacts" / branch / "bugfixes" / dir_name
 
     write_if_missing(
         bugfix_dir / "bugfix.md",
@@ -4618,7 +4653,8 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
     runtime["active_requirements"] = active_reqs
     save_requirement_runtime(root, runtime)
 
-    print(f"Bugfix workspace: {bugfix_dir}")
+    workspace_dir = bugfix_dir
+    print(f"Bugfix workspace: {workspace_dir}")
     for path in created:
         print(f"- created {path}")
     for path in skipped:
@@ -5987,6 +6023,113 @@ def migrate_archive(root: Path, dry_run: bool = False) -> int:
     return 1 if conflicts else 0
 
 
+
+def migrate_bugfix_layout(root: Path, dry_run: bool = False) -> int:
+    """把 bugfix-1~5 机器型文档从 artifacts/ 迁移到 .workflow/flow/bugfixes/。
+
+    bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A5：
+    - 源：``artifacts/{branch}/bugfixes/bugfix-{1..5}-{slug}/``（含 .md 机器型文档）
+    - 目标：``.workflow/flow/bugfixes/bugfix-{N}-{slug}/``（同结构）
+    - 源目录保留，仅添加 README.md 占位说明（default-pick A5-1，不物理删）
+
+    bugfix-6 自身不迁移（在跑流程中，迁了会破坏 session-memory 引用）。
+
+    返回 0 = 成功（含无需迁移），1 = 有冲突。
+    """
+    import shutil as _shutil
+
+    branch = _get_git_branch(root) or "main"
+    artifacts_bugfixes = root / "artifacts" / branch / "bugfixes"
+    flow_bugfixes = root / ".workflow" / "flow" / "bugfixes"
+
+    _MACHINE_TYPE_FILES = {
+        "bugfix.md",
+        "session-memory.md",
+        "test-evidence.md",
+    }
+    _MACHINE_TYPE_IN_REGRESSION = {
+        "diagnosis.md",
+        "required-inputs.md",
+    }
+
+    if not artifacts_bugfixes.exists():
+        print("[migrate-bugfix-layout] nothing to migrate (artifacts/bugfixes not found)")
+        return 0
+
+    migrated: list[str] = []
+    conflicts: list[str] = []
+    skipped: list[str] = []
+
+    for bugfix_src in sorted(artifacts_bugfixes.iterdir()):
+        if not bugfix_src.is_dir():
+            continue
+        m = re.match(r"^(bugfix-(\d+))(?:-(.+))?$", bugfix_src.name)
+        if not m:
+            continue
+        bugfix_num = int(m.group(2))
+        if bugfix_num >= 6:
+            continue  # bugfix-6+ 已走新路径，不迁
+        if bugfix_num < 1:
+            continue
+
+        bugfix_dst = flow_bugfixes / bugfix_src.name
+        label = f"bugfix-{bugfix_num}/{bugfix_src.name}"
+
+        if bugfix_dst.exists():
+            skipped.append(label)
+            print(f"[migrate-bugfix-layout] skip (already exists): {bugfix_dst.relative_to(root)}")
+            continue
+
+        if dry_run:
+            print(f"[migrate-bugfix-layout] (dry-run) would migrate {bugfix_src.relative_to(root)} -> {bugfix_dst.relative_to(root)}")
+            migrated.append(label)
+            continue
+
+        bugfix_dst.mkdir(parents=True, exist_ok=True)
+
+        def _mv(src: Path, dst: Path) -> None:
+            if src.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                _shutil.move(str(src), str(dst))
+                print(f"[migrate-bugfix-layout] {src.relative_to(root)} -> {dst.relative_to(root)}")
+
+        for fname in _MACHINE_TYPE_FILES:
+            _mv(bugfix_src / fname, bugfix_dst / fname)
+
+        reg_src = bugfix_src / "regression"
+        reg_dst = bugfix_dst / "regression"
+        if reg_src.exists():
+            for fname in _MACHINE_TYPE_IN_REGRESSION:
+                _mv(reg_src / fname, reg_dst / fname)
+
+        readme_path = bugfix_src / "README.md"
+        if not readme_path.exists():
+            bugfix_id_str = m.group(1)
+            title = _resolve_title_for_id(root, bugfix_id_str) or bugfix_src.name
+            readme_content = (
+                f"# {bugfix_id_str}（{title}）对人产物预留目录\n\n"
+                "本目录原有机器型工件（bugfix.md / session-memory.md / regression/diagnosis.md 等）\n"
+                f"已由 `harness migrate bugfix-layout` 迁移到 `.workflow/flow/bugfixes/{bugfix_src.name}/`。\n\n"
+                "如本 bugfix 有对人产物（如 SQL 脚本、部署文档），请将其放置于本目录。\n"
+            )
+            readme_path.write_text(readme_content, encoding="utf-8")
+            print(f"[migrate-bugfix-layout] created README.md placeholder: {readme_path.relative_to(root)}")
+
+        migrated.append(label)
+
+    if dry_run:
+        print(f"[migrate-bugfix-layout] dry-run done: {len(migrated)} would migrate, {len(skipped)} already-at-target")
+        return 0
+
+    total = len(migrated) + len(conflicts) + len(skipped)
+    if total == 0 and not migrated and not skipped:
+        print("[migrate-bugfix-layout] nothing to migrate")
+        return 0
+
+    print(f"[migrate-bugfix-layout] done: {len(migrated)} migrated, {len(conflicts)} conflicts, {len(skipped)} already-at-target")
+    return 1 if conflicts else 0
+
+
 def archive_requirement(
     root: Path,
     requirement_name: str,
@@ -6797,6 +6940,139 @@ def _render_key_details(details: dict) -> str:
     return ", ".join(f"{k}={v}" for k, v in details.items())
 
 
+# bugfix-5（同角色跨 stage 自动续跑硬门禁）：单一权威源 helper 组。
+# 从 .workflow/context/role-model-map.yaml v2 schema 读 stages 字段，
+# 构建"stage → role"反向索引，驱动 workflow_next 同角色连跳逻辑。
+
+_ROLE_MODEL_MAP_PATH = Path(".workflow") / "context" / "role-model-map.yaml"
+
+# v1 兼容：按角色名猜测默认覆盖 stage（与角色同名的 stage），未命中给空数组。
+_V1_LEGACY_DEFAULT_STAGES: dict[str, list[str]] = {
+    "analyst": ["requirement_review", "planning"],
+    "requirement-review": ["requirement_review"],
+    "planning": ["planning"],
+    "executing": ["executing"],
+    "testing": ["testing"],
+    "acceptance": ["acceptance"],
+    "regression": ["regression"],
+    "done": ["done"],
+}
+
+_ALL_VALID_STAGES = frozenset(
+    set(WORKFLOW_SEQUENCE) | set(BUGFIX_SEQUENCE) | set(SUGGESTION_SEQUENCE)
+)
+
+
+def _load_role_stage_map(root: Path) -> dict:
+    """从 role-model-map.yaml 加载完整 role 定义字典，含 v1 → v2 兼容转换。
+
+    bugfix-5（同角色跨 stage 自动续跑硬门禁）：
+    - v2 格式（version: 2）：每个 role 已是 {model: ..., stages: [...]} dict，直接读。
+    - v1 格式（version: 1）：每个 role 是 "model_name" 字符串，
+      自动转 {model: ..., stages: [legacy_default]} 不报错；
+      legacy_default 按 _V1_LEGACY_DEFAULT_STAGES 查，未命中给 []。
+    返回值格式等价于 yaml["roles"] dict，已归一化为 v2 形态。
+    """
+    yaml_path = root / _ROLE_MODEL_MAP_PATH
+    if not yaml_path.exists():
+        return {}
+    try:
+        raw = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+
+    version = raw.get("version", 1)
+    roles_raw = raw.get("roles", {})
+    if not isinstance(roles_raw, dict):
+        return {}
+
+    if version >= 2:
+        # v2：各 role 已是 dict，直接返回（保护性处理：若遇到旧 string 条目也做兼容）
+        normalized: dict[str, dict] = {}
+        for role_name, role_def in roles_raw.items():
+            if isinstance(role_def, str):
+                # 混杂场景：v2 文件中仍有 string 条目
+                normalized[role_name] = {
+                    "model": role_def,
+                    "stages": _V1_LEGACY_DEFAULT_STAGES.get(role_name, []),
+                }
+            elif isinstance(role_def, dict):
+                normalized[role_name] = role_def
+        return normalized
+    else:
+        # v1 兼容：string → dict
+        normalized = {}
+        for role_name, role_def in roles_raw.items():
+            if isinstance(role_def, str):
+                normalized[role_name] = {
+                    "model": role_def,
+                    "stages": _V1_LEGACY_DEFAULT_STAGES.get(role_name, []),
+                }
+            elif isinstance(role_def, dict):
+                # v1 中混有 dict 形态（升级过渡期），直接保留
+                normalized[role_name] = role_def
+        return normalized
+
+
+def _get_role_for_stage(stage: str, role_stage_map: dict) -> str | None:
+    """反查 stage 对应的 role name。
+
+    bugfix-5（同角色跨 stage 自动续跑硬门禁）：
+    - 命中多个时，优先返回非 alias（无 alias_of 字段）的主角色。
+    - 全部为 alias → 返回第一个候选（兜底）。
+    - 未命中（如 ready_for_execution 无角色直接覆盖）→ 返回 None，
+      workflow_next 视为"角色边界"，正常逐格翻。
+    """
+    candidates = [
+        role_name
+        for role_name, role_def in role_stage_map.items()
+        if isinstance(role_def, dict)
+        and stage in role_def.get("stages", [])
+        and not role_def.get("alias_of")  # 跳过 legacy alias
+    ]
+    return candidates[0] if candidates else None
+
+
+def _load_stage_policies(root: Path) -> dict:
+    """从 role-model-map.yaml 读取顶层 stage_policies 字段。
+
+    bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6：
+    - 命中 stage_policies 字段 → 直接返回（dict[stage_name, dict]）。
+    - 缺字段 / yaml 解析失败 → 返回 {}，调用方按 default 'user' 处理。
+    """
+    yaml_path = root / _ROLE_MODEL_MAP_PATH
+    if not yaml_path.exists():
+        return {}
+    try:
+        raw = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    policies = raw.get("stage_policies", {})
+    if not isinstance(policies, dict):
+        return {}
+    return policies
+
+
+def _get_exit_decision(stage: str, stage_policies: dict) -> str:
+    """从 stage_policies 映射读取 stage 的 exit_decision。
+
+    bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6：
+    - 命中 stage_policies[stage].exit_decision → 直接返回。
+    - 未命中（yaml 未声明 / 桥接 stage 缺字段）→ 默认返回 'user'，
+      保守起见把未知 stage 视为"需用户拍板"，避免误自动跳。
+    """
+    if not isinstance(stage_policies, dict):
+        return "user"
+    stage_policy = stage_policies.get(stage, {})
+    if not isinstance(stage_policy, dict):
+        return "user"
+    return str(stage_policy.get("exit_decision", "user"))
+
+
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
 
@@ -6853,46 +7129,90 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         runtime["current_regression"] = ""
         runtime["current_regression_title"] = ""
 
-    prev_entered_at = str(runtime.get("stage_entered_at", ""))
-    runtime["stage"] = next_stage
-    runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
-
-    # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 1（sug-27）：
-    # 翻到终局 stage（done / archive / completed）时自动关 ff_mode，避免手工残留。
-    _reset_ff_mode_after_done_archive(runtime, next_stage)
-
-    # req-26 / chg-03（AC-03）：state yaml 双写同步。
-    # 旧实现只在 runtime.yaml 提供 `operation_target` 时才写回；真实现场（runtime.yaml
-    # 仅有 `current_requirement`、无 `operation_target`）会完全跳过写回，导致
-    # requirement 的 state yaml 始终停留在 requirement_review，与 runtime 不一致。
-    # 这里回退顺序：operation_target → current_requirement。保证 stage 推进必写。
+    # req-26 / chg-03（AC-03）：state yaml 双写同步 — 解析 operation_target 供后续使用。
+    # 回退顺序：operation_target → current_requirement。保证 stage 推进必写。
     operation_target = str(runtime.get("operation_target", "")).strip()
     if not operation_target:
         operation_target = str(runtime.get("current_requirement", "")).strip()
-    _sync_stage_to_state_yaml(root, operation_type, operation_target, next_stage)
 
-    save_requirement_runtime(root, runtime)
+    # bugfix-5（同角色跨 stage 自动续跑硬门禁）：同角色连跳 + verdict-driven 连跳逻辑。
+    # 从权威源 role-model-map.yaml 加载 stage→role 映射 + stage_policies。
+    # 策略：把"从 current_stage 开始的所有连跳格（含最终落点）"都写一遍事件 + state，
+    # 每格独立写，不合并，确保 done 阶段六层回顾 stage_timestamps 数据完整。
+    # reg 路由命中（routed_stage_from_reg is not None）时不参与连跳。
+    role_stage_map = _load_role_stage_map(root)
+    current_role_for_advance = _get_role_for_stage(current_stage, role_stage_map)
+    # 修复点 6：加载 stage_policies，驱动 verdict-driven / auto-driven 连跳
+    stage_policies = _load_stage_policies(root)
+    # auto / verdict 类型出口触发连跳；explicit / user / terminal 停下
+    _AUTO_JUMP_DECISIONS = {"auto", "verdict"}
+
+    def _write_stage_transition(from_s: str, to_s: str, prev_iso: str) -> None:
+        """写单格 stage 跳转：events + runtime + state yaml + stdout。"""
+        dur: float | None = None
+        if prev_iso:
+            try:
+                dur = (datetime.now(timezone.utc) - datetime.fromisoformat(prev_iso)).total_seconds()
+            except (ValueError, TypeError):
+                pass
+        record_feedback_event(root, "stage_duration", {
+            "stage": from_s,
+            "duration_seconds": dur if dur is not None else 0,
+        })
+        record_feedback_event(root, "stage_advance", {"from_stage": from_s, "to_stage": to_s})
+        runtime["stage"] = to_s
+        runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
+        _reset_ff_mode_after_done_archive(runtime, to_s)
+        _sync_stage_to_state_yaml(root, operation_type, operation_target, to_s)
+        save_requirement_runtime(root, runtime)
+        print(f"Workflow advanced to {to_s}")
+
+    if routed_stage_from_reg is None and current_stage in sequence:
+        # 同角色连跳 + verdict-driven 连跳路径（修复点 2 + 修复点 6 合并）：
+        # 1) 首先写出 current_stage → next_stage（第一格，已由上方逻辑确定）
+        # 2) 若当前 stage 出口决策为 auto/verdict，或下一 stage 同角色，继续连跳
+        # 3) explicit / user / terminal 出口永远停下
+        from_s = current_stage
+        prev_iso = str(runtime.get("stage_entered_at", ""))
+        to_s = next_stage
+        walk_idx = sequence.index(next_stage) if next_stage in sequence else -1
+
+        _write_stage_transition(from_s, to_s, prev_iso)
+        from_s = to_s
+        prev_iso = str(runtime.get("stage_entered_at", ""))
+
+        # 继续连跳（同角色 OR exit_decision in {auto, verdict}，但 explicit 永远停下）
+        while walk_idx >= 0 and walk_idx + 1 < len(sequence):
+            # 读取"已落点 from_s"的出口决策（注意：每翻一格，from_s 更新为新的当前格）
+            current_exit = _get_exit_decision(from_s, stage_policies)
+            # explicit 出口：永远停下，即使其他条件成立
+            if current_exit == "explicit":
+                break
+            candidate = sequence[walk_idx + 1]
+            candidate_role = _get_role_for_stage(candidate, role_stage_map)
+            # 同角色条件（修复点 2 原逻辑）
+            same_role = (
+                current_role_for_advance is not None
+                and candidate_role == current_role_for_advance
+            )
+            # verdict-driven / auto-driven 条件（修复点 6 新逻辑）
+            no_user_decision = current_exit in _AUTO_JUMP_DECISIONS
+            if not (same_role or no_user_decision):
+                break
+            _write_stage_transition(from_s, candidate, prev_iso)
+            from_s = candidate
+            prev_iso = str(runtime.get("stage_entered_at", ""))
+            walk_idx += 1
+            next_stage = candidate  # 最终落点持续更新
+    else:
+        # 无连跳路径（reg 路由命中 / 非 sequence 内 stage）：
+        # 沿用原有单格写逻辑。
+        prev_entered_at = str(runtime.get("stage_entered_at", ""))
+        _write_stage_transition(current_stage, next_stage, prev_entered_at)
 
     if next_stage == "done" and operation_target:
         extract_suggestions_from_done_report(root, operation_target)
         print("Review `context/experience/stage/` and update relevant stage experience before archiving.")
-
-    duration_seconds: float | None = None
-    if prev_entered_at:
-        try:
-            entered = datetime.fromisoformat(prev_entered_at)
-            duration_seconds = (datetime.now(timezone.utc) - entered).total_seconds()
-        except (ValueError, TypeError):
-            pass
-    record_feedback_event(root, "stage_duration", {
-        "stage": current_stage,
-        "duration_seconds": duration_seconds if duration_seconds is not None else 0,
-    })
-    record_feedback_event(root, "stage_advance", {
-        "from_stage": current_stage,
-        "to_stage": next_stage,
-    })
-    print(f"Workflow advanced to {next_stage}")
 
     # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）：
     # --execute 派发 subagent briefing 供主 agent 直接消费，不仅翻 stage 字段。

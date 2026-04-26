@@ -252,8 +252,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression", "triggers"],
-        help="Run contract automation check (sug-10/sug-15/sug-25). Default scans contract-7 across all artifacts.",
+        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "test-case-design-completeness"],
+        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3).",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
@@ -317,8 +317,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     migrate_parser.add_argument(
         "resource",
-        choices=["requirements"],
-        help="Migration target resource (currently only 'requirements').",
+        choices=["requirements", "bugfix-layout"],
+        help="Migration target resource: 'requirements' migrates legacy req dirs; 'bugfix-layout' migrates bugfix-1~5 machine-type docs to .workflow/flow/bugfixes/ (bugfix-6 A5).",
     )
     migrate_parser.add_argument(
         "--dry-run",

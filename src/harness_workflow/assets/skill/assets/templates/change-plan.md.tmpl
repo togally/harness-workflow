@@ -33,3 +33,16 @@
 
 <!-- 说明本 change 与其他 change / 外部系统的依赖关系，以及本 change 内部步骤是否存在强顺序。 -->
 - {{依赖与顺序说明}}
+
+## 4. 测试用例设计
+
+<!-- bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） B4：planning 阶段 analyst 产出，testing 直接消费。 -->
+<!-- 修改 regression_scope 为 full 可触发 testing 跑全量回归（默认 targeted）。 -->
+
+> regression_scope: targeted
+> 波及接口清单（git diff --name-only 自动生成 + 人工补全）：
+> - {{file1}}
+
+| 用例名 | 输入 | 期望 | 对应 AC | 优先级 |
+|-------|------|------|---------|--------|
+| TC-01 | {{输入}} | {{期望结果}} | AC-01 | P0 |
