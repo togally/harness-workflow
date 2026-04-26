@@ -2721,6 +2721,7 @@ def record_subagent_usage(
     stage: str | None = None,
     chg_id: str | None = None,
     reg_id: str | None = None,
+    task_type: str = "req",
 ) -> None:
     """Append one subagent usage entry to .workflow/state/sessions/{req_id}/usage-log.yaml.
 
@@ -2728,8 +2729,14 @@ def record_subagent_usage(
     Scope-A 采集契约：主 agent 每次 Agent 工具返回后，从返回值提取 usage 对象，
     调本 helper 追加到独立机器型文件；同步写 record_feedback_event("subagent_usage", ...)。
 
+    req-43（交付总结完善）/ chg-01（接通 record_subagent_usage 派发链路（吸收 sug-25））：
+    新增 task_type 参数（OQ-5 default-pick），区分三类任务（req / bugfix / sug）；
+    req_id 字段语义扩展为「任务级 id」（可为 req-XX / bugfix-XX / sug-XX）；
+    目录路径仍按 .workflow/state/sessions/{任务 id}/usage-log.yaml（兼容既有归档逻辑）。
+
     格式（YAML list item, append 模式）：
       - ts: <ISO8601>
+        task_type: <req|bugfix|sug>
         stage: <stage>
         chg_id: <chg-NN>        # optional
         reg_id: <reg-NN>        # optional
@@ -2755,6 +2762,7 @@ def record_subagent_usage(
         ts = datetime.now(timezone.utc).isoformat()
         entry_lines = [
             f"- ts: {ts}",
+            f"  task_type: {task_type}",
         ]
         if stage is not None:
             entry_lines.append(f"  stage: {stage}")
@@ -2767,7 +2775,7 @@ def record_subagent_usage(
         entry_lines.append("  usage:")
         for key in ("input_tokens", "output_tokens", "cache_read_input_tokens",
                     "cache_creation_input_tokens", "total_tokens", "tool_uses", "duration_ms"):
-            val = usage.get(key, 0)
+            val = (usage or {}).get(key, 0)
             entry_lines.append(f"    {key}: {val}")
         entry_lines.append("")
         with open(log_path, "a", encoding="utf-8") as fh:
@@ -2775,6 +2783,7 @@ def record_subagent_usage(
         # Sync to feedback.jsonl for dashboard / reporter consumption
         record_feedback_event(root, "subagent_usage", {
             "ts": ts,
+            "task_type": task_type,
             "req_id": req_id,
             "stage": stage,
             "chg_id": chg_id,
@@ -2794,7 +2803,13 @@ def record_subagent_usage(
 _NO_DATA = "⚠️ 无数据"
 
 
-def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[str, object]:
+def done_efficiency_aggregate(
+    root: Path,
+    req_id: str,
+    slug: str = "",
+    *,
+    task_type: str = "req",
+) -> dict[str, object]:
     """Aggregate efficiency & cost data for the done 交付总结 §效率与成本 section.
 
     Reads:
@@ -2802,22 +2817,36 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
       (subagent_usage entries written by record_subagent_usage)
     - req yaml ``stage_timestamps`` (dict {stage: ISO8601} or list of {stage, entered_at})
 
+    req-43（交付总结完善）/ chg-03（per-stage 合并到 stage × role × model 单表渲染）：
+    新增 ``stage_role_rows`` 字段（list[dict]），按 (stage, role, model) 三键 group by；
+    保留 ``role_tokens`` / ``stage_durations`` 字段（legacy 向后兼容标记）。
+
+    req-43（交付总结完善）/ chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版））：
+    新增 ``task_type`` 参数，支持 "req" | "bugfix" | "sug" 三类任务路径切换：
+    - "req" → ``.workflow/flow/requirements/{req-id}-{slug}/usage-log.yaml``（默认）
+    - "bugfix" / "sug" → ``.workflow/state/sessions/{id}/usage-log.yaml``
+
     Returns a dict::
 
         {
             "total_duration_s": int | str,          # seconds or _NO_DATA
             "total_duration_human": str,            # "约 N 分钟" or _NO_DATA
             "total_tokens": dict | str,             # {input, output, cache_read, cache_creation, total} or _NO_DATA
-            "stage_durations": list[dict] | str,    # [{stage, entered_at, duration_s}] or _NO_DATA
-            "role_tokens": list[dict] | str,        # [{role, model, total_tokens, tool_uses}] or _NO_DATA
+            "stage_durations": list[dict] | str,    # [{stage, entered_at, duration_s}] or _NO_DATA  # legacy
+            "role_tokens": list[dict] | str,        # [{role, model, total_tokens, tool_uses}] or _NO_DATA  # legacy
+            "stage_role_rows": list[dict] | str,    # [{stage, role, model, input_tokens, ...}] or _NO_DATA (chg-03)
         }
 
     If any data source is missing or empty, the corresponding field is _NO_DATA.
     禁止编造。
     """
-    # Locate usage-log
+    # Locate usage-log based on task_type (chg-04)
     slug_part = f"-{slug}" if slug else ""
-    req_dir = root / ".workflow" / "flow" / "requirements" / f"{req_id}{slug_part}"
+    if task_type == "req":
+        req_dir = root / ".workflow" / "flow" / "requirements" / f"{req_id}{slug_part}"
+    else:
+        # bugfix / sug: usage-log in state/sessions/{id}/
+        req_dir = root / ".workflow" / "state" / "sessions" / req_id
     usage_log_path = req_dir / "usage-log.yaml"
 
     entries: list[dict] = []
@@ -2830,7 +2859,7 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
         except Exception:  # noqa: BLE001
             entries = []
 
-    # Aggregate token totals per role × model
+    # Aggregate token totals per role × model (legacy role_tokens)
     role_map: dict[tuple[str, str], dict[str, int]] = {}
     for e in entries:
         role = e.get("role", "unknown")
@@ -2856,7 +2885,8 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
             "total_duration_human": _NO_DATA,
             "total_tokens": _NO_DATA,
             "stage_durations": _NO_DATA,
-            "role_tokens": _NO_DATA,
+            "role_tokens": _NO_DATA,  # legacy 字段，req-43+ 模板不再渲染
+            "stage_role_rows": _NO_DATA,
         }
 
     # Total token sums across all entries
@@ -2874,7 +2904,7 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
         "total": total_all,
     }
 
-    # Role × model rows sorted by total_tokens descending
+    # Role × model rows sorted by total_tokens descending (legacy)
     role_rows = sorted(
         [
             {
@@ -2887,6 +2917,58 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
         ],
         key=lambda r: r["total_tokens"],
         reverse=True,
+    )
+
+    # chg-03: Stage × role × model group by aggregation
+    # key = (stage, role, model)
+    stage_role_map: dict[tuple[str, str, str], dict[str, int]] = {}
+    for e in entries:
+        e_stage = e.get("stage") or "unknown"
+        e_role = e.get("role", "unknown")
+        e_model = e.get("model", "unknown")
+        # Tolerate entries without task_type (pre-chg-01 history entries, default to "req")
+        usage = e.get("usage", {}) if isinstance(e.get("usage"), dict) else {}
+        key3 = (str(e_stage), str(e_role), str(e_model))
+        if key3 not in stage_role_map:
+            stage_role_map[key3] = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0,
+                "total_tokens": 0,
+                "tool_uses": 0,
+            }
+        for field in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                      "cache_creation_input_tokens", "total_tokens", "tool_uses"):
+            stage_role_map[key3][field] += int(usage.get(field, 0))
+
+    # Define stage ordering for sort
+    _stage_order_list = [
+        "requirement_review", "planning", "ready_for_execution",
+        "executing", "testing", "acceptance", "regression", "done",
+    ]
+
+    def _stage_sort_key(row: dict) -> tuple:
+        s = row["stage"]
+        idx = _stage_order_list.index(s) if s in _stage_order_list else 999
+        return (idx, -row["total_tokens"])
+
+    stage_role_rows = sorted(
+        [
+            {
+                "stage": k3[0],
+                "role": k3[1],
+                "model": k3[2],
+                "input_tokens": v3["input_tokens"],
+                "output_tokens": v3["output_tokens"],
+                "cache_read_input_tokens": v3["cache_read_input_tokens"],
+                "cache_creation_input_tokens": v3["cache_creation_input_tokens"],
+                "total_tokens": v3["total_tokens"],
+                "tool_uses": v3["tool_uses"],
+            }
+            for k3, v3 in stage_role_map.items()
+        ],
+        key=_stage_sort_key,
     )
 
     # Stage duration from req yaml stage_timestamps
@@ -2929,17 +3011,19 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
                     continue
             return None
 
-        ordered_stages = [s for s in stage_order if s in stage_timestamps]
-        remaining = [s for s in stage_timestamps if s not in stage_order]
+        # Only use pure stage keys (not *_exited_at keys) for ordering
+        pure_stage_ts = {k: v for k, v in stage_timestamps.items() if not k.endswith("_exited_at")}
+        ordered_stages = [s for s in stage_order if s in pure_stage_ts]
+        remaining = [s for s in pure_stage_ts if s not in stage_order]
         all_stages = ordered_stages + remaining
 
         rows: list[dict] = []
         for i, stage_name in enumerate(all_stages):
-            entered_at = stage_timestamps[stage_name]
+            entered_at = pure_stage_ts[stage_name]
             duration_s: object = _NO_DATA
             if i + 1 < len(all_stages):
                 t_start = _parse(str(entered_at))
-                t_end = _parse(str(stage_timestamps[all_stages[i + 1]]))
+                t_end = _parse(str(pure_stage_ts[all_stages[i + 1]]))
                 if t_start and t_end:
                     duration_s = int((t_end - t_start).total_seconds())
             rows.append({"stage": stage_name, "entered_at": entered_at, "duration_s": duration_s})
@@ -2948,8 +3032,8 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
 
         # Total duration = from first stage to last stage
         if len(all_stages) >= 2:
-            t_first = _parse(str(stage_timestamps[all_stages[0]]))
-            t_last = _parse(str(stage_timestamps[all_stages[-1]]))
+            t_first = _parse(str(pure_stage_ts[all_stages[0]]))
+            t_last = _parse(str(pure_stage_ts[all_stages[-1]]))
             if t_first and t_last:
                 secs = int((t_last - t_first).total_seconds())
                 total_duration_s = secs
@@ -2963,8 +3047,9 @@ def done_efficiency_aggregate(root: Path, req_id: str, slug: str = "") -> dict[s
         "total_duration_s": total_duration_s,
         "total_duration_human": total_duration_human,
         "total_tokens": total_tokens_dict,
-        "stage_durations": stage_rows,
-        "role_tokens": role_rows,
+        "stage_durations": stage_rows,  # legacy 字段，req-43+ 模板不再渲染
+        "role_tokens": role_rows,       # legacy 字段，req-43+ 模板不再渲染
+        "stage_role_rows": stage_role_rows,
     }
 
 
@@ -4343,8 +4428,62 @@ def archive_suggestion(root: Path, suggest_id: str) -> int:
     target.rename(archive_path)
     archive_path.write_text(updated, encoding="utf-8")
 
+    # req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）：
+    # archive_suggestion 是直接处理路径（不转 req），产出轻量 3 段交付总结
+    state_after = load_simple_yaml(archive_path)
+    sug_title = str(state_after.get("title", suggest_id)).strip('"').strip()
+    sug_slug = slugify(sug_title or suggest_id) or suggest_id
+    body_text = archive_path.read_text(encoding="utf-8").split("---", 2)[-1].strip()
+    current_branch = _get_git_branch(root) or "main"
+    _create_sug_delivery_summary(root, suggest_id, sug_slug, sug_title, "archived", body_text, current_branch)
+
     print(f"Archived suggestion: {suggest_id} -> {archive_path.relative_to(root)}")
     return 0
+
+
+def _create_sug_delivery_summary(
+    root: Path,
+    sug_id: str,
+    slug: str,
+    title: str,
+    action: str,
+    body: str,
+    current_branch: str = "main",
+) -> None:
+    """产出 sug 直接处理路径的 3 段轻量交付总结（OQ-1 default-pick B）。
+
+    req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）：
+    sug 直接处理路径（--apply 不转 req / --archive / --reject）产出轻量 3 段交付总结，
+    落 artifacts/{branch}/suggestions/{sug-NN}-{slug}/交付总结.md。
+    sug → req 转化路径不重复产出（由对应 req done 阶段兜底）。
+    """
+    try:
+        sug_dir = root / "artifacts" / current_branch / "suggestions" / f"{sug_id}-{slug}"
+        sug_dir.mkdir(parents=True, exist_ok=True)
+        summary_path = sug_dir / "交付总结.md"
+        created_at = date.today().isoformat()
+        content = f"""---
+sug_id: {sug_id}
+title: "{title}"
+action: {action}
+created_at: {created_at}
+---
+
+# sug 交付总结：{sug_id} {title}
+
+## 建议是什么
+{body[:300] if body else "（建议内容见 sug 文件）"}
+
+## 处理结果
+- 处理方式：{action}
+- 处理时间：{created_at}
+
+## 后续
+- 若需进一步跟进，请查阅对应 req 或相关文档。
+"""
+        summary_path.write_text(content, encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass  # best-effort，不阻塞主流程
 
 
 def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
@@ -5408,6 +5547,8 @@ def _sync_stage_to_state_yaml(
     operation_type: str,
     operation_target: str,
     new_stage: str,
+    *,
+    prev_stage: str | None = None,
 ) -> Path | None:
     """Sync `.workflow/state/{requirements,bugfixes}/{id}.yaml` 的 stage / status。
 
@@ -5417,6 +5558,11 @@ def _sync_stage_to_state_yaml(
       或文件名 stem 前缀匹配 `{id}-`" 两种策略定位 state yaml；
     - 写回 ``stage``；若 ``new_stage == "done"`` 则同步 ``status = "done"`` 与
       ``completed_at``；若文件里存在/可初始化 ``stage_timestamps`` 则打一条时间戳。
+
+    req-43（交付总结完善）/ chg-02（补齐 stage 流转点 entered_at + exited_at 时间戳）：
+    - 新增可选参数 ``prev_stage``；当 prev_stage 非空且在白名单内时，同级写入
+      ``stage_timestamps[{prev_stage}_exited_at]``（D-4 default-pick：同级新键，不嵌套字典，
+      向后兼容历史归档 req yaml）。
 
     返回实际写入的文件路径（未命中任何 state yaml 则返回 ``None``，由调用方决定
     是否打日志，不抛异常，保持与旧 loop 一致的"best-effort"语义）。
@@ -5460,11 +5606,19 @@ def _sync_stage_to_state_yaml(
     # 对白名单内的 stage，**总是初始化** stage_timestamps 并写入时间戳，消除
     # "state yaml 无 stage_timestamps 字段时 sync 静默跳过"的盲区。白名单限定
     # 避免 apply / suggestion_review 等辅助 stage 引入 schema 漂移。
+    now_ts = datetime.now(timezone.utc).isoformat()
     if new_stage in _STAGE_TIMESTAMP_WHITELIST:
         existing = target_state.get("stage_timestamps")
         if not isinstance(existing, dict):
             existing = {}
-        existing[new_stage] = datetime.now(timezone.utc).isoformat()
+        # 只在首次写入 entered_at（不覆盖既有值）
+        if new_stage not in existing:
+            existing[new_stage] = now_ts
+        # req-43 / chg-02：同时写 prev_stage 的 exited_at（同级新键，D-4 default-pick）
+        if prev_stage and prev_stage in _STAGE_TIMESTAMP_WHITELIST:
+            exited_key = f"{prev_stage}_exited_at"
+            if exited_key not in existing:
+                existing[exited_key] = now_ts
         target_state["stage_timestamps"] = existing
 
     save_simple_yaml(target_path, target_state)
@@ -5484,6 +5638,44 @@ _STAGE_TIMESTAMP_WHITELIST = frozenset({
     "done",
     "archive",
 })
+
+# req-43（交付总结完善）/ chg-02（补齐 stage 流转点时间戳）主流程 stage 顺序
+_STAGE_ORDER = [
+    "requirement_review", "planning", "ready_for_execution",
+    "executing", "testing", "acceptance", "regression", "done",
+]
+
+
+def _backfill_done_timestamps(state: dict[str, object]) -> None:
+    """归档前兜底补齐 done.entered_at + 上一 stage._exited_at。
+
+    req-43（交付总结完善）/ chg-02（补齐 stage 流转点 entered_at + exited_at 时间戳）：
+    若 stage_timestamps 缺少 done 对应的 entered_at，补当前时间；
+    同时补上一格（已出现在 stage_timestamps 的最后一个 stage）的 _exited_at。
+    向后兼容：对旧 schema（纯 ISO 字符串）和新 schema（含 _exited_at 同级键）均安全。
+    """
+    now_ts = datetime.now(timezone.utc).isoformat()
+    existing = state.get("stage_timestamps")
+    if not isinstance(existing, dict):
+        return  # 无 stage_timestamps，跳过（兼容无此字段的历史 yaml）
+
+    # 若 done.entered_at 缺失，补当前时间
+    if "done" not in existing:
+        existing["done"] = now_ts
+
+    # 找到已出现在 stage_timestamps 中、按 _STAGE_ORDER 排序的最后一个非 done stage
+    prev_stage: str | None = None
+    for s in _STAGE_ORDER:
+        if s != "done" and s in existing:
+            prev_stage = s
+
+    # 补 prev_stage._exited_at（若缺失）
+    if prev_stage:
+        exited_key = f"{prev_stage}_exited_at"
+        if exited_key not in existing:
+            existing[exited_key] = now_ts
+
+    state["stage_timestamps"] = existing
 
 
 def _check_plan_completion(plan_path: Path) -> tuple[bool, list[str]]:
@@ -6285,6 +6477,9 @@ def archive_requirement(
             if req_file.stem == req_dir.name or (req_id_val and req_id_val in req_dir.name):
                 archived_req_id = req_id_val
                 state["status"] = "archived"
+                # req-43（交付总结完善）/ chg-02（补齐 stage 流转点时间戳）：
+                # 归档前兜底补齐 done.entered_at + 上一 stage._exited_at（断电式归档遗漏防护）。
+                _backfill_done_timestamps(state)
                 save_simple_yaml(req_file, state)
                 # Migrate state.yaml to archive directory
                 shutil.move(str(req_file), str(target / "state.yaml"))

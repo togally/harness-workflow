@@ -201,7 +201,11 @@ class TestDoneDeliverySummaryEmptyUsageLog(unittest.TestCase):
 
 
 class TestDoneDeliverySummaryFieldOrderFixed(unittest.TestCase):
-    """done.md 模板中 §效率与成本四子字段顺序固定（总耗时→总 token→各阶段耗时→各阶段 token）。"""
+    """done.md 模板中 §效率与成本字段顺序固定（总耗时→总 token→各阶段切片单表）。
+
+    req-43（交付总结完善）/ chg-03（per-stage 合并到 stage × role × model 单表渲染）起，
+    原「各阶段耗时分布」+「各阶段 token 分布」两表统一合并为单表「各阶段切片」。
+    """
 
     DONE_MD = REPO_ROOT / ".workflow" / "context" / "roles" / "done.md"
 
@@ -211,15 +215,18 @@ class TestDoneDeliverySummaryFieldOrderFixed(unittest.TestCase):
         self.assertIn("## 效率与成本", content)
 
     def test_field_order_fixed(self) -> None:
-        """四子字段按规定顺序出现：总耗时 → 总 token → 各阶段耗时分布 → 各阶段 token 分布。"""
+        """三子字段按规定顺序出现：总耗时 → 总 token → 各阶段切片。
+
+        req-43 / chg-03：原两表合并为单表，字段顺序更新为三段式。
+        """
         content = self.DONE_MD.read_text(encoding="utf-8")
         lines = content.splitlines()
 
-        subfields = ["### 总耗时", "### 总 token", "### 各阶段耗时分布", "### 各阶段 token 分布"]
+        subfields = ["### 总耗时", "### 总 token", "### 各阶段切片"]
         positions = []
         for sf in subfields:
             for i, line in enumerate(lines):
-                if line.strip() == sf:
+                if line.strip().startswith(sf):
                     positions.append(i)
                     break
             else:
@@ -232,9 +239,12 @@ class TestDoneDeliverySummaryFieldOrderFixed(unittest.TestCase):
         )
 
     def test_all_four_subfields_present(self) -> None:
-        """四子字段全部存在于 done.md 中。"""
+        """三子字段（新单表格式）全部存在于 done.md 中。
+
+        req-43 / chg-03：「各阶段耗时分布」+「各阶段 token 分布」合并为「各阶段切片（stage × role × model × token × tool_uses）」。
+        """
         content = self.DONE_MD.read_text(encoding="utf-8")
-        for sf in ("### 总耗时", "### 总 token", "### 各阶段耗时分布", "### 各阶段 token 分布"):
+        for sf in ("### 总耗时", "### 总 token", "### 各阶段切片"):
             self.assertIn(sf, content, f"Missing: {sf}")
 
     def test_usage_log_and_stage_timestamps_mentioned(self) -> None:

@@ -4,6 +4,9 @@
 
 你是主 agent。在 done 阶段，你的任务是对整个需求周期进行六层回顾检查，确认所有产出、经验和约束都已妥善收尾。
 
+覆盖 stage：[done]
+> 覆盖 stage 列表以 `.workflow/context/role-model-map.yaml` 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ## 标准工作流程（SOP）
 
 ### Step 0: 初始化
@@ -48,7 +51,7 @@
   2. 读取 req yaml `stage_timestamps`；
   3. 按 stage 时序聚合耗时（duration_s = next_stage.entered_at − this_stage.entered_at）；
   4. 按 role × model 聚合 token（sum input/output/cache_read/cache_creation/total + count tool_uses）；
-  5. 写入交付总结 §效率与成本四子字段（总耗时 / 总 token / 各阶段耗时分布 / 各阶段 token 分布）；
+  5. 写入交付总结 §效率与成本段（总耗时 / 总 token / 各阶段切片单表 stage × role × model × token × tool_uses；req-43（交付总结完善）/ chg-03（per-stage 合并到 stage × role × model 单表渲染）起统一单表）；
   6. 若任一数据源缺失（usage-log.yaml 不存在或 entries 为空），对应子字段标 `⚠️ 无数据`，禁止编造。
 
 ### Step 7: 交接
@@ -135,18 +138,70 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 |-------|--------|------------|----------------|-------|
 | ...   | ...    | ...        | ...            | ...   |
 
-### 各阶段耗时分布
+### 各阶段切片（stage × role × model × token × tool_uses）
 
-| stage | entered_at | duration_s |
-|-------|-----------|-----------|
-| ...   | ...       | ...       |
+> req-43（交付总结完善）/ chg-03（per-stage 合并到 stage × role × model 单表渲染）起统一单表；
+> req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ req-42（archive 重定义：对人不挪 + 摘要废止）历史交付总结按旧两表保留不重渲。
+> 数据来源：`done_efficiency_aggregate` helper `stage_role_rows` 字段；禁止编造。
 
-### 各阶段 token 分布
-
-| role | model | total_tokens | tool_uses |
-|------|-------|-------------|-----------|
-| ...  | ...   | ...         | ...       |
+| stage | role | model | input_tokens | output_tokens | cache_read_input_tokens | cache_creation_input_tokens | total_tokens | tool_uses |
+|-------|------|-------|-------------|--------------|------------------------|---------------------------|-------------|-----------|
+| ...   | ...  | ...   | ...         | ...          | ...                    | ...                       | ...         | ...       |
 ```
+
+## bugfix 交付总结模板（精简版）
+
+> req-43（交付总结完善）/ chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版））：
+> bugfix 复用 done 六层回顾框架但精简字段（OQ-2 default-pick）——删「chg 段」，合并 testing+acceptance 为「修复验证」段；
+> 落位：`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/bugfix-交付总结.md`；
+> 数据：`done_efficiency_aggregate(root, bugfix_id, task_type="bugfix")`。
+
+```markdown
+# bugfix 交付总结：{bugfix-id} {title}
+
+## 需求是什么
+- 一句话回顾 bugfix 修复的问题。
+
+## 修复了什么
+- 2-4 条列出实际修复内容（根因 + 修复动作 + 影响文件）。
+
+## 修复验证
+- 测试 + 验收合并段：测试场景 / 用例数 / PASS 情况 / acceptance 结论。
+
+## 结果是什么
+- 修复是否通过验收 / 有无遗留 / 影响面。
+
+## 后续建议
+- ≤ 2 条，指向潜在风险或类似 bug 防范。
+
+## 效率与成本
+
+> 禁止编造；若 usage-log 为空则各子字段标 `⚠️ 无数据`，不得回填虚构值。
+
+### 总耗时
+
+- `{duration_s} s`（约 `{human_readable}`）
+
+### 总 token
+
+| input | output | cache_read | cache_creation | total |
+|-------|--------|------------|----------------|-------|
+| ...   | ...    | ...        | ...            | ...   |
+
+### 各阶段切片（stage × role × model × token × tool_uses）
+
+> 数据来源：`done_efficiency_aggregate(root, bugfix_id, task_type="bugfix")` `stage_role_rows` 字段；禁止编造。
+> bugfix 流程经历 stage：regression / executing / testing / acceptance（按 stage_order 排序）。
+
+| stage | role | model | input_tokens | output_tokens | cache_read_input_tokens | cache_creation_input_tokens | total_tokens | tool_uses |
+|-------|------|-------|-------------|--------------|------------------------|---------------------------|-------------|-----------|
+| ...   | ...  | ...   | ...         | ...          | ...                    | ...                       | ...         | ...       |
+```
+
+## 三类任务 usage-log 说明
+
+> req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）：
+> 三类任务级 usage-log entries 数 ≥ 派发次数 - 容差（req / bugfix / sug 分别校验）。
 
 ## 退出条件
 

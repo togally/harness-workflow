@@ -211,11 +211,18 @@ req-XX — 需求名称
 
 > 溯源：req-41 / chg-06；与既有硬门禁六 / 七、契约 7 并列生效，不替代。
 
-done 阶段六层回顾 State 层 grep 校验：
-- 读取 `.workflow/state/sessions/{req-id}/usage-log.yaml` 计 subagent_usage entries 数；
+done 阶段六层回顾 State 层 grep 校验（req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）起扩三类任务）：
+- 按 task_type 读取对应 usage-log.yaml：
+  - req → `.workflow/state/sessions/{req-id}/usage-log.yaml`
+  - bugfix → `.workflow/state/sessions/{bugfix-id}/usage-log.yaml`
+  - sug（直接处理路径）→ `.workflow/state/sessions/{sug-id}/usage-log.yaml`
+- 计 subagent_usage entries 数；
 - 读取 session-memory 树计主 agent 派发 Agent 工具次数；
 - 断言 `entries 数 ≥ 派发次数 - 容差`（容差 = 失败派发次数 + 降级 stub 次数）；
-- 不满足时 done 报告本 req "usage 采集不完整"，列缺失派发清单。
+- 不满足时 done 报告本 req "usage 采集不完整"，列缺失派发清单；
+- 三类任务级 usage-log entries 数 ≥ 派发次数 - 容差（chg-05 扩展）。
+
+> 注：chg-01（接通 record_subagent_usage 派发链路（吸收 sug-25））已为 helper 新增 task_type 参数；本节 chg-05 后续将把"req 维度"正式扩到三类任务校验。
 
 **subagent 任务结束前自查**：subagent 完成自身任务、进入退出检查前，须确认主 agent 已（或将）对本次 Agent 工具返回调 `record_subagent_usage`；若 usage-log.yaml 缺少本次返回记录，在 session-memory 标注"usage 未采集"供主 agent 补录或做 stub 降级。
 

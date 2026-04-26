@@ -86,6 +86,8 @@ artifacts/
 | runbook | `runbook-*.md` | 按需 | SRE / 运维 | 生产事故处置 SOP、定期维护操作手册 |
 | 手册 / 用户文档 | `manual-*.md` / `guide-*.md` | 按需 | 产品 / 开发者 | 需人阅读的功能使用说明、操作指南 |
 | 合同附件 | `contract-*.md` / `*.pdf` | 按需 | 项目负责人 | 需人签字或存档的合同条款、SLA 文件 |
+| bugfix 交付总结 | `bugfix-交付总结.md` | bugfix 级 | 主 agent（acceptance 后） | req-43（交付总结完善）/ chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版））：acceptance 通过后产出，精简版六层回顾（删 chg 段、合并 testing+acceptance 为「修复验证」段） |
+| sug 交付总结 | `交付总结.md`（sug 轻量版） | sug 级 | 主 agent（sug 直接处理后） | req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）：sug 直接处理（--apply 不转 req / --archive / --reject）后产出，3 段轻量：建议是什么 / 处理结果 / 后续 |
 | 其他对人产物 | 任意 `.md` / `.pdf` / `.docx` 等 | 按需 | 任意 | 兜底：其他需人执行或阅读的产物，由 planning 阶段声明并加入白名单 |
 
 **注意**：
@@ -151,6 +153,8 @@ bugfix-6+ 所有机器型工件统一落 `.workflow/flow/bugfixes/{bugfix-id}-{s
 
 **artifacts/ 对人占位**：`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/README.md` 为对人产物预留目录（bugfix 无对人交付产物时仅留 README）；有对人产物（SQL / 部署文档 / 对外报告等）可放于此目录。
 
+`artifacts/{branch}/bugfixes/{bugfix-id}-{slug}/bugfix-交付总结.md`：req-43（交付总结完善）/ chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版））起，acceptance 通过后由主 agent 产出；精简版六层回顾框架（删 chg 段、合并 testing+acceptance 为「修复验证」段）。
+
 **存量迁移**：bugfix-1 ~ bugfix-5 历史机器型文档已通过 `harness migrate bugfix-layout` 迁移（A5）；bugfix-6 自身在 executing 结束后处理。
 
 ---
@@ -158,6 +162,23 @@ bugfix-6+ 所有机器型工件统一落 `.workflow/flow/bugfixes/{bugfix-id}-{s
 ## 3.1 archive 行为定义（req-42（archive 重定义：对人不挪 + 摘要废止）/ chg-01（repository-layout 扩 archive 段））
 
 本节定义 `harness archive` 对 req-id ≥ 42 的归档行为。三条规则自 req-42（archive 重定义：对人不挪 + 摘要废止）起生效；req-id ≤ 41 走 §4 legacy / state-flat / flow 列对应的历史行为。
+
+### sug 子树落位（req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务））
+
+```
+artifacts/
+└── {branch}/
+    └── suggestions/
+        └── {sug-NN}-{slug}/                 # 例：sug-25-record-subagent-usage/
+            └── 交付总结.md                   # sug 直接处理路径（--apply 不转 req / --archive / --reject）产出
+```
+
+**落位约定**：
+- `artifacts/{branch}/suggestions/{sug-NN}-{slug}/交付总结.md`
+- 仅在 sug 直接处理后产出（非 sug → req 转化路径）；
+- sug → req 转化路径由对应 req 的 done 阶段 `交付总结.md` 兜底，sug 子树无需重复产出（OQ-1 豁免）。
+
+---
 
 ### (i) 对人 folder 原位
 

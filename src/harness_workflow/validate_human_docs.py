@@ -116,10 +116,13 @@ CHANGE_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
 )
 
 # bugfix 级应产出的对人文档（落在 bugfix 根目录）
+# req-43（交付总结完善）/ chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版））：
+# 新增 bugfix-交付总结.md（acceptance 后由主 agent 产出，精简版六层回顾）
 BUGFIX_LEVEL_DOCS: tuple[tuple[str, str], ...] = (
     ("regression", "回归简报.md"),
     ("executing", "实施说明.md"),
     ("done", "交付总结.md"),
+    ("acceptance_done", "bugfix-交付总结.md"),
 )
 
 
@@ -382,6 +385,26 @@ def _collect_bugfix_items(bugfix_dir: Path) -> list[ValidationItem]:
                 status=_check_doc(expected),
             )
         )
+    return items
+
+
+def _collect_suggestion_items(sug_dir: Path) -> list[ValidationItem]:
+    """校验 sug 直接处理路径对人文档（轻量交付总结）。
+
+    req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）：
+    sug 已 applied / archived / rejected 但缺 `交付总结.md` → exit 非 0；
+    sug → req 转化路径（status: converted-to-req）豁免（由对应 req done 阶段兜底）。
+    """
+    items: list[ValidationItem] = []
+    expected = sug_dir / "交付总结.md"
+    items.append(
+        ValidationItem(
+            stage="sug_direct_done",
+            filename="交付总结.md",
+            expected_path=expected,
+            status=_check_doc(expected),
+        )
+    )
     return items
 
 

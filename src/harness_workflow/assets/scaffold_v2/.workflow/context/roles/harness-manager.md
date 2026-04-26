@@ -368,9 +368,17 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 
 4. **处理返回**：
 
-   > **硬门禁（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） / chg-06（harness-manager Step 4 派发硬门禁））**：
-   > 每次 Agent 工具返回后，主 agent **必调** `record_subagent_usage(root, role, model, usage, req_id=..., stage=..., chg_id=..., reg_id=...)`；
+   > **硬门禁（req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） / chg-06（harness-manager Step 4 派发硬门禁） / req-43（交付总结完善）/ chg-01（接通 record_subagent_usage 派发链路（吸收 sug-25））**：
+   > 每次 Agent 工具返回后，主 agent **必调** `record_subagent_usage(root, role, model, usage, req_id=..., stage=..., chg_id=..., reg_id=..., task_type=...)`；
    > 漏调视为契约违反（done 六层回顾 State 层强校验）。
+   >
+   > **可观测留痕要求**（chg-01 升级）：每次调用后，主 agent 须在自身 session-memory.md 追加 1 行：
+   > `record_subagent_usage called: {role} / {model} / task_type={task_type} / ts={iso}`
+
+   **task_type 推断规则**（chg-01 新增）：
+   - 当前活跃任务为 req → `task_type="req"`（默认）
+   - 当前活跃任务为 bugfix → `task_type="bugfix"`
+   - sug `--apply` 不转 req 直接处理路径 → `task_type="sug"`
 
    **字段 mapping 示例（从 Agent 返回值提取 usage）**：
 
@@ -394,7 +402,10 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
        stage=current_stage,
        chg_id=current_chg_id,     # 可为 None
        reg_id=current_reg_id,     # 可为 None
+       task_type=current_task_type,  # "req" | "bugfix" | "sug"，默认 "req"
    )
+   # 调用后在 session-memory.md 追加留痕行：
+   # record_subagent_usage called: {role} / {model} / task_type={task_type} / ts={iso}
    ```
 
    **异常降级**：若 Agent 返回无 `usage` 字段（mock / test），`record_subagent_usage` 按 `usage=None` 写 stub entry（记录 role / model / timestamp，token 字段空）；不硬失败，不阻塞后续流程。
