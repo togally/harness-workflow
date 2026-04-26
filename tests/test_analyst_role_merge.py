@@ -22,22 +22,41 @@ LIVE = ROOT / ".workflow"
 MIRROR = ROOT / "src/harness_workflow/assets/scaffold_v2/.workflow"
 
 
+def _get_model(role_def: object) -> str:
+    """v1/v2 兼容：取 role_def 的 model 字段。
+
+    v1：role_def = "model_name" 字符串
+    v2：role_def = {model: "model_name", stages: [...]} dict
+    """
+    if isinstance(role_def, str):
+        return role_def
+    if isinstance(role_def, dict):
+        return str(role_def.get("model", ""))
+    return ""
+
+
 def test_role_model_map_has_analyst():
-    """role-model-map roles['analyst'] == 'opus'（AC-7：analyst 注册正确）"""
+    """role-model-map roles['analyst'].model == 'opus'（AC-7：analyst 注册正确；兼容 v1/v2 schema）"""
     m = yaml.safe_load((LIVE / "context/role-model-map.yaml").read_text(encoding="utf-8"))
-    assert m["roles"]["analyst"] == "opus", (
-        "role-model-map.yaml missing analyst -> opus (req-40（阶段合并与用户介入窄化）/ chg-02（角色索引 + role-model-map 更新）)"
+    analyst_model = _get_model(m["roles"]["analyst"])
+    assert analyst_model == "opus", (
+        f"role-model-map.yaml analyst model = {analyst_model!r}, expected 'opus' "
+        "(req-40（阶段合并与用户介入窄化）/ chg-02（角色索引 + role-model-map 更新）)"
     )
 
 
 def test_role_model_map_legacy_aliases():
-    """legacy key requirement-review / planning 仍指 opus（AC-7：兼容旧派发语境）"""
+    """legacy key requirement-review / planning 仍指 opus（AC-7：兼容旧派发语境；兼容 v1/v2 schema）"""
     m = yaml.safe_load((LIVE / "context/role-model-map.yaml").read_text(encoding="utf-8"))
-    assert m["roles"]["requirement-review"] == "opus", (
-        "role-model-map.yaml missing requirement-review -> opus (chg-02（角色索引 + role-model-map 更新）)"
+    rr_model = _get_model(m["roles"]["requirement-review"])
+    assert rr_model == "opus", (
+        f"role-model-map.yaml requirement-review model = {rr_model!r}, expected 'opus' "
+        "(chg-02（角色索引 + role-model-map 更新）)"
     )
-    assert m["roles"]["planning"] == "opus", (
-        "role-model-map.yaml missing planning -> opus (chg-02（角色索引 + role-model-map 更新）)"
+    pl_model = _get_model(m["roles"]["planning"])
+    assert pl_model == "opus", (
+        f"role-model-map.yaml planning model = {pl_model!r}, expected 'opus' "
+        "(chg-02（角色索引 + role-model-map 更新）)"
     )
 
 

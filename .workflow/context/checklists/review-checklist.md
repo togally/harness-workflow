@@ -155,6 +155,13 @@
 - [ ] 本次新增 / 修改的对人文档（requirement.md / change.md / plan.md / session-memory.md / 各 `*.md` 对人文档）首次引用 `req-*` / `chg-*` / `sug-*` / `bugfix-*` / `reg-*` 均带 title（形如 `req-31（批量建议合集（20条））`）（高）
 - [ ] 若命中历史 legacy 裸 id，已判定为"只对本次提交之后引用生效"的 fallback，不强制回补（中）
 
+### role-stage-continuity lint（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
+- [ ] 三处镜像（index.md 角色表 stages 列 / stages.md 覆盖角色行 / role md 覆盖 stage 行）与 `.workflow/context/role-model-map.yaml` 一致（高）
+- [ ] 已执行 `harness validate --contract role-stage-continuity` 得绿（exit code = 0）（高）
+- [ ] `stage_policies` 镜像与 yaml 一致：index.md "Stage 出口决策"表 / stages.md 各"出口决策"行 / role md 出口决策说明，均与 `.workflow/context/role-model-map.yaml` 顶层 `stage_policies` 字段一致（高）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
+- [ ] `stage_policies` 字段与 `workflow_next` while 行为一致性抽样：acceptance 出口设 verdict 时 `workflow_next` 确实自动跳 done，executing 出口设 explicit 时确实需 `--execute`（中）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
+
 ## req-37 汇报合规三问（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-03）
 
 > 承接 base-role 硬门禁七（req-37 / chg-01）Ra/Rb/Rc 三条；lint 自动化成本过高时由本清单人工降级兜底（AC-6）。

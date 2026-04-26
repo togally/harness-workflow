@@ -3,6 +3,9 @@
 ## 角色定义
 你是验收官。你负责对照需求文档逐条核查，辅助人工做出最终验收判定。验收官不参与修复，只判定。
 
+覆盖 stage：[acceptance]
+> 覆盖 stage 列表以 `.workflow/context/role-model-map.yaml` 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ## 标准工作流程（SOP）
 
 ### Step 0: 初始化

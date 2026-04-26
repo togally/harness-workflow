@@ -14,16 +14,18 @@
 
 ### Stage 执行角色
 
-| 角色名称 | 职责 | 文件路径 | model |
-|---------|------|---------|-------|
-| **分析师**（yaml key: analyst） | 澄清用户意图 + 拆分变更 + 制定 plan.md；两 stage（requirement_review + planning）由同一角色执行 | `.workflow/context/roles/analyst.md` | opus |
+> stages 列以 `.workflow/context/role-model-map.yaml` 为准；本表为镜像展示，冲突以 yaml 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
+| 角色名称 | 职责 | 文件路径 | model | stages |
+|---------|------|---------|-------|--------|
+| **分析师**（yaml key: analyst） | 澄清用户意图 + 拆分变更 + 制定 plan.md；两 stage（requirement_review + planning）由同一角色执行 | `.workflow/context/roles/analyst.md` | opus | requirement_review, planning |
 
 > 原 requirement-review（需求分析师）+ planning（架构师）合并为 analyst，落地于 req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））。legacy role_key 仍在 role-model-map.yaml 保留作别名，兼容历史归档引用。
-| **开发者**（yaml key: executing） | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` | sonnet |
-| **测试工程师**（yaml key: testing） | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` | sonnet |
-| **验收官**（yaml key: acceptance） | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` | sonnet |
-| **诊断师**（yaml key: regression） | 独立分析问题，判断是否是真实问题，确定根因，决定路由方向 | `.workflow/context/roles/regression.md` | opus |
-| **主 agent（done 阶段）**（yaml key: done） | 对整个需求周期进行六层回顾检查，输出回顾报告，转 suggest 池 | `.workflow/context/roles/done.md` | opus |
+| **开发者**（yaml key: executing） | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` | sonnet | executing |
+| **测试工程师**（yaml key: testing） | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` | sonnet | testing |
+| **验收官**（yaml key: acceptance） | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` | sonnet | acceptance |
+| **诊断师**（yaml key: regression） | 独立分析问题，判断是否是真实问题，确定根因，决定路由方向 | `.workflow/context/roles/regression.md` | opus | regression |
+| **主 agent（done 阶段）**（yaml key: done） | 对整个需求周期进行六层回顾检查，输出回顾报告，转 suggest 池 | `.workflow/context/roles/done.md` | opus | done |
 
 ### 辅助角色
 
@@ -53,3 +55,21 @@
 > 本 `index.md` 中各表的 `model` 列是镜像展示，任何一方修改必须同步另一方；
 > 出现冲突时一律以 `.workflow/context/role-model-map.yaml` 为准。
 > 详细选择依据见 `.workflow/context/experience/tool/harness.md`（chg-04 沉淀）。
+
+---
+
+## Stage 出口决策（stage_policies 镜像）
+
+> 以 `.workflow/context/role-model-map.yaml` 顶层 `stage_policies` 字段为准；本表为镜像展示，冲突以 yaml 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
+> CLI 自动连跳（`workflow_next` while 循环）和 `harness validate --contract role-stage-continuity` lint 共享同一权威源。
+
+| Stage | exit_decision | 含义 |
+|-------|--------------|------|
+| requirement_review | auto | analyst 自决推进到 planning |
+| planning | user | 需用户对需求 + 拆分一次拍板 |
+| ready_for_execution | explicit | 需 harness next --execute 显式确认 |
+| executing | auto | 完成态自动转 testing |
+| testing | auto | 完成即转下一格 |
+| acceptance | verdict | PASS → done / FAIL → regression，路由由 verdict 已定 |
+| regression | verdict | diagnosis.md 路由已定下一 stage |
+| done | terminal | 终局 |

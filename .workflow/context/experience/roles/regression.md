@@ -197,3 +197,70 @@ req-25 验收阶段多次尝试回滚 testing 失败；req-26 / chg-01 修复
 
 req-25 P1-new-03 遗留；req-26 / chg-01 修复（AC-04）
 
+---
+
+## 经验八：契约层 vs 实现层失配诊断模板
+
+### 场景
+
+主 agent 在某 stage 流转点输出契约明文禁止的话术（如"是否进入 planning"），或 acceptance verdict 已定路由后仍向用户暴露"是否进 done"决策点；用户反馈后触发 regression。
+
+### 经验内容
+
+**症状识别**：契约文档（role md / Director md / harness-manager md / stage-role.md）有明文规约（如"默认静默自动推进 / verdict 已定路由 / 同角色 stage 不暴露决策点"），但实际行为仍向用户暴露决策点。
+
+**诊断三步**：
+
+1. **L1 表象**：定位话术违反契约的具体位置（哪个 stage 流转点、哪段输出、grep 行号）。
+2. **L2 中层**：grep 实现层是否有对应代码 / lint 强制——若无，说明契约只在自然语言层面存在；查 `workflow_helpers.py::workflow_next` 是否 `idx + 1` 直推无策略；查 `harness validate` 是否有对应 lint 规则。
+3. **L3 一句根本**：契约的"权威源"挂在哪？若三处文档分散记录、CLI 无法读、reviewer 无法 lint，则**单一权威源缺失**就是根本根因。
+
+**修复模式**：
+
+- 在 `role-model-map.yaml` 等 SSOT yaml 加结构化字段（如 `stages: [...]` / `stage_policies: {...}`），文档侧三处镜像但标注"以 yaml 为准"；
+- CLI（workflow_next）从 SSOT 读 → 自动行为；harness validate 加话术 lint 规则双门禁；
+- reviewer.md checklist 加"三处镜像 + lint 抽样"两条检查项；
+- scaffold_v2 mirror 同步硬门禁五一并扫描。
+
+**充分非必要警示**：诊断初次产出方案时，警惕"覆盖典型样本但漏边界"——本次 bugfix-5 一次诊断的"同角色跨 stage"只是"无用户决策点"的**充分条件**之一，acceptance → done（不同角色但 verdict 已定路由）属漏覆盖；应主动穷举"同/不同角色 × 有/无用户决策"四象限矩阵，避免 scope 二次扩展。
+
+### 反例
+
+bugfix-5（同角色跨 stage 自动续跑硬门禁）一次诊断只覆盖"同角色"特例，acceptance PASS-with-followup 后用户反馈 acceptance → done 也应自动跳，触发 regression 二次进入 + 修复点 6 追加。若初次诊断穷举四象限矩阵，可一次闭环。
+
+### 来源
+
+bugfix-5（同角色跨 stage 自动续跑硬门禁） regression 一次 + 二次（scope 扩展）
+
+---
+
+## 经验九：bugfix 模式中 diagnosis.md 担纲 planning 等价职责的边界（bugfix-6 引入，事项 C）
+
+### 场景
+
+bugfix 流程跳过 requirement_review + planning 直接走 regression → executing → testing → acceptance → done（见经验五）。bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） 事项 B 把"测试用例设计"权责前移到 planning 后，bugfix 流程出现"无 planning 即无测试设计载体"的契约空洞。
+
+### 经验内容
+
+**default-pick 模式（bugfix-6 D-B1 落地）**：bugfix 流程的 **regression 阶段** 担纲 planning 等价职责——`regression/diagnosis.md` 在 §修复方案末尾**新增 §测试用例设计** 章节（结构同 plan.md §测试用例设计），testing 直接消费。
+
+**职责边界（regression.md Step 4.5）**：
+
+1. **bugfix 模式必填**：bugfix 流程 regression subagent 在 Step 4「产出诊断文档」与 Step 5「交接」之间，必须完成 §测试用例设计 段（`regression_scope` + 波及接口清单 + 用例表）；
+2. **req 模式跳过**：req 流程 regression（如 acceptance FAIL → regression 重新触发）跳过 Step 4.5——plan.md 已由 analyst 产出，不重复；
+3. **不跨职**：regression 不应改业务代码（即使是 lint 命中的违规也只在 diagnosis 中标注"活体证据"，留给 executing 修复）；测试用例设计是诊断 + 修复方案的自然延伸，不算跨职。
+
+**与"诊断不修复"硬门禁的关系**：
+
+- §测试用例设计 是**对修复方案的可验证性表达**，不是"在诊断阶段写代码"；属诊断 + 修复方案产出的形式化延伸，与"诊断不修复"硬门禁兼容。
+- bugfix 自身是"测试契约重塑"主体（dogfood 边界）时，regression 完成时刻 §测试用例设计 段可能不存在（旧契约空缺），由 executing 后补加 + testing 走 dogfood fallback 路径（详见 testing.md 经验"dogfood fallback 处理"）。
+
+### 反例
+
+- bugfix 流程 regression 跳过 Step 4.5 → testing subagent 无设计单可读，回退到独立设计 → 与事项 B 契约打架（B2 testing.md Step 2"读取 plan.md / diagnosis.md §测试用例设计"语义被破坏）。
+- regression 在 Step 4.5 改业务代码（如直接修 lint 命中的违规）→ 跨职，违反"诊断不修复"硬门禁；正确做法是在 diagnosis 中标注"活体证据 + 修复点路由到 executing"。
+
+### 来源
+
+bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））— C1 修复点（regression.md Step 4.5）+ default-pick D-B1（事项 C 路由）+ bugfix-6 自身 diagnosis.md §测试用例设计 18 条用例样本
+

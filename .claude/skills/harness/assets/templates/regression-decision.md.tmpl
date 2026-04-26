@@ -1,3 +1,10 @@
+---
+# bugfix-3：诊断师在此填写下一站 stage（planning / executing / testing / acceptance / done /
+# requirement_review / ready_for_execution）。harness next 会优先读取本字段；
+# 留空则按文本 marker（"路由：xxx" / "harness next → xxx"）解析；都没命中则走默认 sequence。
+route_to: ""
+---
+
 # 回归结论
 
 ## 1. 结论状态

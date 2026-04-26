@@ -4,26 +4,98 @@
 # 在运行时解析，本文件不硬编码具体子版本 —— 见 chg-04 中
 # experience/tool/harness.md "开放型 vs 执行型模型选择依据"一节说明。
 # 任何一方（本文件 / index.md model 列）变更都必须同步另一方，以 yaml 为准。
+#
+# bugfix-5（同角色跨 stage 自动续跑硬门禁）：v2 schema 扩展 stages 字段，
+# 每个 role 增加 stages: [...] 列表，记录该角色覆盖的 business stage 列表。
+# v1 兼容层：helper 读取时若发现旧格式 ({role}: "model_name" 字符串) → 自动转
+# {model: ..., stages: [legacy_default_stage]}，不报错。
 
-version: 1
+version: 2
 
 # 未列出的角色兜底到 sonnet（执行型默认）。
 default: "sonnet"
 
 roles:
   # ---- 开放型 / 创意型 / 综合判断型 → opus ----
-  harness-manager: "opus"       # 命令意图解析 + 角色调度（综合判断）
-  analyst: "opus"               # 需求澄清 + 变更拆分（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））角色物理合并）
-  requirement-review: "opus"    # 需求澄清 / 边界识别（开放型）legacy alias — route to analyst（req-40）
-  planning: "opus"              # 变更拆分 + 计划制定（创意型）legacy alias — route to analyst（req-40）
-  regression: "opus"            # 独立诊断 + 根因判断（开放型）
-  done: "opus"                  # 六层回顾（跨上下文关联）
-  technical-director: "opus"    # 流程编排 + 异常监控（综合判断）
-  project-reporter: "opus"      # 10 节精简模板扫仓库实况（综合判断 + 推断，req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/project-overview.md））
+  harness-manager:
+    model: "opus"       # 命令意图解析 + 角色调度（综合判断）
+    stages: []          # 辅助角色，不覆盖 business stage
+
+  analyst:
+    model: "opus"       # 需求澄清 + 变更拆分（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））角色物理合并）
+    stages: ["requirement_review", "planning"]  # req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））落地
+
+  regression:
+    model: "opus"       # 独立诊断 + 根因判断（开放型）
+    stages: ["regression"]
+
+  done:
+    model: "opus"       # 六层回顾（跨上下文关联）
+    stages: ["done"]
+
+  technical-director:
+    model: "opus"       # 流程编排 + 异常监控（综合判断）
+    stages: []          # Director，跨 stage 编排不绑定具体 stage
+
+  project-reporter:
+    model: "opus"       # 10 节精简模板扫仓库实况（综合判断 + 推断，req-32（新设 project-reporter 角色按节生成项目现状报告到 artifacts/main/project-overview.md））
+    stages: []          # 辅助角色
 
   # ---- 执行型 / 模板化 / 断言型 → sonnet ----
-  executing: "sonnet"           # 按 plan.md 实现（确定性高）
-  testing: "sonnet"             # 按 AC 跑验证（模板化）
-  acceptance: "sonnet"          # 对照 checklist（断言型）
-  tools-manager: "sonnet"       # 工具匹配（模板化）
-  reviewer: "sonnet"            # 按 checklist 审查（断言型）
+  executing:
+    model: "sonnet"     # 按 plan.md 实现（确定性高）
+    stages: ["executing"]
+
+  testing:
+    model: "sonnet"     # 按 AC 跑验证（模板化）
+    stages: ["testing"]
+
+  acceptance:
+    model: "sonnet"     # 对照 checklist（断言型）
+    stages: ["acceptance"]
+
+  tools-manager:
+    model: "sonnet"     # 工具匹配（模板化）
+    stages: []          # 辅助角色
+
+  reviewer:
+    model: "sonnet"     # 按 checklist 审查（断言型）
+    stages: []          # 辅助角色
+
+  # ---- legacy alias（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））兼容历史归档）----
+  requirement-review:
+    model: "opus"       # 需求澄清 / 边界识别（开放型）legacy alias — route to analyst（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+    stages: ["requirement_review"]
+    alias_of: "analyst"
+
+  planning:
+    model: "opus"       # 变更拆分 + 计划制定（创意型）legacy alias — route to analyst（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+    stages: ["planning"]
+    alias_of: "analyst"
+
+# bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6 扩展：
+# 声明每个 stage 的"出口决策类型"，驱动 workflow_next "无用户决策点" 自动连跳。
+# exit_decision 取值（default-pick D-7 = A, D-8 = A）：
+#   user      —— 需要用户对内容拍板（如 planning → ready_for_execution 待用户拍板需求 + 拆分）
+#   auto      —— 角色自决，无需用户介入（如 requirement_review → planning，analyst 自主推进）
+#   explicit  —— 需 CLI 显式 flag（如 ready_for_execution → executing 需 --execute）
+#   verdict   —— 路由由 verdict 字段（PASS / FAIL）已定，用户无新决策（如 acceptance → done / regression）
+#   terminal  —— 终局，无下游（done）
+# 缺字段时 _get_exit_decision 默认返回 "user"（保守降级，避免误自动跳）。
+stage_policies:
+  requirement_review:
+    exit_decision: auto      # analyst 自决推进到 planning
+  planning:
+    exit_decision: user      # 需用户对需求 + 拆分一次拍板
+  ready_for_execution:
+    exit_decision: explicit  # 需 harness next --execute 显式确认
+  executing:
+    exit_decision: auto      # executing 完成态自动转 testing（无显式 gate）
+  testing:
+    exit_decision: auto      # 完成即转下一格（default-pick D-6 = A）
+  acceptance:
+    exit_decision: verdict   # PASS → done / FAIL → regression，路由由 verdict 已定
+  regression:
+    exit_decision: verdict   # diagnosis.md 路由（confirm/reject）已定下一 stage
+  done:
+    exit_decision: terminal  # 终局

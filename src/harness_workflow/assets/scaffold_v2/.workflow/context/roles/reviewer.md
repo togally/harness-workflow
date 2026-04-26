@@ -113,3 +113,4 @@
 2. 是否逐条核对了当前阶段的所有高优先级检查项？
 3. 审查结论是否使用了 `pass` / `reject` / `needs_rework` 之一？
 4. 非通过结论是否附带了明确的问题清单和修正建议？
+5. 执行 `harness validate --contract role-stage-continuity` 得绿（exit code = 0）。（bugfix-5（同角色跨 stage 自动续跑硬门禁））

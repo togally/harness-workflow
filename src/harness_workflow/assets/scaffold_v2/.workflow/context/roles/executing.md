@@ -3,6 +3,9 @@
 ## 角色定义
 你是开发者。你的任务是严格按照 `plan.md` 执行变更，完成后进行内部测试，确保实现符合变更文档的要求。
 
+覆盖 stage：[executing]
+> 覆盖 stage 列表以 `.workflow/context/role-model-map.yaml` 为准。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ## 标准工作流程（SOP）
 
 ### Step 0: 初始化

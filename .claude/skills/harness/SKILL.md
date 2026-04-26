@@ -33,11 +33,11 @@ The harness-manager role is the unified entry point for all harness commands:
 ## Command Categories
 
 ### Installation & Update (harness-manager executes directly)
-- `harness install` — Initialize repository + refresh all managed files (已吸收原 update 刷新职责；req-33 / chg-01)
+- `harness install` — Initialize repository and install harness skill
 - `harness install --agent <agent>` — Install to specific agent
-- `harness update` — 触发 project-reporter 生成 `artifacts/main/project-overview.md`（CLI 打印引导 + exit 0；语义详见 harness-manager.md §A.3；req-33 / chg-02）
-- `harness update --check` — 同 `harness update`（flag 不报错，handler 忽略）
-- `harness update --scan` — 同 `harness update`（如需扫描报告请用 `harness install` 或在会话中触发 project-reporter）
+- `harness update` — Refresh harness-managed files
+- `harness update --check` — Check without writing
+- `harness update --scan` — Generate adaptation report
 - `harness language <english|cn>` — Set language
 
 ### Session Control (technical-director executes)
@@ -80,20 +80,15 @@ requirement_review → planning → executing → testing → acceptance → don
                      regression (when needed)
 ```
 
-## Install / Update Expectations（req-33 / chg-01 + chg-02 重定义后）
+## Install / Update Expectations
 
-`harness install` should (has absorbed former `update` responsibilities; req-33 / chg-01):
+`harness install` and `harness update` should:
 
 - create `WORKFLOW.md`
 - create `.workflow/state/runtime.yaml`
 - create the role / constraint / evaluation docs referenced by `.workflow/context/index.md`
-- refresh managed skill files (`.codex|.claude|.qoder/skills/harness`)
-- refresh `.workflow/context/project-profile.md` via `_write_project_profile_if_changed`
-- migrate legacy `.harness/feedback.jsonl` and state schema (idempotent on re-run)
 - keep root guides thin and route them back to `WORKFLOW.md`
 - avoid restoring legacy entrypoints such as `.workflow/context/rules/workflow-runtime.yaml`
-
-`harness update` is a **role-contract trigger** (req-33 / chg-02): its CLI prints guidance + exits 0; the real semantics is "project-reporter generates `artifacts/main/project-overview.md`" invoked by harness-manager when the user utters a §3.5.1 trigger phrase in conversation.
 
 ## Validation
 

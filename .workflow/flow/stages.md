@@ -50,8 +50,12 @@ regression                  ← 第五层管辖
 
 ## 第三层 Stage 定义
 
+> 本文件 stage 与角色对应关系以 `.workflow/context/role-model-map.yaml` 为准；本文件为反向引用展示。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
 ### requirement_review
 - **角色**：需求分析师（`context/roles/requirement-review.md`）
+- **覆盖角色**：analyst（以 `.workflow/context/role-model-map.yaml` 为准）
+- **出口决策**：auto（以 `.workflow/context/role-model-map.yaml` stage_policies 为准）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 - **进入条件**：`harness requirement "<title>"` 创建需求
 - **退出条件**：requirement.md 包含背景、目标、范围、验收标准，用户确认
 - **必须产出**：`.workflow/flow/requirements/{req-id}/requirement.md`
@@ -59,6 +63,8 @@ regression                  ← 第五层管辖
 
 ### planning
 - **角色**：架构师（`context/roles/planning.md`）
+- **覆盖角色**：analyst（以 `.workflow/context/role-model-map.yaml` 为准）
+- **出口决策**：user（以 `.workflow/context/role-model-map.yaml` stage_policies 为准）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 - **进入条件**：requirement_review 退出条件满足
 - **退出条件**：所有变更有 change.md + plan.md，执行顺序明确，用户确认
 - **必须产出**：每个变更的 `change.md` + `plan.md`
@@ -66,6 +72,8 @@ regression                  ← 第五层管辖
 
 ### executing
 - **角色**：开发者（`context/roles/executing.md`）
+- **覆盖角色**：executing（以 `.workflow/context/role-model-map.yaml` 为准）
+- **出口决策**：auto（以 `.workflow/context/role-model-map.yaml` stage_policies 为准）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 - **进入条件**：
   - 标准流程：planning 退出条件满足
   - bugfix 流程：regression 诊断完成，修复方案已写入 `bugfix.md`
@@ -75,6 +83,8 @@ regression                  ← 第五层管辖
 
 ### regression
 - **角色**：诊断师（`context/roles/regression.md`）
+- **覆盖角色**：regression（以 `.workflow/context/role-model-map.yaml` 为准）
+- **出口决策**：verdict（以 `.workflow/context/role-model-map.yaml` stage_policies 为准）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 - **进入条件**：
   - 标准流程：任意阶段执行 `harness regression <issue>`
   - bugfix 流程：`harness bugfix "<title>"` 创建 bugfix 目录后直接进入
@@ -91,6 +101,8 @@ regression                  ← 第五层管辖
 
 ### done
 - **角色**：主 agent（非 subagent）
+- **覆盖角色**：done（以 `.workflow/context/role-model-map.yaml` 为准）
+- **出口决策**：terminal（以 `.workflow/context/role-model-map.yaml` stage_policies 为准）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 - **进入条件**：acceptance 通过（第五层判定）
 - **动作**：
   - 读取 `context/roles/done.md` 作为检查清单
