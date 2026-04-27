@@ -90,6 +90,27 @@ testing 阶段默认执行 **targeted 回归**：
 
 - 上述 5 项整合进 `test-report.md`，每项显式标注 PASS / FAIL；testing 阶段退出条件 = 5 项全 PASS + 原 AC 测试全通过。
 
+## 子进程 dogfood 红线（reg-02（over-chain 三维失配） + chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）落地，呼应 sug-51（subprocess dogfood 红线） + sug-52（testing 沉淀模板扩 dogfood））
+
+> 溯源：reg-02（over-chain bug 第三次本会话内实证） + chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）。
+
+**红线**：涉及 CLI 入口 / `harness next` / `harness install` 等子命令行为的 chg，testing 阶段**必须**至少含 1 条 subprocess 真跑 CLI 用例：
+
+```python
+subprocess.run([sys.executable, "-m", "harness_workflow.cli", "next", ...], ...)
+```
+
+不允许只用 `from harness_workflow.workflow_helpers import ...` 直调 helper 函数代替——pytest 直调 helper 走 src/ 版本，`harness next` CLI 走 pipx site-packages 版本，**不是同一个二进制**（reg-02 实证根因）。
+
+**例外**：纯 helper 内部行为（无 CLI 入口暴露）允许直调；如不确定，default-pick 走 subprocess。
+
+**参考模板**：`tests/test_workflow_next_subprocess.py`（chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood） 落地）—— 4 路径 fixture 设计 + `_run_harness_next()` wrapper + tmpdir 隔离。
+
+**覆盖维度**（subprocess dogfood 至少满足）：
+1. CLI 入口（`harness next` / `harness next --execute`）；
+2. 子进程隔离（tmpdir mock，不污染当前仓库）；
+3. stdout + runtime.yaml stage + feedback.jsonl 事件数断言。
+
 ## 完成条件
 - 全部用例通过 → `harness next` → `acceptance`
 - 有用例失败 → `harness regression "<失败描述>"` → 诊断后路由

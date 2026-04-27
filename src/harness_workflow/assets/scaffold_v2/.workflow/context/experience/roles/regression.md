@@ -264,3 +264,41 @@ bugfix 流程跳过 requirement_review + planning 直接走 regression → execu
 
 bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））— C1 修复点（regression.md Step 4.5）+ default-pick D-B1（事项 C 路由）+ bugfix-6 自身 diagnosis.md §测试用例设计 18 条用例样本
 
+---
+
+## 经验十：三维失配（契约层 / 源代码层 / 部署二进制层）诊断模板
+
+### 场景
+
+声称已修复的 bug 在新会话内再次复发；grep src/ 确认 helper 存在且逻辑正确，但 CLI 行为依然错误。触发 regression 诊断后，发现契约 / 源码 / 部署三个维度中存在"部分维度修了但未同步"的失配。
+
+### 经验内容
+
+**症状识别**：repo commit 已含修复代码（源码层 ✓），role 文档 / WORKFLOW.md 行为说明正确（契约层 ✓），但 `harness next` / `harness install` 等 CLI 命令实际行为与修复不一致（部署层 ✗）——最常见的根因是 pipx venv site-packages 未刷新，运行时二进制仍是旧版本。
+
+**三维核查模板**：
+
+| 维度 | 检查方式 | 失配症状 |
+|------|---------|---------|
+| 契约（role md / WORKFLOW.md / role-model-map.yaml） | 读文档 + grep 行为说明 | 行为说明 vs 实际输出对不上 |
+| 源代码层（src/） | grep 函数定义 + 单元测试直调 | helper 缺失或逻辑错（pytest 直调 src/ 路径） |
+| 部署二进制层（pipx / npm / docker site-packages） | grep 部署路径 + mtime 对比 + CLI 子进程行为 | helper 在 src/ 存在但 deploy 路径缺失 / 旧版本 |
+
+**诊断三步**：
+
+1. **L1 表象**：`harness next` 等 CLI 行为异常，复现步骤 + feedback.jsonl 截图。
+2. **L2 中层**：分别 grep src/ 和 pipx venv site-packages 下同文件——`grep "_is_stage_work_done" ~/.local/pipx/venvs/harness-workflow/lib/python*/site-packages/harness_workflow/workflow_helpers.py`；对比 src/ mtime vs venv mtime。
+3. **L3 根本**：若 src/ 有函数但 venv 无命中，根因 = **部署未刷新**。修复：`pipx install --force <repo-path>`。
+
+**修复模式**：
+
+- 部署层修复：`pipx install --force <repo-path>` 强制重装；
+- dogfood 必须**子进程真跑 CLI 命令**（`subprocess.run([sys.executable, '-m', 'harness_workflow.cli', ...])`），不能只调 helper 函数——`pytest` 直调 helper = src/ 版本验证；subprocess CLI = 部署版本验证；**二者并列必跑**；
+- acceptance.md 加"部署同步检查"硬条目（本 chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood） 落地）；testing.md 加"子进程 dogfood 红线"段。
+
+**应用案例**：reg-02（over-chain bug 第三次本会话内实证（harness next --execute 4 跳跨 executing→done））——契约层（role-model-map.yaml stage_policies）✓ + 源码层（workflow_helpers.py _is_stage_work_done commit b64bcd7）✓ + 部署层（pipx venv mtime = 2026-04-26，早于 commit 2026-04-27，grep 无命中）✗；`pipx install --force` 后 CLI 行为立即正确。
+
+### 来源
+
+reg-02（over-chain bug 第三次本会话内实证（harness next --execute 4 跳跨 executing→done）— sug-46（req-44 二次实证 over-chain）/ sug-50（gate gap 实为部署 gap）/ sug-53（usage-log 缺失 + over-chain 副作用）同根因复发） + chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）
+

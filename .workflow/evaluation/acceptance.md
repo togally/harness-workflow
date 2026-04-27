@@ -40,6 +40,33 @@
 通过 / 驳回 + 原因；驳回必须触发 harness regression。
 ```
 
+## 部署同步契约（reg-02（over-chain 三维失配） + chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood） 落地）
+
+> 溯源：reg-02（over-chain bug 第三次本会话内实证） + chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）。
+
+### 硬条目：部署同步检查（高）
+
+acceptance 阶段开始前，**必须**验证部署版本与当前 source 一致：
+
+1. **执行重装**：`pipx install --force <repo-path>`（或等价：`harness install --force-skill`），二选一；
+2. **验证 helper 存在**：
+   ```bash
+   python3 -c "from harness_workflow.workflow_helpers import _is_stage_work_done; print(_is_stage_work_done.__module__)"
+   ```
+   输出含 `harness_workflow.workflow_helpers`，不报 ImportError；
+3. **mtime ≥ commit ts**：
+   ```bash
+   python3 -c "import harness_workflow.workflow_helpers as m; import os; print(os.path.getmtime(m.__file__))"
+   git log -1 --format=%ct -- src/harness_workflow/workflow_helpers.py
+   ```
+   前者（venv mtime）≥ 后者（HEAD commit ts）；若不一致则重装后重测。
+
+**不满足任一条 → acceptance ABORT，`acceptance-report.md` 状态 = FAIL，不得 done。**
+
+验证通过样本（写入 acceptance-report.md 证据列）：
+- `_is_stage_work_done` import 成功
+- venv mtime = <timestamp>，HEAD commit ts = <timestamp>，差值 ≥ 0
+
 ## 完成条件
 
 **前置硬门禁**：`harness validate --human-docs` exit code = 0 才进入人工判定；未绿则 FAIL 不走人工 gate。

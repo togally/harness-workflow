@@ -7374,12 +7374,16 @@ def _is_stage_work_done(
 
     req-45（harness next over-chain bug 修复（紧急））/ chg-01（verdict stage work-done gate + workflow_next 集成）
     保守降级原则：所有无法解析的场景一律返回 True（不阻塞）。
+    **例外**：executing stage 且 changes_dir 缺 / 无 session-memory.md 时返回 False
+    （reg-02（over-chain 三维失配） + chg-02（保守降级严格化） 严格化：
+    executing 出现在连跳链中时必须确实有 changes dir + session-memory.md 才视为 done）。
 
     检查规则：
     - testing：{req-flow-dir}/test-report.md 存在 + 含 §结论 / 结论
     - acceptance：{req-flow-dir}/acceptance/checklist.md 存在 + 含 §结论 / 结论
     - planning：≥ 1 个 chg-*/plan.md 存在 + 各含 §4 测试用例设计
-    - executing：每个 chg-*/session-memory.md 末尾含 ✅，且 tests/ 下 ≥ 1 个 test_*.py
+    - executing：changes 目录存在 + 每个 chg-*/session-memory.md 含 ✅，且 tests/ 下 ≥ 1 个 test_*.py
+      - changes 目录缺 / 无 session-memory.md → False（严格化，不再保守降级）
     - 其他 stage / 未知 stage / 解析失败 → True（保守降级）
     """
     # 保守降级：空 req_id / 未知 stage 直接返回 True
@@ -7435,10 +7439,14 @@ def _is_stage_work_done(
             # 每个 chg-*/session-memory.md 末尾含 ✅
             changes_dir = req_flow / "changes"
             if not changes_dir.exists():
-                return True  # 无 changes dir → 保守降级
+                # 严格化（reg-02（over-chain 三维失配） + chg-02（保守降级严格化））：
+                # executing 但无 changes 目录 = subagent 还没派发 = work 未做，应阻断 next 自动连跳
+                return False
             sm_files = list(changes_dir.glob("*/session-memory.md"))
             if not sm_files:
-                return True  # 无 session-memory.md → 保守降级
+                # 严格化（reg-02（over-chain 三维失配） + chg-02（保守降级严格化））：
+                # changes 目录存在但无任何 session-memory.md = subagent 还没完成 = work 未做
+                return False
             for sm in sm_files:
                 content = sm.read_text(encoding="utf-8")
                 if "✅" not in content:
