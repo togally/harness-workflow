@@ -79,6 +79,7 @@
 ### 根目录制品仓库
 - [ ] **artifacts/requirements/ 摘要（高）**：根目录 `artifacts/requirements/` 下是否包含当前需求对应的制品摘要或导出文件（如存在）
 - [ ] **artifacts 同步性（中）**：`artifacts/requirements/` 中的文件是否与 `.workflow/flow/requirements/` 下的原始需求保持一致？有无遗漏同步？
+- [ ] **artifact-placement 反向抽样（高）**（req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint））：grep 确认 `artifacts/main/requirements/{req-id}-{slug}/` 下无 stage-name 子目录（`requirement-review` / `planning` / `executing` / `testing` / `acceptance` / `done` / `regression` / `regressions`）+ 无非 §2 白名单文件名（session-memory.md / sug-audit.md / roadmap.md / change.md / plan.md 等机器型文件名）；已执行 `harness validate --contract artifact-placement` exit 0 即通过。
 
 ### State 制品
 - [ ] **运行时状态（高）**：`.workflow/state/runtime.yaml` 存在且字段完整
@@ -108,6 +109,7 @@
 - [ ] 变更列表（changes/）已初步规划，目录命名规范（高）
 - [ ] 角色文件 `roles/requirement-review.md` 已加载（中）
 - [ ] 经验文件 `experience/roles/requirement-review.md` 已加载（中）
+- [ ] **artifact-placement 抽样（高）**（chg-01）：本 stage 工件落点核查无 artifacts/ 下机器型文件残留（session-memory.md / sug-audit.md 等必落 `.workflow/flow/`）
 
 ### planning 阶段重点
 - [ ] 每个变更子目录下已包含 `change.md` 和 `plan.md`（高）
@@ -115,6 +117,7 @@
 - [ ] `runtime.yaml` 中 `stage` 为 `planning`（中）
 - [ ] 角色文件 `roles/planning.md` 已加载（中）
 - [ ] 经验文件 `experience/roles/planning.md` 已加载（低）
+- [ ] **artifact-placement 抽样（高）**（chg-01）：本 stage 工件落点核查无 artifacts/ 下机器型文件残留（roadmap.md / session-memory.md 等必落 `.workflow/flow/`）
 
 ### executing 阶段重点
 - [ ] 当前变更的 `plan.md` 已被读取并遵循（高）

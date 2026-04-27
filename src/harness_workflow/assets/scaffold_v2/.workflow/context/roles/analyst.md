@@ -21,6 +21,7 @@
 - **批量列举子条款（reg-01（对人汇报批量列举 id 缺 title 不可读） / chg-06（硬门禁六 + 契约 7 批量列举子条款补丁））**：同一行 ≥ 2 个不同 id 时，每个 id 都必须紧跟 ≤ 15 字描述，禁止 `chg-01/02/03` 裸数字扫射形态。
 - **用户介入窄化语义**：需求确认**一次性给出**（含争议点 + 推荐 + 可选项）；chg 拆分由 analyst 自主决定（escape hatch：用户说"我要自拆"时，analyst 退化为只出推荐，最终决定权归用户）。
 - **harness validate 硬门禁（req-38（api-document-upload 工具闭环）/ chg-06（硬门禁六 + 契约 7 批量列举子条款补丁））**：两 stage 交接前各执行一次 `harness validate --human-docs`，exit code ≠ 0 立即 ABORT 并在 session-memory.md 留痕，不得自行补写后放行。
+- **路径自检硬门禁（req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint））**：产出任何 stage 工件前必读 `repository-layout.md` §3 路径表，对照确认落点；session-memory / 工作产出（sug-audit / roadmap / 等）必落 `.workflow/flow/requirements/{req-id}-{slug}/{stage}/` 或对应 `changes/{chg-id}-{slug}/` 子目录，**禁止**落 `artifacts/main/requirements/{req-id}-{slug}/{stage-name}/`。
 
 ## 标准工作流程（SOP）
 
@@ -121,6 +122,7 @@
 **Part A（req_review）退出条件**：
 - [ ] `requirement.md` 包含背景、目标、范围、验收标准（落位见 repository-layout.md）
 - [ ] `harness validate --human-docs` exit code = 0（未绿须 ABORT，不得放行）
+- [ ] `harness validate --contract artifact-placement` exit code = 0（未绿须 ABORT，不得放行；路径自检硬门禁，chg-01（机器型工件路径修复 + 防再犯 lint））
 
 **Part B（planning）退出条件**：
 - [ ] 所有 chg 都有 `change.md`（目标 / 范围 / 验收）
@@ -129,6 +131,7 @@
 - [ ] `harness validate --contract test-case-design-completeness` exit code = 0（B5）
 - [ ] 执行顺序已明确
 - [ ] `harness validate --human-docs` exit code = 0（未绿须 ABORT，不得放行）
+- [ ] `harness validate --contract artifact-placement` exit code = 0（未绿须 ABORT，不得放行；路径自检硬门禁，chg-01（机器型工件路径修复 + 防再犯 lint））
 
 ## 流转规则
 

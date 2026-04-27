@@ -3115,6 +3115,21 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
         return payload
 
     if stage == "requirement_review":
+        # req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）
+        # analyst stage 退出门禁：requirement_review → planning 流转前跑 artifact-placement lint
+        from harness_workflow.validate_contract import check_artifact_placement as _check_ap  # noqa: PLC0415
+        import pathlib as _pathlib  # noqa: PLC0415
+        _ap_root = _pathlib.Path(meta.get("_root", ".")) if "_root" in meta else None
+        if _ap_root is None:
+            # fallback: 无法确定 root，仅文档化警告，不阻塞（见 change.md §6 风险 1 缓解）
+            print("WARN: artifact-placement lint 跳过（root 未传入 meta），请手工运行 `harness validate --contract artifact-placement`")
+        else:
+            _ap_result = _check_ap(_ap_root)
+            if _ap_result != 0:
+                raise SystemExit(
+                    "ABORT: artifact-placement lint FAIL — requirement_review → planning 流转被阻塞。"
+                    " 请先修复 artifacts/ 下机器型文件位置，再重试 `harness next`。"
+                )
         payload.update(
             {
                 "stage": "planning",
@@ -3132,6 +3147,20 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
     if stage == "planning":
         if not focus_change:
             raise SystemExit("No changes exist yet. Create at least one `harness change` before advancing.")
+        # req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）
+        # analyst stage 退出门禁：planning → ready_for_execution 流转前跑 artifact-placement lint
+        from harness_workflow.validate_contract import check_artifact_placement as _check_ap2  # noqa: PLC0415
+        import pathlib as _pathlib2  # noqa: PLC0415
+        _ap_root2 = _pathlib2.Path(meta.get("_root", ".")) if "_root" in meta else None
+        if _ap_root2 is None:
+            print("WARN: artifact-placement lint 跳过（root 未传入 meta），请手工运行 `harness validate --contract artifact-placement`")
+        else:
+            _ap_result2 = _check_ap2(_ap_root2)
+            if _ap_result2 != 0:
+                raise SystemExit(
+                    "ABORT: artifact-placement lint FAIL — planning → ready_for_execution 流转被阻塞。"
+                    " 请先修复 artifacts/ 下机器型文件位置，再重试 `harness next`。"
+                )
         payload.update(
             {
                 "stage": "ready_for_execution",
@@ -7522,6 +7551,25 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         _sync_stage_to_state_yaml(root, operation_type, operation_target, to_s)
         save_requirement_runtime(root, runtime)
         print(f"Workflow advanced to {to_s}")
+
+    # req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）
+    # analyst stage 退出门禁：requirement_review → planning / planning → ready_for_execution
+    # 流转前跑 artifact-placement lint；FAIL 则阻塞流转
+    _ANALYST_GATE_STAGES = {"requirement_review", "planning"}
+    if (
+        routed_stage_from_reg is None
+        and current_stage in _ANALYST_GATE_STAGES
+        and current_stage in sequence
+    ):
+        from harness_workflow.validate_contract import check_artifact_placement as _wf_check_ap  # noqa: PLC0415
+        _ap_lint_result = _wf_check_ap(root)
+        if _ap_lint_result != 0:
+            print(
+                f"ABORT: artifact-placement lint FAIL — {current_stage} 退出门禁阻塞流转。"
+                " 请先修复 artifacts/ 下机器型文件位置，再重试 `harness next`。",
+                file=sys.stderr,
+            )
+            return 1
 
     if routed_stage_from_reg is None and current_stage in sequence:
         # 同角色连跳 + verdict-driven 连跳路径（修复点 2 + 修复点 6 合并）：

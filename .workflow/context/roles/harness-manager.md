@@ -308,6 +308,32 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
    - context_chain: 调用链
    - session_memory_path: 结果写入路径
    - model: 由 Step 2.5 选定的模型（`opus` / `sonnet`），Agent 工具调用时显式传递
+   - expected_artifact_paths: 该 stage 工件期望落点路径列表（可选字段，由 dispatcher 按 stage + req-id + chg-id 计算填写，subagent 端当前不强校验；dispatcher 必须显式列出，subagent 若收到则应与实际产出路径自查对照）
+
+   **expected_artifact_paths 说明（chg-01（机器型工件路径修复 + 防再犯 lint）落地）**：派发任意 stage 角色（含 analyst / executing / testing / acceptance / regression / done）时，briefing JSON 应显式列出该 stage 工件期望落点路径，键名 `expected_artifact_paths`，值为路径数组。
+
+   analyst 派发示例：
+   ```json
+   {
+     "expected_artifact_paths": [
+       ".workflow/flow/requirements/{req-id}-{slug}/requirement.md",
+       ".workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/change.md",
+       ".workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/plan.md",
+       ".workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/session-memory.md"
+     ]
+   }
+   ```
+
+   executing 派发示例（chg 级）：
+   ```json
+   {
+     "expected_artifact_paths": [
+       ".workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/session-memory.md"
+     ]
+   }
+   ```
+
+   **禁止**：期望路径中不得出现 `artifacts/main/requirements/{req-id}-{slug}/{stage-name}/` 任何 stage-name 子目录形式；违反 repository-layout.md §1 / §3 契约。
 
 2.5. **按角色选 model（req-29（角色→模型映射（开放型角色用 Opus 4.7，执行型角色用 Sonnet）） / chg-03 派发协议扩展）**：
 

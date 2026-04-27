@@ -454,6 +454,8 @@ def check_role_stage_continuity(root: Path, text_override: str | None = None) ->
 # ---------------------------------------------------------------------------
 
 #: 机器型文件名清单（这些文件名不应出现在 artifacts/ 下）
+#: req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）
+#: 扩展：加入 sug-audit.md / roadmap.md；同时从严格命中中移除 requirement.md（由白名单豁免处理）。
 _MACHINE_TYPE_FILENAMES = frozenset({
     "bugfix.md",
     "change.md",
@@ -470,9 +472,31 @@ _MACHINE_TYPE_FILENAMES = frozenset({
     "test-report.md",
     "acceptance-report.md",
     "testing-report.md",
-    "requirement.md",
     "usage-log.yaml",
     "meta.yaml",
+    # req-46 / chg-01 扩展：工作产出类机器型文件名
+    "sug-audit.md",
+    "roadmap.md",
+})
+
+#: requirement.md 白名单豁免路径模式：
+#: artifacts/main/requirements/{req-id}-{slug}/requirement.md 是 §2 白名单合法 raw 副本，不应命中 FAIL。
+#: 路径模式：artifacts/*/requirements/*/requirement.md（一层 req 目录下直接放置，无 stage-name 子目录）
+_REQUIREMENT_MD_WHITELIST_PATTERN = re.compile(
+    r"^artifacts/[^/]+/requirements/[^/]+/requirement\.md$"
+)
+
+#: stage-name 子目录白名单（这些子目录名出现在 artifacts/main/requirements/{req-id}/ 下时触发 FAIL）
+#: req-46 / chg-01 新增规则 0：路径模式扫
+_STAGE_NAME_SUBDIRS = frozenset({
+    "requirement-review",
+    "planning",
+    "executing",
+    "testing",
+    "acceptance",
+    "done",
+    "regression",
+    "regressions",
 })
 
 #: 对人最终产物文件名模式（这些文件名不应出现在 .workflow/flow/ 下）
@@ -493,22 +517,64 @@ _HUMAN_FACING_PATTERNS = (
 def check_artifact_placement(root: Path) -> int:
     """artifact-placement lint.
 
-    规则 1：扫 ``artifacts/{branch}/**/*.md``，命中机器型文件名（_MACHINE_TYPE_FILENAMES）→ FAIL。
+    规则 0（新，req-46 / chg-01）：扫 ``artifacts/main/requirements/{req-id}-{slug}/`` 下
+           任何 stage-name 子目录（_STAGE_NAME_SUBDIRS）→ FAIL 并报路径。
+
+    规则 1：扫 ``artifacts/{branch}/**/*.md``，命中机器型文件名（_MACHINE_TYPE_FILENAMES）→ FAIL；
+           豁免：路径符合 _REQUIREMENT_MD_WHITELIST_PATTERN（§2 白名单 raw 副本）的 requirement.md
+           不命中 FAIL（req-46 / chg-01 修复误命中）。
+
     规则 2：扫 ``.workflow/flow/**/*``，命中对人最终产物文件名模式 → FAIL（当前仓库仅 WARN，避免
            因 flow/ 下极少数边缘案例破坏整体流水线）。
 
     Returns 0 = 全绿，1 = 发现违规。
 
     bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A3
+    req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）升级
     """
     artifacts_dir = root / "artifacts"
     violations: list[str] = []
+
+    # 历史存量豁免目录（repository-layout.md §4）：下列目录中的遗留结构不触发 lint。
+    # - artifacts/{branch}/archive/：legacy 历史归档（req-02 ~ req-40 历史脏数据）
+    # - artifacts/{branch}/regressions/：pre-flow-layout 时代的 reg 目录（req-02~req-40 遗留）
+    # req-41+ 按本规则严格执行（artifact-placement lint 只扫 req-41+ 活跃目录）。
+    _ARCHIVE_EXEMPTION_DIRS = {
+        str(artifacts_dir / "main" / "archive"),
+        str(artifacts_dir / "main" / "regressions"),
+    }
+
+    def _is_under_archive(path: Path) -> bool:
+        path_str = str(path)
+        return any(path_str.startswith(d) for d in _ARCHIVE_EXEMPTION_DIRS)
+
+    # 规则 0（req-46 / chg-01 新增）：artifacts/main/requirements/{req-id}-{slug}/ 下不能有 stage-name 子目录
+    # 注：仅扫 artifacts/main/requirements/（非 archive），豁免历史遗留
+    if artifacts_dir.exists():
+        req_base = artifacts_dir / "main" / "requirements"
+        if req_base.is_dir():
+            for req_dir in req_base.iterdir():
+                if not req_dir.is_dir():
+                    continue
+                if _is_under_archive(req_dir):
+                    continue  # 历史豁免
+                for child in req_dir.iterdir():
+                    if child.is_dir() and child.name in _STAGE_NAME_SUBDIRS:
+                        try:
+                            rel = child.relative_to(root)
+                        except ValueError:
+                            rel = child
+                        violations.append(
+                            f"artifacts/ 下发现 stage-name 子目录（机器型工件禁落此处）：{rel}/"
+                        )
 
     # 规则 1：artifacts/ 下不能有机器型文件
     if artifacts_dir.exists():
         for md_file in artifacts_dir.rglob("*"):
             if not md_file.is_file():
                 continue
+            if _is_under_archive(md_file):
+                continue  # 历史存量豁免（repository-layout.md §4）
             # 仅检查 .md / .yaml 后缀（机器型文档常见格式）
             if md_file.suffix not in (".md", ".yaml"):
                 continue
@@ -516,6 +582,16 @@ def check_artifact_placement(root: Path) -> int:
             # README.md 是占位说明文件，允许存在
             if fname == "README.md":
                 continue
+            # requirement.md 白名单豁免：artifacts/*/requirements/*/requirement.md 是 §2 合法 raw 副本
+            # 路径级别要求：直接在 req-slug 目录下（无 stage-name 子目录层），才豁免
+            if fname == "requirement.md":
+                try:
+                    rel_str = str(md_file.relative_to(root))
+                except ValueError:
+                    rel_str = str(md_file)
+                if _REQUIREMENT_MD_WHITELIST_PATTERN.match(rel_str):
+                    continue  # 白名单豁免，跳过
+                # 不在白名单位（如在 stage-name 子目录下）仍命中 FAIL
             if fname in _MACHINE_TYPE_FILENAMES:
                 try:
                     rel = md_file.relative_to(root)
@@ -525,7 +601,7 @@ def check_artifact_placement(root: Path) -> int:
 
     if violations:
         print("FAIL: artifact-placement lint — 以下违规文件需迁移到 .workflow/flow/：")
-        print("契约引用：.workflow/flow/repository-layout.md §1 / §4 禁止行为")
+        print("契约引用：.workflow/flow/repository-layout.md §1 / §3 / §4 禁止行为")
         print("建议：运行 `harness migrate --bugfix-layout` 迁移历史 bugfix 机器型文档")
         for v in violations:
             print(f"  {v}")
