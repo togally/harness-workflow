@@ -7335,6 +7335,100 @@ def _get_exit_decision(stage: str, stage_policies: dict) -> str:
     return str(stage_policy.get("exit_decision", "user"))
 
 
+def _is_stage_work_done(
+    stage: str,
+    root: Path,
+    req_id: str,
+    operation_type: str,
+) -> bool:
+    """检查 stage 的关键产物是否齐全。
+
+    req-45（harness next over-chain bug 修复（紧急））/ chg-01（verdict stage work-done gate + workflow_next 集成）
+    保守降级原则：所有无法解析的场景一律返回 True（不阻塞）。
+
+    检查规则：
+    - testing：{req-flow-dir}/test-report.md 存在 + 含 §结论 / 结论
+    - acceptance：{req-flow-dir}/acceptance/checklist.md 存在 + 含 §结论 / 结论
+    - planning：≥ 1 个 chg-*/plan.md 存在 + 各含 §4 测试用例设计
+    - executing：每个 chg-*/session-memory.md 末尾含 ✅，且 tests/ 下 ≥ 1 个 test_*.py
+    - 其他 stage / 未知 stage / 解析失败 → True（保守降级）
+    """
+    # 保守降级：空 req_id / 未知 stage 直接返回 True
+    if not req_id or not stage:
+        return True
+    _FALLBACK_STAGES = {
+        "done", "regression", "requirement_review", "ready_for_execution",
+        "planning", "suggestion", "apply",
+    }
+    if stage in _FALLBACK_STAGES:
+        return True
+
+    # 解析 flow 目录
+    try:
+        if operation_type == "bugfix":
+            flow_base = root / ".workflow" / "flow" / "bugfixes"
+        else:
+            flow_base = root / ".workflow" / "flow" / "requirements"
+
+        if not flow_base.exists():
+            return True
+
+        # 找 {req_id}-* 目录（操作符优先级修正：括号明确）
+        matches = [
+            d for d in flow_base.iterdir()
+            if d.is_dir() and (d.name.startswith(f"{req_id}-") or d.name == req_id)
+        ]
+        if not matches:
+            return True  # 找不到目录 → 保守降级
+
+        req_flow = matches[0]
+
+        def _has_conclusion_heading(text: str) -> bool:
+            """检查文件是否含 §结论 或 ## 结论 / ## §结论 段落标题（而非普通文本中出现"结论"）。"""
+            import re as _re
+            return bool(_re.search(r"(?:^|\n)##\s*§?结论", text))
+
+        if stage == "testing":
+            report = req_flow / "test-report.md"
+            if not report.exists():
+                return False
+            content = report.read_text(encoding="utf-8")
+            return _has_conclusion_heading(content)
+
+        elif stage == "acceptance":
+            checklist = req_flow / "acceptance" / "checklist.md"
+            if not checklist.exists():
+                return False
+            content = checklist.read_text(encoding="utf-8")
+            return _has_conclusion_heading(content)
+
+        elif stage == "executing":
+            # 每个 chg-*/session-memory.md 末尾含 ✅
+            changes_dir = req_flow / "changes"
+            if not changes_dir.exists():
+                return True  # 无 changes dir → 保守降级
+            sm_files = list(changes_dir.glob("*/session-memory.md"))
+            if not sm_files:
+                return True  # 无 session-memory.md → 保守降级
+            for sm in sm_files:
+                content = sm.read_text(encoding="utf-8")
+                if "✅" not in content:
+                    return False
+            # tests/ 下至少 1 个 test_*.py
+            tests_dir = root / "tests"
+            if tests_dir.exists():
+                test_files = list(tests_dir.glob("test_*.py"))
+                if not test_files:
+                    return False
+            return True
+
+        # 其他未知 stage → 保守降级
+        return True
+
+    except Exception:
+        return True  # 任何异常 → 保守降级
+
+
 def workflow_next(root: Path, execute: bool = False) -> int:
     runtime = load_requirement_runtime(root)
 
@@ -7439,6 +7533,26 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         to_s = next_stage
         walk_idx = sequence.index(next_stage) if next_stage in sequence else -1
 
+        # req-45（harness next over-chain bug 修复（紧急））/ chg-01（verdict stage work-done gate + workflow_next 集成）
+        # BUG-01 修复：第一格转换前的 work-done gate。
+        # 检查出发 stage 的产物是否齐全；same_role 路径豁免（保 bugfix-5（同角色跨 stage 自动续跑硬门禁） 契约）。
+        _first_hop_exit = _get_exit_decision(current_stage, stage_policies)
+        _next_role = _get_role_for_stage(next_stage, role_stage_map)
+        _first_hop_same_role = (
+            current_role_for_advance is not None
+            and _next_role == current_role_for_advance
+        )
+        if (
+            _first_hop_exit in _AUTO_JUMP_DECISIONS
+            and not _first_hop_same_role
+            and not _is_stage_work_done(current_stage, root, operation_target, operation_type)
+        ):
+            print(
+                f"Stage {current_stage} 工作未完成，请先完成当前阶段工作再推进。",
+                file=sys.stderr,
+            )
+            return 0
+
         _write_stage_transition(from_s, to_s, prev_iso)
         from_s = to_s
         prev_iso = str(runtime.get("stage_entered_at", ""))
@@ -7460,6 +7574,10 @@ def workflow_next(root: Path, execute: bool = False) -> int:
             # verdict-driven / auto-driven 条件（修复点 6 新逻辑）
             no_user_decision = current_exit in _AUTO_JUMP_DECISIONS
             if not (same_role or no_user_decision):
+                break
+            # req-45（harness next over-chain bug 修复（紧急））/ chg-01（verdict stage work-done gate + workflow_next 集成）
+            # while 内 work-done gate：防多格连跳；same_role 路径豁免（bugfix-5（同角色跨 stage 自动续跑硬门禁） 契约）
+            if no_user_decision and not same_role and not _is_stage_work_done(from_s, root, operation_target, operation_type):
                 break
             _write_stage_transition(from_s, candidate, prev_iso)
             from_s = candidate

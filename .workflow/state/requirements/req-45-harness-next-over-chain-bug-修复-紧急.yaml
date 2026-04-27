@@ -1,0 +1,13 @@
+id: "req-45"
+title: "harness next over-chain bug 修复（紧急）"
+stage: "testing"
+status: "testing"
+created_at: "2026-04-27"
+started_at: "2026-04-27"
+completed_at: ""
+stage_timestamps:
+  planning: "2026-04-27T03:56:38.958163+00:00"
+  ready_for_execution: "2026-04-27T06:10:49.165590+00:00"
+  executing: "2026-04-27T06:11:02.381459+00:00"
+  testing: "2026-04-27T06:25:03.840346+00:00"
+description: ""

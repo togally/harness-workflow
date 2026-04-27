@@ -36,6 +36,7 @@ __all__ = [
     "check_contract_3_4_regression",
     "check_contract_triggers",
     "check_role_stage_continuity",
+    "check_stage_work_completion",
     "collect_lint_paths",
     "run_contract_cli",
 ]
@@ -641,6 +642,88 @@ def check_test_case_design_completeness(root: Path, target_file: Path | None = N
     return 0
 
 
+def check_stage_work_completion(root: Path) -> int:
+    """校验当前 stage 关键产物是否齐全。
+
+    req-45（harness next over-chain bug 修复（紧急））/ chg-01（verdict stage work-done gate + workflow_next 集成）
+    对应 AC-05（lint 子命令）。
+
+    读取 runtime.yaml 取 stage + operation_type + current_requirement，
+    调用 _is_stage_work_done 判断；缺项时 stdout 列具体文件路径。
+
+    Returns:
+        0 = PASS（产物齐全）；1 = FAIL（缺产物）。
+    """
+    try:
+        from harness_workflow.workflow_helpers import _is_stage_work_done
+    except ImportError:
+        print("skipped: workflow_helpers not importable", file=sys.stderr)
+        return 0
+
+    runtime_path = root / ".workflow" / "state" / "runtime.yaml"
+    if not runtime_path.exists():
+        print("skipped: runtime.yaml not found", file=sys.stderr)
+        return 0
+
+    rt: dict = {}
+    if _YAML_AVAILABLE:
+        try:
+            rt = _yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+        except Exception as e:
+            print(f"skipped: failed to parse runtime.yaml: {e}", file=sys.stderr)
+            return 0
+    else:
+        print("skipped: pyyaml not available", file=sys.stderr)
+        return 0
+
+    stage = str(rt.get("stage", "")).strip()
+    operation_type = str(rt.get("operation_type", "requirement")).strip()
+    req_id = str(rt.get("current_requirement", "")).strip()
+
+    if not stage or not req_id:
+        print("skipped: stage or current_requirement missing from runtime.yaml", file=sys.stderr)
+        return 0
+
+    done = _is_stage_work_done(stage, root, req_id, operation_type)
+    if done:
+        print(f"PASS: stage-work-completion ({stage} 产物齐全)")
+        return 0
+
+    # FAIL：列具体缺项
+    print(f"FAIL: stage-work-completion — stage={stage} 产物不完整，请补全以下文件：")
+    if operation_type == "bugfix":
+        flow_base = root / ".workflow" / "flow" / "bugfixes"
+    else:
+        flow_base = root / ".workflow" / "flow" / "requirements"
+
+    # 找 flow 目录
+    req_flow: "Path | None" = None
+    if flow_base.exists():
+        matches = [d for d in flow_base.iterdir() if d.is_dir() and (d.name.startswith(f"{req_id}-") or d.name == req_id)]
+        if matches:
+            req_flow = matches[0]
+
+    if stage == "testing":
+        report_path = (req_flow / "test-report.md") if req_flow else None
+        if report_path is None or not report_path.exists():
+            print(f"  缺失：{report_path or f'.workflow/flow/.../{req_id}-*/test-report.md'}")
+        else:
+            print(f"  存在但缺 §结论 段：{report_path}")
+    elif stage == "acceptance":
+        checklist_path = (req_flow / "acceptance" / "checklist.md") if req_flow else None
+        if checklist_path is None or not checklist_path.exists():
+            print(f"  缺失：{checklist_path or f'.workflow/flow/.../{req_id}-*/acceptance/checklist.md'}")
+        else:
+            print(f"  存在但缺 §结论 段：{checklist_path}")
+    else:
+        print(f"  stage={stage} 产物未齐（详见 chg-01 plan.md §1 产物规则）")
+
+    # 确保输出含 "test-report.md" 关键字用于 TC-07 断言
+    if stage == "testing":
+        pass  # 已在上方 print
+    return 1
+
+
 def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | None = None) -> int:
     """CLI 入口：``harness validate --contract {all,7,regression,triggers,role-stage-continuity,artifact-placement,test-case-design-completeness}``。
 
@@ -697,6 +780,12 @@ def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | N
     if contract in ("test-case-design-completeness",):
         # 单契约调用：仅在 planning / bugfix regression 退出时显式跑
         rc = check_test_case_design_completeness(root)
+        total_violations += rc
+
+    if contract in ("stage-work-completion",):
+        # req-45（harness next over-chain bug 修复（紧急））/ chg-01（verdict stage work-done gate + workflow_next 集成）
+        # 单契约调用：校验当前 stage 关键产物是否齐全
+        rc = check_stage_work_completion(root)
         total_violations += rc
 
     return 0 if total_violations == 0 else 1
