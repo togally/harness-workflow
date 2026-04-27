@@ -4297,6 +4297,49 @@ def list_suggestions(root: Path) -> int:
     return 0
 
 
+def _append_sug_body_to_req_md(
+    root: Path,
+    req_id: str,
+    dir_name: str,
+    sug_id: str,
+    sug_title: str,
+    sug_body: str,
+) -> Path:
+    """把 sug body 追加到新 req 的 requirement.md。
+
+    req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-01（apply / apply-all CLI 路径与内容修复）:
+    - 按 _use_flow_layout(req_id) 解析 requirement.md 的正确路径：
+        * True（req-id >= 41）→ .workflow/flow/requirements/{dir_name}/requirement.md
+        * False（legacy / flat）→ resolve_requirement_root(root)/{dir_name}/requirement.md
+    - 在文末追加 ## 合并建议清单 段（多次调用幂等聚合到同一段下）。
+    - req_md 不存在时 raise FileNotFoundError（调用方决定是否 abort）。
+    - 返回写入的 Path。
+    """
+    if _use_flow_layout(req_id):
+        req_md = root / ".workflow" / "flow" / "requirements" / dir_name / "requirement.md"
+    else:
+        req_md = resolve_requirement_root(root) / dir_name / "requirement.md"
+
+    if not req_md.exists():
+        raise FileNotFoundError(f"requirement.md not found at {req_md}")
+
+    existing = req_md.read_text(encoding="utf-8")
+    marker = "## 合并建议清单"
+    if marker in existing:
+        # 追加到已有段落下（幂等）
+        new_text = existing.rstrip("\n") + f"\n\n### {sug_id}（{sug_title}）\n\n{sug_body}\n"
+    else:
+        new_text = (
+            existing.rstrip("\n")
+            + f"\n\n{marker}\n\n### {sug_id}（{sug_title}）\n\n{sug_body}\n"
+        )
+
+    tmp = req_md.with_suffix(".md.tmp")
+    tmp.write_text(new_text, encoding="utf-8")
+    tmp.replace(req_md)
+    return req_md
+
+
 def apply_suggestion(root: Path, suggest_id: str) -> int:
     ensure_harness_root(root)
     suggestions_dir = root / ".workflow" / "flow" / "suggestions"
@@ -4324,13 +4367,31 @@ def apply_suggestion(root: Path, suggest_id: str) -> int:
 
     state = load_simple_yaml(target)
     body = target.read_text(encoding="utf-8").split("---", 2)[-1].strip()
-    # bugfix-3：截断首行到 60 字符作为 title 候选（slug 清洗仍下沉给 create_requirement
-    # 执行，这里只保证 create_requirement 拿到的 raw title 不会过长撑爆路径）。
-    first_line = body.splitlines()[0].strip() if body else ""
-    title = first_line[:60].strip() or suggest_id
+
+    # req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-01（apply / apply-all CLI 路径与内容修复）:
+    # AC-02：title 优先取 sug frontmatter `title:` 字段，避免用 content 首行（可能含 `#` 前缀
+    # 或格式符，产生路径非法字符 / 语义偏差）。
+    sug_title = (state.get("title") or "").strip().strip('"').strip()
+    if not sug_title:
+        first_line = body.splitlines()[0].strip() if body else ""
+        sug_title = first_line[:60].strip() or suggest_id
+    title = sug_title
 
     result = create_requirement(root, title)
     if result == 0:
+        # 获取刚创建的 req_id 和 dir_name
+        runtime_after = load_requirement_runtime(root)
+        new_req_id = str(runtime_after.get("current_requirement", "")).strip()
+        slug_part = _path_slug(title)
+        new_dir_name = f"{new_req_id}-{slug_part}" if slug_part else new_req_id
+
+        # req-44 / chg-01 AC-02：把 sug.body 真写入新 req requirement.md
+        try:
+            _append_sug_body_to_req_md(root, new_req_id, new_dir_name, suggest_id, title, body)
+        except (FileNotFoundError, OSError):
+            # body 写入失败：不阻断 sug archive（与 apply_all 对齐，避免半挂）
+            pass
+
         # bugfix-3：成功后将源 sug 文件 move 到 archive/ 并翻转 frontmatter status。
         archive_dir = suggestions_dir / "archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
@@ -4520,48 +4581,42 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
 
     req_id = str(load_requirement_runtime(root).get("current_requirement", "")).strip()
 
-    # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）Step 1.1：
+    # req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-01（apply / apply-all CLI 路径与内容修复）:
     # 1) 路径拼接必须走 `_path_slug` 清洗，与 `create_requirement` 同源；
     #    未清洗的 title 含 `/` / `（）` / 空格 / 引号等时 req_dir 解析 miss → 清单追加静默跳过。
-    # 2) 原子顺序：先 tmp.write_text → tmp.replace(req_md) 原子 rename 成功，
+    # 2) 路径分支：_use_flow_layout(req_id) True（req-id >= 41）→
+    #    .workflow/flow/requirements/{dir_name}/requirement.md（AC-01 修复核心）；
+    #    False → resolve_requirement_root(root)/{dir_name}/（legacy / flat 兼容）。
+    # 3) 原子顺序：先 tmp.write_text → tmp.replace(req_md) 原子 rename 成功，
     #    才进入 unlink 循环；任一步失败必须打印 stderr 并返回非零、不 unlink。
     if not req_id:
         print("[apply_all] ERROR: current_requirement 为空，无法定位 req_dir，终止前保留所有 body", file=sys.stderr)
         return 1
 
     slug_part = _path_slug(title)
-    req_dir = resolve_requirement_root(root) / (f"{req_id}-{slug_part}" if slug_part else req_id)
-    req_md = req_dir / "requirement.md"
-    if not req_md.exists():
-        print(
-            f"[apply_all] ERROR: req_md missing at {req_md}; aborting before unlink",
-            file=sys.stderr,
-        )
-        return 1
+    dir_name = f"{req_id}-{slug_part}" if slug_part else req_id
 
-    lines = ["\n## 合并建议清单\n"]
-    for _, suggest_id, suggest_title in pending:
-        lines.append(f"- {suggest_id}: {suggest_title}")
-    lines.append("")
-
-    try:
-        new_text = req_md.read_text(encoding="utf-8") + "\n".join(lines)
-        tmp = req_md.with_suffix(".md.tmp")
-        tmp.write_text(new_text, encoding="utf-8")
-        tmp.replace(req_md)  # 原子 rename
-    except OSError as exc:
-        print(
-            f"[apply_all] ERROR: append failed ({exc}); leaving bodies intact",
-            file=sys.stderr,
-        )
-        # 清理可能残留的 tmp
-        tmp_candidate = req_md.with_suffix(".md.tmp")
-        if tmp_candidate.exists():
-            try:
-                tmp_candidate.unlink()
-            except OSError:
-                pass
-        return 1
+    # 逐条 sug body 追加（调用统一 helper，路径分支在 helper 内按 _use_flow_layout 决定）
+    for path, suggest_id, suggest_title in pending:
+        # 取 sug frontmatter title 优先（与 apply_suggestion 对齐）
+        sug_state = load_simple_yaml(path)
+        sug_title_fm = (sug_state.get("title") or "").strip().strip('"').strip()
+        sug_body = path.read_text(encoding="utf-8").split("---", 2)[-1].strip()
+        display_title = sug_title_fm or suggest_title
+        try:
+            _append_sug_body_to_req_md(root, req_id, dir_name, suggest_id, display_title, sug_body)
+        except FileNotFoundError as exc:
+            print(
+                f"[apply_all] ERROR: req_md missing ({exc}); aborting before unlink",
+                file=sys.stderr,
+            )
+            return 1
+        except OSError as exc:
+            print(
+                f"[apply_all] ERROR: append failed ({exc}); leaving bodies intact",
+                file=sys.stderr,
+            )
+            return 1
 
     # 清单落盘成功才允许 unlink sug body
     deleted: list[str] = []
@@ -5404,8 +5459,20 @@ def rename_requirement(root: Path, current_name: str, new_name: str, version_nam
             except OSError:
                 pass
 
-    # 4) 同步 runtime.yaml：id 不变，仅作一次重写以保证持久化一致性。
+    # 4) 同步 .workflow/flow/requirements/ 目录（bugfix-6 后新路径，若存在则 mv）。
+    # req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-02（rename CLI 同步范围扩展）AC-03：
+    _flow_req_dir = root / ".workflow" / "flow" / "requirements" / old_dir_name
+    if _flow_req_dir.is_dir():
+        _flow_req_new = root / ".workflow" / "flow" / "requirements" / new_dir_name
+        shutil.move(str(_flow_req_dir), str(_flow_req_new))
+
+    # 5) 同步 runtime.yaml：id 不变，但同步 current_requirement_title / locked_requirement_title。
+    # req-44 / chg-02 AC-03：rename 时同步 runtime title 字段，使 runtime 与目录名保持一致。
     runtime = load_requirement_runtime(root)
+    if str(runtime.get("current_requirement", "")).strip() == old_id:
+        runtime["current_requirement_title"] = new_title
+    if str(runtime.get("locked_requirement", "")).strip() == old_id:
+        runtime["locked_requirement_title"] = new_title
     save_requirement_runtime(root, runtime)
 
     print(f"Requirement renamed: {old_dir_name} -> {new_dir_name}")

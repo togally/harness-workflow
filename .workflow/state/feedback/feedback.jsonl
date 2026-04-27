@@ -226,3 +226,15 @@
 {"ts": "2026-04-27T00:36:22.768711+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-27T00:36:22.770356+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0.001554}}
 {"ts": "2026-04-27T00:36:22.770441+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-27T01:42:57.202733+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 3994.431379}}
+{"ts": "2026-04-27T01:42:57.203335+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "planning"}}
+{"ts": "2026-04-27T01:58:40.102369+00:00", "event": "stage_duration", "data": {"stage": "planning", "duration_seconds": 942.898274}}
+{"ts": "2026-04-27T01:58:40.102914+00:00", "event": "stage_advance", "data": {"from_stage": "planning", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-27T02:00:28.576106+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 108.472328}}
+{"ts": "2026-04-27T02:00:28.576616+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-27T02:00:28.581498+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 0.004709}}
+{"ts": "2026-04-27T02:00:28.581614+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-27T02:00:28.583632+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 0.00192}}
+{"ts": "2026-04-27T02:00:28.583746+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-27T02:00:28.585692+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 0.001837}}
+{"ts": "2026-04-27T02:00:28.585793+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

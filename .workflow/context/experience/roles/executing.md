@@ -373,3 +373,30 @@ req-43（交付总结完善）实操要点：
 ### 来源
 
 req-43（交付总结完善）— executing 阶段 5 chg 端到端 + 43 新 pytest + auto-commit befec5b + scaffold mirror 4 文件 diff=0
+
+---
+
+## 经验：dogfood 类 bug 修复 executing 阶段不 auto-commit + 改完直接 dogfood 自验
+
+### 场景
+
+修复影响 `harness suggest` / `harness rename` / `harness next` 等 CLI 自身的 bug 时（如 req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症））），改动同时生效于"被修复的 CLI"和"产出本 req 的 CLI 链路"。常规 auto-commit 模式可能让未验证的修复落入 git history。
+
+### 经验内容
+
+req-44 executing 实操要点：
+
+1. **不 auto-commit**：chg-01 / chg-02 改完 `workflow_helpers.py` 后，executing 不调 `git commit`，留给下游 dogfood + acceptance 通过后再统一 commit；
+2. **改完即 dogfood 自验**：executing 完成 helper 改动 + 配套 pytest 全绿后，直接在 testing 阶段（甚至 executing 末尾）seed mock sug / mock rename → 调被修复的 helper 自验，确认"修复本身"在真实仓库环境跑得通；
+3. **同源 helper 抽取避免双分支漂移**：`apply_suggestion` 与 `apply_all_suggestions` 内容写入逻辑共用 `_append_sug_body_to_req_md`（按 `_use_flow_layout(req_id)` 双路径分支），单点修改不触发双侧回归；
+4. **runtime 同步字段对称扩展**：`rename_requirement` 既要 mv 三处目录（artifacts/ + state/ + .workflow/flow/），也要同步 runtime 的 `current_requirement_title` / `locked_requirement_title` 两 \*_title 字段，缺一即"路径改了状态没改"半挂状态。
+
+### 反例
+
+- auto-commit 后才 dogfood → 修复有问题但已落 git history → 需 revert / 二次 fix → 颗粒度乱；
+- 只跑 pytest 不 dogfood → fixture 隔离环境通过 → 真实链路（如 `_use_flow_layout` 路径分支）未实证 → bugfix-6 后路径不匹配再次复发；
+- helper 抽双份独立实现（apply / apply_all 各写一遍）→ 后续修改一侧时另一侧漂移，回归面扩大。
+
+### 来源
+
+req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） — executing 阶段 chg-01 + chg-02 改完不 auto-commit / dogfood 自验 / 同源 helper 抽取 / runtime *_title 字段对称扩展

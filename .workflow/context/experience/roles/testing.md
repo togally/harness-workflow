@@ -195,3 +195,29 @@ req-43（交付总结完善）testing 实操要点：
 ### 来源
 
 req-43（交付总结完善）— testing 阶段 5 chg PASS / 9 独立反例补充 / 5 项合规扫描 + L-01 followup 判定（test-report.md）
+
+---
+
+## 经验：CLI bug 修复 dogfood 实跑验证（mock + inline 脚本两栈互证）
+
+### 场景
+
+CLI bug 修复 req（如 req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） 的 apply / apply-all / rename 三 CLI 路径修复）测试时，pytest 用例可能用 fixture 隔离环境通过，但真实仓库链路是否跑通仍需实证。
+
+### 经验内容
+
+req-44 testing 阶段 dogfood 实跑实操：
+
+1. **mock seed sug 全链验证**：seed 一条 sug-99（带 frontmatter title + DOGFOOD-BODY-MARKER），调 `apply_suggestion` → 校验 (a) req title 来自 frontmatter（不是 content 头）；(b) requirement.md 含 DOGFOOD-BODY-MARKER；(c) sug 已 archive；
+2. **mock rename 跨字段验证**：调 `rename_requirement(cur_req, "Renamed Dogfood Req")` → 校验 (a) 三处目录（artifacts/ + state/ + .workflow/flow/）都改名；(b) `runtime.yaml.current_requirement_title = "Renamed Dogfood Req"`；
+3. **inline python3 脚本承载**：dogfood 不必落 tests/ 目录新文件，可写一段 inline 脚本调 helper 直跑，校验后输出 `[dogfood] all assertions passed ✅`；
+4. **dogfood 跑后清理**：seed 的 mock req / sug / runtime 字段须 revert 回原状（避免污染下一阶段 acceptance 抽样基线）。
+
+### 反例
+
+- 只跑 pytest 不跑 dogfood → mock fixture 通过但真实仓库的 `_use_flow_layout` / `resolve_requirement_root` 路径未实证 → bugfix-6 后路径不匹配类 bug 再次复发风险；
+- dogfood 跑后不清理 → 下一阶段 acceptance 抽样到的 runtime / 文件已被 dogfood 改写，污染验收基线。
+
+### 来源
+
+req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） — testing 阶段 2 dogfood 实跑（apply 全链 + rename runtime 同步）实证 plan.md TC + 反例之外的真实链路
