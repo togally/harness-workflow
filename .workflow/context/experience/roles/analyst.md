@@ -84,3 +84,28 @@ req-id ≥ 41 起，analyst 在 planning stage 必须按 `Step B2.5` 在 `plan.m
 ### 来源
 
 bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））— B1 修复点（analyst.md Step B2.5 测试用例设计前移到 planning）+ bugfix-6 自身 diagnosis.md §测试用例设计 18 条用例样本（dogfood 活证）
+
+---
+
+## 经验：planning §测试用例设计 — 波及接口清单的多 chg 协同实操
+
+### 场景
+
+req 拆 ≥ 5 chg 时，每个 chg plan.md §测试用例设计段均需独立列「波及接口清单」，且互相之间存在数据通路 / helper 复用 / scaffold mirror 文件交叉。
+
+### 经验内容
+
+实操要点：
+
+1. **波及接口清单必须含**：`workflow_helpers.py::{function}` 函数粒度（不是文件粒度）+ `.workflow/context/roles/{role}.md` §段粒度 + `scaffold_v2/...` mirror 文件路径列表 + suggestion / state yaml 等关联制品；
+2. **跨 chg helper 共用 → regression_scope=targeted 仍有效**：req-43（交付总结完善）的 5 chg 共用 `record_subagent_usage` / `done_efficiency_aggregate` / `_sync_stage_to_state_yaml` 三个 helper，但每个 chg 在 §测试用例设计段独立列对应函数 → testing 角色（bugfix-6 B2 新契约消费侧）按 chg 粒度跑用例 = 39 条，targeted 跑后通过 5 项合规扫描即可保证回归覆盖；
+3. **dogfood 用例（如 TC-06）必须落 §测试用例设计段**：req-43 chg-01 plan.md TC-06 = 「派发链路端到端 dogfood」，testing 实测发现 dogfood 失败（usage-log.yaml 未写入），由此暴露 L-01 followup → 转 sug-39（chg-01 派发钩子真实接通 record_subagent_usage）；若 dogfood 用例不落 plan.md，testing 阶段会漏判此问题。
+
+### 反例
+
+- 波及接口清单只列文件不列函数 → testing 跑覆盖时按文件粒度断言 → 同文件内的辅助函数被默认覆盖但实际未测，留下隐性回归窟窿。
+- 多 chg 共用 helper 时省略 §测试用例设计段 → testing 阶段需要重新推断接口边界，违反 bugfix-6 B2 契约「testing 直接消费 plan.md 用例」精神。
+
+### 来源
+
+req-43（交付总结完善）— 5 chg plan.md §测试用例设计段 39 用例 + testing 阶段消费验证（test-report.md）

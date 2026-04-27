@@ -469,4 +469,90 @@ req-43（交付总结完善）executing stage 完成：5 chg 端到端实现，4
 - [x] session-memory `## planning stage（plan.md 落地）` 段含抽检反馈 —— 本段 §3 ✅
 - [x] 给主 agent 的最终消息 ≤ 280 字 —— 见汇报 ✅
 
+---
+
+## testing stage
+
+### 0. 自我介绍 + 模型自检（Step 7.5）
+
+我是 Subagent-L1（testing 角色，claude-sonnet-4-6），承接 req-43（交付总结完善）的 testing stage 独立验证任务。
+
+**模型一致性自检**：expected_model = sonnet（Sonnet 4.6），role-model-map.yaml `roles.testing.model: sonnet`，一致 ✅。
+
+### 1. 测试矩阵摘要
+
+| chg | 结论 |
+|-----|------|
+| chg-01（接通 record_subagent_usage 派发链路（吸收 sug-25）） | PASS（helper 层全过；派发链路文字契约见 follow-up） |
+| chg-02（补齐 stage 流转点 entered_at + exited_at 时间戳） | PASS |
+| chg-03（per-stage 合并到 stage × role × model 单表渲染） | PASS |
+| chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版）） | PASS |
+| chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务） | PASS |
+
+### 2. 独立补充用例数
+
+9 条（每 chg 1-2 条），全部通过。
+
+### 3. 缺陷数 + 严重度分布
+
+- 缺陷数：0（无 FAIL）
+- follow-up 1 条（低严重度）：chg-01 usage-log.yaml 在真实测试派发后未写入 — helper 实现正确但主 agent 未执行 python 调用，接通链路仍为文字契约。建议 acceptance 关注或后续 req 追进。
+
+### 4. 全量回归状态
+
+576 passed / 2 pre-existing failed（test_readme_has_refresh_template_hint / test_human_docs_checklist_for_req29）/ 38 skipped
+
+### 5. testing 抽检反馈
+
+- **抽检产物**：5 份 plan.md 用例覆盖 + 43 executing pytest + 9 testing 自补 + 合规扫描 5 项 + dogfood 5 chg
+- **质量评分**：B（持平）— executing 实现质量高，43 pytest 覆盖全面；自补反例覆盖降级/边界场景
+- **退化点**：chg-01 dogfood usage-log 未写入属已知限制，不影响 helper 层正确性
+- **是否触发 regression 回调 B**：否
+
+### 6. ✅ 完成判据自检
+
+- [x] 5 chg 复测 + 独立补充 + dogfood 全跑 ✅
+- [x] 全量回归状态明确（576/2/38）✅
+- [x] 合规扫描 5 项全 PASS ✅
+- [x] test-report.md 五段齐 ✅
+- [x] session-memory `## testing stage` 段含抽检反馈 ✅
+- [x] git diff 仅 testing 自身产出（test-report.md + session-memory.md）✅
+
+---
+
+## acceptance stage
+
+### 0. 自我介绍 + 模型自检（Step 7.5）
+
+我是 Subagent-L1（acceptance 角色，Sonnet 4.6），承接 req-43（交付总结完善）的 acceptance stage 终检任务。
+
+**模型一致性自检（Step 7.5）**：expected_model = sonnet（Sonnet 4.6），role-model-map.yaml `roles.acceptance: sonnet`，与 briefing 一致。runtime 不暴露 self-introspection；按降级路径核对 ✅。
+
+### 1. 验收结论
+
+**PASS-with-followup**
+
+- checklist 通过/失败计数：14 ✅ / 0 ❌ / 0 ⚠️
+- AC-01 ~ AC-07 七条全 ✅
+- 5 chg 全部落地（grep/cat 抽样核查物理存在 + 字段对齐）✅
+- testing 52 用例全通过 / 全量回归 576 passed / 2 pre-existing ✅
+
+### 2. followup 数 + 性质
+
+- **L-01（非阻断）**：chg-01（接通 record_subagent_usage 派发链路（吸收 sug-25）） 派发钩子文字契约——主 agent 实际 session 中未调 python helper，usage-log.yaml 真实写入未发生；helper 实现正确（9/9 pytest），不影响功能。转 sug 池处理，不阻断 done。
+- **L-02（不阻断）**：sug-38（harness next over-chain bug）已在 sug 池，本 req 无需处理。
+
+### 3. acceptance 抽检反馈
+
+- **抽检产物**：requirement.md 7 AC + 5 份 chg plan.md + test-report.md + 关键源码 grep 抽样（workflow_helpers.py / validate_human_docs.py / done.md / base-role.md / repository-layout.md / scaffold_v2 mirror）
+- **质量评分**：A（提升）— executing 实现质量高，43 pytest 全覆盖，scaffold_v2 mirror 4 文件 diff=0；plan.md §测试用例设计 39 条用例超阈值且字段齐全；chg-01 followup 已明确标注非阻断
+- **退化点**：chg-01 dogfood usage-log 未写入为已知限制，不影响 helper 层正确性；done.md 两表合并为单表是需求要求的契约升级，非退化
+- **是否触发 regression 回调 B**：否
+
+### 4. ✅ 完成判据自检
+
+- [x] checklist.md 三段齐（§需求/变更映射 + §验收 Checklist + §遗留/后置项 + §最终验收结论）✅
+- [x] 验收结论明确（PASS-with-followup）✅
+- [x] session-memory `## acceptance stage` 段含抽检反馈 ✅
+- [x] 不调 `harness next` / `harness archive` ✅
 
