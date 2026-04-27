@@ -400,3 +400,43 @@ req-44 executing 实操要点：
 ### 来源
 
 req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） — executing 阶段 chg-01 + chg-02 改完不 auto-commit / dogfood 自验 / 同源 helper 抽取 / runtime *_title 字段对称扩展
+
+---
+
+## 经验：BUG fix 后 dogfood 自验 + commit + push 形成闭环（req-45 引入，防 git restore 类工件再丢）
+
+### 场景
+
+CLI bug 修复 req（如 req-45（harness next over-chain bug 修复（紧急））） 触发 regression 路由后的 2nd executing 重做场景：上一轮 testing 跑 `git restore .` 擦掉了 src/ 全部 executing 改动（BUG-03 P0 Critical），重做的 src 改动若不立即 commit + push，再次出现破坏性 git 命令时仍会再丢一次。req-44 经验"executing 不 auto-commit 留给 testing/acceptance 后统一 commit"在 BUG fix 重做场景**不适用**——必须立即 commit + push 形成闭环。
+
+### 经验内容
+
+**BUG fix 重做场景的 executing 闭环（req-45 2nd executing 范式，commit b64bcd7）**：
+
+1. **改完即 auto-commit**：与 req-44 经验"不 auto-commit"相反，BUG fix 重做完成 src/ 改动 + pytest 全绿 + dogfood 自验通过后，**立即** `git commit -m "fix: <BUG-NN> 修复点 + dogfood 自验"`，commit 颗粒按 BUG ID 而非按 chg。
+2. **commit 后立即 push**：`git push origin <branch>`，让远程仓库形成第二备份，破坏性 git 命令最坏只能擦工作区不擦远程；恢复路径 = `git fetch + git reset --hard origin/<branch>`。
+3. **commit message 含 dogfood 验证证据**：如 `fix: gate 插桩位置修对 + dogfood 验证`，让 reviewer / acceptance 阶段能从 git log 读出修复闭环证据。
+4. **dogfood 自验在 commit 之前**：顺序固定 = 改 src → pytest 全绿 → dogfood 自验（tmpdir mock + helper 直调 + stdout/stage 断言）→ commit + push；调换会让"未验证修复"落入 git history。
+5. **session-memory 留 executing（重做）段**：与首次 executing 段并列，含 BUG fix 描述 / 修复点 / TC 修正清单 / dogfood 实跑结论 / commit sha，让 testing 二次干净执行时能完整复盘。
+
+**何时走"不 auto-commit"路径**（req-44 范式）：
+
+- 非 BUG fix 重做的常规 executing；
+- 影响 CLI 自身行为的 chg（dogfood 自验本身需要 testing 阶段做完整链路验证）；
+- 多 chg 端到端实施（req-43 范式：5 chg 全绿后一次 commit）。
+
+**何时走"立即 commit + push"路径**（本经验 req-45 范式）：
+
+- regression 路由后的 BUG fix 重做（防 git restore 类事故再丢工件）；
+- 已有破坏性 git 命令事故记录（本 req session-memory 含 BUG-03 等）；
+- 跨多个 stage 的 src/ 改动（每完成一个 stage 至少落一次 commit + push）。
+
+### 反例
+
+- BUG fix 重做完不 commit → testing 二次执行又跑破坏性 git 命令 → src/ 再丢 → 三次 executing → 雪球 stage 流转（典型反例 = 若 req-45 2nd executing 不 commit b64bcd7 + push，3rd testing 再跑 git restore 仍可能擦改动）。
+- commit 在 dogfood 自验之前 → 未验证修复落入 git history → 后续 revert 颗粒不清晰。
+- commit message 不含 BUG ID / dogfood 证据 → reviewer 抽样时无法快速定位"哪个 commit 闭环了哪个 BUG"。
+
+### 来源
+
+req-45（harness next over-chain bug 修复（紧急）） — 2nd executing 重做 BUG-01（gate 插桩位置错）+ BUG-02（TC-02/03/06 断言修正）+ commit b64bcd7 + push 防再丢 + 2nd testing 干净 9/9 PASS 闭环验证

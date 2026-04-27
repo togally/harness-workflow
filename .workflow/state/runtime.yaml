@@ -1,9 +1,9 @@
 operation_type: "requirement"
 operation_target: "req-45"
-current_requirement: "req-45"
-current_requirement_title: "harness next over-chain bug 修复（紧急）"
-stage: "testing"
-stage_entered_at: "2026-04-27T06:25:03.840346+00:00"
+current_requirement: ""
+current_requirement_title: ""
+stage: "done"
+stage_entered_at: "2026-04-27T07:03:22.728775+00:00"
 conversation_mode: "harness"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -12,5 +12,4 @@ current_regression: ""
 current_regression_title: ""
 ff_mode: false
 ff_stage_history: []
-active_requirements:
-  - req-45
+active_requirements: []

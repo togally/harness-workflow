@@ -221,3 +221,92 @@ req-44 testing 阶段 dogfood 实跑实操：
 ### 来源
 
 req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） — testing 阶段 2 dogfood 实跑（apply 全链 + rename runtime 同步）实证 plan.md TC + 反例之外的真实链路
+
+---
+
+## 经验：testing 阶段红线 — 破坏性 git 命令禁用 + dogfood tmpdir mock 强制（req-45 引入）
+
+### 场景
+
+testing 阶段在 revert dry-run / 回滚抽样 / dogfood 实跑等场景下，可能直接对**当前仓库工作区**实跑 `git restore` / `git reset --hard` / `git checkout .` / `git clean -f` / `git branch -D` 等破坏性命令。req-45（harness next over-chain bug 修复（紧急）） 1st testing 实证：testing subagent 在 revert dry-run 步骤跑 `git restore .`，丢失 src/harness_workflow/workflow_helpers.py + validate_contract.py 全部 executing 改动（`_is_stage_work_done` helper / `check_stage_work_completion` / `run_contract_cli` 分支），触发 BUG-03 P0 Critical，需 regression 路由后 2nd executing 重做 + commit b64bcd7 + push。
+
+### 经验内容
+
+**红线（不可越过）**：
+
+1. **任何破坏性 git 命令在 testing 阶段一律禁止对当前仓库工作区操作**：
+   - 禁用清单：`git restore` / `git reset --hard` / `git checkout .` / `git checkout HEAD --` / `git clean -f` / `git branch -D` / `git push --force` 等会销毁工作区或历史的命令。
+   - 与 base-role 硬门禁四例外条款 (i) 数据丢失风险并列生效——但本红线对 testing 阶段更严格：例外条款 (i) 是"写入前确认"，testing 红线是"绝对禁用"，不允许"用户确认后执行"。
+2. **dogfood 实跑必须用 tmpdir mock 工作区**：
+   - 模式：`tempfile.mkdtemp()` + 手工构造 `.workflow/state/runtime.yaml` + `.workflow/flow/requirements/{req-slug}/...` 关键产物 + 直调 helper（如 `workflow_next(tmpdir_root)` / `_is_stage_work_done(...)`）。
+   - 不动当前仓库 git 状态：`git status` 在 dogfood 前后必须保持无新增 / 无修改 / 无删除（除主动落 testing 产物如 `test-report.md`）。
+3. **revert 抽样改用 stash/log 只读检视**：需要验证"修复前后行为差异"时，用 `git log --oneline` / `git show {sha}` / `git diff {sha}^..{sha}` 等只读命令对比，不实跑 revert。
+
+**自检方法**：
+
+- testing subagent 退出前 grep `.workflow/state/action-log.md` 本 stage 段是否含禁用命令字串，命中即视为红线违反，必须 regression 路由 + executing 重做。
+- 长期：建议补 lint `harness validate --contract testing-no-destructive-git`（sug-51（1st testing 跑 git restore 擦 src/ 事故 — testing 红线 + safer dogfood 协议） 跟踪），扫 testing 阶段 action-log。
+
+### 反例
+
+- testing 跑 `git restore .` 想"恢复 dogfood 试探的临时改动"→ 实际擦了 executing 真实工件 → BUG-03 P0 Critical → regression + 2nd executing 重做 + commit b64bcd7 + push（典型反例 = req-45 1st testing）。
+- dogfood 直接在当前仓库 `harness next`（不用 tmpdir mock）→ runtime.yaml 被改写 / artifacts 被产 / git 状态被污染 → acceptance 抽样基线漂移。
+
+### 来源
+
+req-45（harness next over-chain bug 修复（紧急）） — 1st testing `git restore .` 事故 + sug-51（1st testing 跑 git restore 擦 src/ 事故 — testing 红线 + safer dogfood 协议）
+
+---
+
+## 经验：CLI bug 修复类 chg dogfood 实跑模板（unit 全绿 ≠ dogfood pass，req-45 引入）
+
+### 场景
+
+修复 verdict-driven stage / `harness next` / `harness validate` / `harness suggest` 等 CLI 自身行为类 bug 时（如 req-45（harness next over-chain bug 修复（紧急）） chg-01（verdict stage work-done gate + workflow_next 集成）），unit 测试可能用 fixture / mock 通过，但真实 CLI 链路（`workflow_next` while 循环 / 第一格 `_write_stage_transition` / `_get_exit_decision`）是否实际跑通还需 dogfood 实证。req-45 1st testing 9 unit 全过但 dogfood 跑 `harness next` 暴露 BUG-01（gate 插桩位置错），凸显 unit pass != dogfood pass 的根本鸿沟。
+
+### 经验内容
+
+**dogfood 标准流程模板**（CLI bug 类 testing 必跑）：
+
+1. **构造 tmpdir mock 工作区**：
+   ```python
+   import tempfile, yaml
+   from pathlib import Path
+   tmpdir = Path(tempfile.mkdtemp())
+   (tmpdir / ".workflow/state").mkdir(parents=True)
+   (tmpdir / ".workflow/flow/requirements/req-99-mock-bug").mkdir(parents=True)
+   yaml.safe_dump({"current_requirement": "req-99", "stage": "testing", ...},
+                  (tmpdir / ".workflow/state/runtime.yaml").open("w"))
+   ```
+2. **关键产物 mock 缺失场景**（验 gate 阻断）：
+   - testing → 不创 `test-report.md`；
+   - acceptance → 不创 `acceptance/checklist.md`；
+   - executing → chg/session-memory.md 不含 ✅；
+3. **直调 helper 断言落点**：
+   ```python
+   from harness_workflow.workflow_helpers import workflow_next
+   rc = workflow_next(tmpdir)
+   final_runtime = yaml.safe_load((tmpdir / ".workflow/state/runtime.yaml").read_text())
+   assert final_runtime["stage"] == "testing"  # 第一格 gate 阻断，未跳 acceptance
+   ```
+4. **stdout 断言含禁止跳转提示**：捕获 stdout 含 `"Stage testing 工作未完成"` 等 gate 阻断文字。
+5. **与 unit TC 并列**：plan.md §测试用例设计应**同时**含 unit TC（`tests/test_*.py` mock fixture 通过）+ dogfood TC（如 TC-D-01 dogfood 实测 over-chain 阻断），缺 dogfood TC 视为 testing 设计不全。
+
+**何时必跑 dogfood**：
+
+- chg 修改影响 `harness next` / `harness validate` / `harness suggest` / `harness rename` / `harness install` / `harness update` 等 CLI 行为；
+- chg 修改 `workflow_helpers.py::_get_exit_decision` / `workflow_next` / `validate_contract.py` 等 stage 流转 / 契约 lint 入口。
+
+**何时可豁免 dogfood**：
+
+- 纯文档 chg（`.workflow/context/roles/*.md` / `.workflow/flow/*.md` 改写）+ 不接 CLI；
+- 纯重构（行为不变 + 测试不变 + 全量回归 0 new fail）。
+
+### 反例
+
+- 9 unit 全过就报 PASS 不跑 dogfood → BUG-01 类 over-chain 漏发现 → 主 agent / 用户后续真跑时才暴露 → regression 路由 + 二次 testing（典型反例 = req-45 1st testing）。
+- dogfood 用 `harness next` 直接跑当前仓库（不 tmpdir mock）→ 同时违反 testing 红线（git 状态被污染 + runtime 被改写），需补救 + acceptance 抽样基线漂移。
+
+### 来源
+
+req-45（harness next over-chain bug 修复（紧急）） — 2nd testing dogfood tmpdir mock + workflow_next 直调 + stdout / stage 双断言模板 + sug-52（dogfood 验证机制成熟度 — testing 标准 dogfood 实跑流程模板）
