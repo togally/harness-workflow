@@ -43,6 +43,25 @@ pipx install -e /path/to/harness-workflow
 # git pull inside the repo is all you need to pick up new changes
 ```
 
+## 重要部署提示
+
+pipx 安装源是 GitHub 远程（`package_or_url = git+https://github.com/togally/harness-workflow.git`）。
+本地仓库未 push 到远程的改动，`pipx reinstall` 后拿不到最新内容。
+
+推荐工作流：
+
+1. 开发者本地 commit 并 `git push origin main`（推送到 GitHub）
+2. 用户运行 `pipx reinstall harness-workflow`（从远程拉最新版本）
+3. 用户在目标项目运行 `harness install --check --agent <agent>`（先看 venv vs HEAD 对比报告）
+   - 输出 `[install --check] venv installed from: <commit_id>` — venv 实际安装的 commit
+   - 输出 `[install --check] local repo HEAD: <commit_id>` — 本地仓库最新 commit
+   - 如果两者不同，说明 venv 滞后，需先 push + reinstall 再 install
+4. 确认无误后运行 `harness install --agent <agent>`（真正同步；不会卡 Enter）
+
+> **开发者自测快捷路径**（跳过 GitHub）：`pipx install --force /本地/仓库/路径` 可直接从本地安装，立即拿到最新内容。
+
+---
+
 **Initialize a project** — run this inside any repo you want to manage with harness:
 
 ```bash

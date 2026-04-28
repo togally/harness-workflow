@@ -18,7 +18,9 @@ from typing import Optional
 import yaml
 
 # Version hardcoded to avoid import cycle
-__version__ = "0.1.0"
+# bugfix-7 / chg-02：版本号差异化，每次 chg / archive 时 bump；managed-files.json::tool_version
+# 跟随写入，install 时对比 mismatch 可触发 full re-sync。
+__version__ = "0.2.0"
 
 # Backup functions - used by install_repo and update_repo
 # These are kept as imports since they are used by exported functions
@@ -3495,6 +3497,40 @@ def _sync_scaffold_v2_mirror_to_live(
                 file=sys.stderr,
             )
 
+    # ---- 反向清理：managed_state 中登记过但 mirror 已无的死条目 (Fix-A) ----
+    # 遍历 set(managed_state.keys()) - set(mirror.keys())：这些文件曾被 install 写入（managed_state
+    # 有记录），但当前 scaffold_v2 mirror 已不包含它们（文件已从模板中删除）。
+    # 重要：mirror 使用 include_agents=False / include_claude=False，因此 agent 目录文件（.claude/、
+    # .codex/、.qoder/、.kimi/ 等）不在 mirror 中，但它们是合法的 managed 文件，不应被反向清理。
+    # 只对 .workflow/ 路径文件做反向清理（scaffold_v2 mirror 的覆盖范围）。
+    # 白名单跳过业务态目录（运行时产物 / 用户经验 / flow/requirements 等）；
+    # 白名单外、live 中仍存在的文件 → 移到 LEGACY_CLEANUP_ROOT 备份（不直删）+ 从 managed_state 摘除。
+    stale_keys = set(managed_state.keys()) - set(mirror.keys())
+    for relative in sorted(stale_keys):
+        # 只处理 .workflow/ 路径文件（scaffold_v2 mirror 覆盖范围）；
+        # agent 目录文件（.claude/、.codex/ 等）由 managed sync 管理，跳过。
+        if not relative.startswith(".workflow/"):
+            continue
+        if any(w in relative for w in _SCAFFOLD_V2_MIRROR_WHITELIST):
+            continue
+        live = root / relative
+        if live.exists():
+            if check:
+                actions.append(f"would remove stale (mirror) {relative}")
+            else:
+                backup_dest = _unique_backup_destination(root, Path(relative))
+                backup_dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(live), str(backup_dest))
+                actions.append(
+                    f"archived stale (mirror) {relative} → "
+                    f"{backup_dest.relative_to(root).as_posix()}"
+                )
+                refreshed_state.pop(relative, None)
+        else:
+            # 文件已不在 live（可能上次被手动删除），但 managed_state 仍有记录 → 摘除死条目
+            if not check:
+                refreshed_state.pop(relative, None)
+
     if not check:
         _save_managed_state(root, refreshed_state)
 
@@ -3762,11 +3798,10 @@ def install_repo(
                 selected = ["codex", "qoder", "cc", "kimi"]
                 print("\nNew installation: enabling all platforms (codex, qoder, cc, kimi)")
             else:
-                print(f"\nCurrent active platforms: {', '.join(active_list)}")
-                selected = prompt_platform_selection(active_list)
-                if not selected:
-                    selected = ["codex", "qoder", "cc", "kimi"]
-                    print("No selection made, using all platforms")
+                # bugfix-7 / chg-05：已有 active_list 时跳过 questionary 交互，直接复用已有平台配置。
+                # 仅首次 install（active_list 为空）走交互入口；存量项目不再卡 Enter。
+                print(f"\nCurrent active platforms: {', '.join(active_list)} (keeping existing selection)")
+                selected = active_list
 
             result = sync_platforms_state(selected, str(root))
             if result.get("backed_up"):
@@ -3813,6 +3848,24 @@ def install_repo(
             except ValueError:
                 rel = str(target)
             actions.append(f"refreshed {rel}")
+
+    # ---- bugfix-7 / chg-02：tool_version 失配检测 → 触发 force_managed full re-sync ----
+    # 对比 venv tool_version（__version__，当前代码段）vs 目标项目 managed-files.json::tool_version；
+    # 版本不一致时强制走 force_managed=True 路径，确保模板全量刷新。
+    managed_state_path = root / MANAGED_STATE_PATH
+    if not check and managed_state_path.exists():
+        try:
+            stored_meta = json.loads(managed_state_path.read_text(encoding="utf-8"))
+            stored_version = stored_meta.get("tool_version", "")
+            if stored_version and stored_version != __version__:
+                print(
+                    f"[install_repo] detected new tool_version: {stored_version} → {__version__}; "
+                    f"triggering full re-sync (force_managed=True)",
+                    file=sys.stderr,
+                )
+                force_managed = True
+        except Exception:
+            pass
 
     # ---- 吸收 update_repo：managed 文件同步（原 L3367-L3376）----
     _, sync_actions = _sync_requirement_workflow_managed_files(
@@ -7505,8 +7558,10 @@ def _is_stage_work_done(
     - testing：{req-flow-dir}/test-report.md 存在 + 含 §结论 / 结论
     - acceptance：{req-flow-dir}/acceptance/checklist.md 存在 + 含 §结论 / 结论
     - planning：≥ 1 个 chg-*/plan.md 存在 + 各含 §4 测试用例设计
-    - executing：changes 目录存在 + 每个 chg-*/session-memory.md 含 ✅，且 tests/ 下 ≥ 1 个 test_*.py
+    - executing（requirement/suggestion 模式）：changes 目录存在 + 每个 chg-*/session-memory.md 含 ✅，且 tests/ 下 ≥ 1 个 test_*.py
       - changes 目录缺 / 无 session-memory.md → False（严格化，不再保守降级）
+    - executing（bugfix 模式）：req-flow/session-memory.md 存在 + 含 ✅，且 tests/ 下 ≥ 1 个 test_*.py
+      （chg-07：bugfix 工件结构无 changes/ 子目录，按 operation_type 分路）
     - 其他 stage / 未知 stage / 解析失败 → True（保守降级）
     """
     # 保守降级：空 req_id / 未知 stage 直接返回 True
@@ -7545,7 +7600,12 @@ def _is_stage_work_done(
             return bool(_re.search(r"(?:^|\n)##\s*§?结论", text))
 
         if stage == "testing":
-            report = req_flow / "test-report.md"
+            # bugfix 模式产物是 test-evidence.md；requirement/suggestion 模式是 test-report.md
+            # （与 chg-07 executing 分路同模式，bugfix 工件名不同）
+            if operation_type == "bugfix":
+                report = req_flow / "test-evidence.md"
+            else:
+                report = req_flow / "test-report.md"
             if not report.exists():
                 return False
             content = report.read_text(encoding="utf-8")
@@ -7559,22 +7619,34 @@ def _is_stage_work_done(
             return _has_conclusion_heading(content)
 
         elif stage == "executing":
-            # 每个 chg-*/session-memory.md 末尾含 ✅
-            changes_dir = req_flow / "changes"
-            if not changes_dir.exists():
-                # 严格化（reg-02（over-chain 三维失配） + chg-02（保守降级严格化））：
-                # executing 但无 changes 目录 = subagent 还没派发 = work 未做，应阻断 next 自动连跳
-                return False
-            sm_files = list(changes_dir.glob("*/session-memory.md"))
-            if not sm_files:
-                # 严格化（reg-02（over-chain 三维失配） + chg-02（保守降级严格化））：
-                # changes 目录存在但无任何 session-memory.md = subagent 还没完成 = work 未做
-                return False
-            for sm in sm_files:
+            if operation_type == "bugfix":
+                # bugfix 模式：bugfix 工件结构无 changes/ 子目录；
+                # 检查 bugfix-level session-memory.md 含 ✅
+                # （chg-07：reg-02/chg-02 严格化遗漏 bugfix 路径修复）
+                sm = req_flow / "session-memory.md"
+                if not sm.exists():
+                    return False
                 content = sm.read_text(encoding="utf-8")
                 if "✅" not in content:
                     return False
-            # tests/ 下至少 1 个 test_*.py
+            else:
+                # requirement / suggestion 模式：原有逻辑
+                # 每个 chg-*/session-memory.md 末尾含 ✅
+                changes_dir = req_flow / "changes"
+                if not changes_dir.exists():
+                    # 严格化（reg-02（over-chain 三维失配） + chg-02（保守降级严格化））：
+                    # executing 但无 changes 目录 = subagent 还没派发 = work 未做，应阻断 next 自动连跳
+                    return False
+                sm_files = list(changes_dir.glob("*/session-memory.md"))
+                if not sm_files:
+                    # 严格化（reg-02（over-chain 三维失配） + chg-02（保守降级严格化））：
+                    # changes 目录存在但无任何 session-memory.md = subagent 还没完成 = work 未做
+                    return False
+                for sm in sm_files:
+                    content = sm.read_text(encoding="utf-8")
+                    if "✅" not in content:
+                        return False
+            # tests/ 下至少 1 个 test_*.py（两模式共用）
             tests_dir = root / "tests"
             if tests_dir.exists():
                 test_files = list(tests_dir.glob("test_*.py"))
@@ -8250,9 +8322,11 @@ def _install_self_audit(root: Path) -> int:
                 drift_count += 1
 
     if drift_count > 0:
+        # Fix-A chg-01：drift > 0 时必须强提示（不可静默）；
+        # 用 \033[33m...\033[0m ANSI 黄色标注 WARNING，让用户在 stderr 中明显感知。
         print(
-            f"[install_repo:self-audit] WARNING: {drift_count} drift(s) detected; "
-            f"pass --force-managed to overwrite, or see {root}/.workflow/audit.md",
+            f"\033[33m[install_repo:self-audit] WARNING: {drift_count} drift(s) detected; "
+            f"pass --force-managed to overwrite, or see {root}/.workflow/audit.md\033[0m",
             file=sys.stderr,
         )
     return drift_count

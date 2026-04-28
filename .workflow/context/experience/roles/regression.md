@@ -302,3 +302,104 @@ bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑
 
 reg-02（over-chain bug 第三次本会话内实证（harness next --execute 4 跳跨 executing→done）— sug-46（req-44 二次实证 over-chain）/ sug-50（gate gap 实为部署 gap）/ sug-53（usage-log 缺失 + over-chain 副作用）同根因复发） + chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）
 
+---
+
+## 经验十一：install 反向清理盲区诊断（mirror 已删 + managed-files 仍登记）
+
+### 场景
+
+用户报告"多次 `harness install` 后目标项目 `.workflow/` 下永久残留 scaffold 已删的旧文件"（如 `usage-reporter.md` 在 req-42 archive 时被 scaffold 删除，但 PetMall 历经多轮 install 仍保留）。诊断需要识别 install 同步契约的反向缺位。
+
+### 经验内容
+
+**症状识别**：`diff -rq venv/scaffold_v2 vs target/.workflow/` 命中"only in target"非空，且这些文件**不在用户业务态白名单**（`flow/requirements/` / `state/sessions/` / `context/experience/regression/` 等）→ 是 scaffold 残留多余，非业务态。
+
+**诊断三步**：
+
+1. **L1 表象**：在目标项目跑 `find .workflow -type f` + `comm -23` 与 venv scaffold_v2 mirror 比对，列"只在 target 不在 mirror"清单；
+2. **L2 中层**：grep `_install_self_audit` + `_sync_scaffold_v2_mirror_to_live`——install 同步契约只覆盖**正向**（mirror 有 → live 写入）和**覆盖**（mirror ≠ live → 写覆盖），**没有反向**（mirror 无但 managed-files 有 → 删除）；`LEGACY_CLEANUP_TARGETS` 是硬编码白名单，依赖人工维护，scaffold 删一个文件就要手工加一条；
+3. **L3 根本**：`set(managed_state.keys()) - set(mirror.keys())` = dead entries 集合；这才是反向清理应当遍历的真候选。
+
+**修复模式**：
+
+- 在 `_sync_scaffold_v2_mirror_to_live` 加反向遍历分支：对 dead entries 中**不在业务态白名单**的文件，move 到 `LEGACY_CLEANUP_ROOT` 备份（不直删，留 git 可恢复路径）+ 同步从 `managed_state` 删除该 key；
+- `_install_self_audit` drift > 0 时输出 ANSI 黄色 WARNING（非静默）；
+- `LEGACY_CLEANUP_TARGETS` 从硬编码迁移到 mirror diff 自动派生（去掉手工维护负担）。
+
+**反例**：把多余文件归到"用户业务态"忽略——业务态白名单（state/, flow/archive/, flow/requirements/ 等）外的"managed-files 登记过且 mirror 已无"才是真残留；只看文件名而不查 managed_state ↔ mirror 的差集会漏判。
+
+**应用案例**：bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件） chg-01（反向清理 + check 对比）+ TC-01 dogfood 实证：tmpdir 模拟"mirror 已删 + managed-files 仍登记"双状态，跑 `harness install --agent claude` 后文件被 archive 到 `LEGACY_CLEANUP_ROOT`，managed-files.json 移除该 key。
+
+### 来源
+
+bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件） / chg-01（反向清理 + check 对比） — diagnosis.md §3 根因 A/B/D + §8 经验沉淀候选 + test-evidence.md TC-01
+
+---
+
+## 经验十二：pipx git URL 安装 vs 本地 HEAD 部署链条断裂诊断
+
+### 场景
+
+开发者本地仓库做 chg、commit，但**未 push 到 GitHub 远程**，然后让用户跑 `pipx reinstall harness-workflow`——用户拿不到本地未 push 的 commit。用户报告"reinstall 完了 install 没生效"，开发者 grep src/ 看到代码已修，断定"已修复"，实际 venv 还在远程旧 commit 上。
+
+### 经验内容
+
+**症状识别**：`pipx_metadata.json::main_package.package_or_url` = `git+https://github.com/.../...git`（git URL 安装源） + 用户报告 install 行为与 src 不一致 → 大概率是部署链条断裂（L2 失配）。
+
+**诊断三步**（扩展经验十"三维失配"L2 部署层）：
+
+1. **venv 安装 commit**：读 `~/.local/pipx/venvs/{pkg}/lib/python*/site-packages/{pkg}-*.dist-info/direct_url.json::vcs_info.commit_id`——这是 venv 实际安装时的远程 commit；
+2. **本地 HEAD commit**：在仓库根目录跑 `git rev-parse HEAD`；
+3. **diff hint**：`git log {venv_commit}..HEAD --oneline`——列出本地有但远程没有的 commit；非空 = 部署链条断裂。
+
+**修复路径**：
+
+- **正路**：开发者 `git push origin main` 把 commit 推到远程 → 用户 `pipx reinstall` 拿到新 commit；
+- **快路**（绕过远程）：用户 `pipx install --force /path/to/local/repo`——`package_or_url` 改为本地路径，不依赖远程。
+
+**反例**：直接 grep src/ 看到代码已修就断定"已修复"——忽略 pipx venv 还在远程旧 commit 上，用户跑出来的还是旧版本；这是反复制造"看起来修了但用户还在踩坑"的根源。
+
+**配套契约（chg-04（文档强提示 check stdout）落地）**：`harness install --check` stdout 必含 venv 安装源 commit + 本地 HEAD commit + diff hint；旧版 venv 缺 helper 时由 CLI 子进程独立跑 `git log` 兜底（不依赖 venv 含 helper）。
+
+**应用案例**：bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件） §诊断 / 根因 E/F/G——pipx venv `direct_url.json::commit_id = a801820`（远程 main 头部），本地 `git rev-parse HEAD = 83bb612`，`git log a801820..HEAD --oneline` 命中 1+ 个 archive commit；用户跑 `pipx reinstall` 永远拿不到 chg-01 / chg-02 改动，必须先 push。
+
+### 来源
+
+bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件） / regression / diagnosis.md §3 根因 E/F/G + §8 经验沉淀候选 + chg-04（文档强提示 check stdout）
+
+---
+
+## 经验十三：模式差异化（gate / lint / 契约扩展时三模式覆盖）
+
+### 场景
+
+reg-02 严格化 `_is_stage_work_done` 的 executing gate 时，只考虑 requirement 模式（`changes/` 子目录 + `test-report.md`）；bugfix-7 自身落地时立即触发 chg-07 紧急修复——bugfix 模式既无 `changes/` 也无 `test-report.md`，gate 永远 False，bugfix 周期被卡死。testing 阶段又复发一次（`testing` 分支只认 `test-report.md`，bugfix 用 `test-evidence.md`）。
+
+### 经验内容
+
+**核心规约**：凡是新增 gate / lint / 契约 / 路径 / artifact 自检，**必须**主动核对 BUGFIX_SEQUENCE / SUGGESTION_SEQUENCE / REQUIREMENT_SEQUENCE 三模式覆盖：
+
+| 维度 | requirement 模式 | bugfix 模式 | suggestion 模式 |
+|------|-----------------|------------|---------------|
+| 拆分载体 | `changes/{chg-id}/` | 无（diagnosis.md 直驱） | 无（直接处理 OR 转 req） |
+| 工件根目录 | `.workflow/flow/requirements/{req-id}-{slug}/` | `.workflow/flow/bugfixes/{bugfix-id}-{slug}/` | `.workflow/flow/suggestions/{sug-id}-{slug}.md` |
+| executing 完成态 | `changes/` 各 `chg-id/session-memory.md` ✅ | `session-memory.md` ✅（顶层） | N/A |
+| testing 报告 | `test-report.md` | `test-evidence.md` | N/A |
+| acceptance 报告 | `acceptance-report.md` | `acceptance/checklist.md` + `bugfix-acceptance-report.md` | N/A |
+| done 对人产物 | `交付总结.md`（done.md 完整模板） | `bugfix-交付总结.md`（精简版） | `交付总结.md`（轻量 3 段） |
+
+**reg-02 盲区扩展**：严格化 `_is_stage_work_done` 时若只测试 requirement 模式 dogfood，bugfix 模式会被永久卡死；本 bugfix-7 chg-07 + testing 分路扩展是同根因复发的 hot-fix。
+
+**修复模式**：
+
+- 新增 gate 函数加 `operation_type` 参数 + 三分支显式判定；
+- 新增 lint 时 dogfood 至少覆盖 requirement / bugfix 两模式（suggestion 直接处理路径按需）；
+- `harness validate --contract` 各 lint 在 review checklist 中标注"已覆盖三模式"；
+- review checklist 加"每新增门禁须三模式 dogfood"硬条目。
+
+**反例**：reg-02 chg-02 严格化 gate 时只测 requirement 模式，bugfix-7 落地时 executing gate 永远 False，必须临时插 chg-07 + testing 阶段又插一次 testing 分路；本可在 reg-02 落地时一次闭环。
+
+### 来源
+
+reg-02（over-chain bug） + bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件） chg-07（executing gate bugfix 模式支持） + testing 阶段就地 testing 分路修复（session-memory.md §Testing Stage 附加）
+

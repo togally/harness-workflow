@@ -19,55 +19,145 @@ from harness_workflow.workflow_helpers import install_agent, install_repo
 
 
 def _print_venv_check() -> int:
-    """输出 venv mtime vs HEAD commit ts 差值（sug-55（chg-02 部署同步契约 dev mode flag）配套）。
+    """输出 venv 安装源 commit_id + 本地 HEAD commit + diff hint（bugfix-7 / chg-01 Fix-B）。
 
-    输出格式（不强制重装）：
-        [install --check] venv_mtime=<float> HEAD_commit_ts=<float> diff=<float>s
-        [install --check] WARN: venv is older than HEAD commit  （若 diff < 0）
-        [install --check] OK: venv is up-to-date  （若 diff >= 0）
+    输出格式（stdout）：
+        [install --check] venv installed from: <commit_id>（来自 direct_url.json 或 pipx_metadata.json）
+        [install --check] local repo HEAD: <head_commit>（来自 git log -1 --format=%H）
+        [install --check] OK: venv is up-to-date  （venv_commit == HEAD）
+        [install --check] WARN: venv X commits behind HEAD  （venv_commit 落后于 HEAD）
+
+    不依赖 venv 内含 helper（CLI 子进程独立跑 git log）；旧版 venv 也能跑。
 
     Returns:
-        0 = 无问题（diff >= 0）；1 = venv 较 HEAD 旧（diff < 0）。
-
-    req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）/
-    chg-01（testing 红线 + safer dogfood + commit revert dry-run）落地 sug-55（chg-02 部署同步契约 dev mode flag）。
+        0 = venv 与 HEAD 一致或无法对比；1 = venv 明确落后于 HEAD。
     """
+    import glob
+    import json
     import os
     import subprocess
 
-    venv_mtime: float = -1.0
-    head_commit_ts: float = -1.0
+    venv_commit: str = ""
+    head_commit: str = ""
 
-    # 获取 venv workflow_helpers.py mtime
+    # 1) 从 direct_url.json 获取 venv 安装源 commit_id（bugfix-7 Fix-B 主路径）
+    # 路径：~/.local/pipx/venvs/harness-workflow/lib/python*/site-packages/harness_workflow-*.dist-info/direct_url.json
     try:
-        import harness_workflow.workflow_helpers as _wh_mod
-        venv_mtime = os.path.getmtime(_wh_mod.__file__)
-        print(f"[install --check] _is_stage_work_done import OK: {_wh_mod.__file__}")
-    except Exception as exc:
-        print(f"[install --check] WARN: cannot import harness_workflow.workflow_helpers: {exc}", file=sys.stderr)
+        home = os.path.expanduser("~")
+        pattern = os.path.join(
+            home, ".local", "pipx", "venvs", "harness-workflow",
+            "lib", "python*", "site-packages", "harness_workflow-*.dist-info", "direct_url.json"
+        )
+        matches = glob.glob(pattern)
+        if matches:
+            data = json.loads(Path(matches[0]).read_text(encoding="utf-8"))
+            venv_commit = data.get("vcs_info", {}).get("commit_id", "")
+    except Exception:
+        pass
 
-    # 获取 HEAD commit ts（workflow_helpers.py 最新修改时间）
+    # 2) 回退：从 pipx_metadata.json 获取（兼容不同 pipx 版本）
+    if not venv_commit:
+        try:
+            meta_path = os.path.join(
+                os.path.expanduser("~"), ".local", "pipx", "venvs",
+                "harness-workflow", "pipx_metadata.json"
+            )
+            if os.path.exists(meta_path):
+                meta = json.loads(Path(meta_path).read_text(encoding="utf-8"))
+                # pipx_metadata.json 存结构各版本略有不同，尝试几个路径
+                pkg = meta.get("main_package", {})
+                venv_commit = (
+                    pkg.get("vcs_info", {}).get("commit_id", "")
+                    or pkg.get("package_version", "")
+                )
+        except Exception:
+            pass
+
+    # 3) 兜底：从 venv workflow_helpers.py mtime 推算（旧行为保留）
+    venv_mtime: float = -1.0
+    if not venv_commit:
+        try:
+            import harness_workflow.workflow_helpers as _wh_mod
+            venv_mtime = os.path.getmtime(_wh_mod.__file__)
+        except Exception as exc:
+            print(f"[install --check] WARN: cannot import harness_workflow.workflow_helpers: {exc}", file=sys.stderr)
+
+    # 4) 获取本地 repo HEAD commit（git log -1 --format=%H，子进程独立跑，不依赖 venv）
     try:
         result = subprocess.run(
-            ["git", "log", "-1", "--format=%ct", "--", "src/harness_workflow/workflow_helpers.py"],
+            ["git", "log", "-1", "--format=%H"],
             capture_output=True,
             text=True,
             timeout=10,
         )
         if result.returncode == 0 and result.stdout.strip():
-            head_commit_ts = float(result.stdout.strip())
+            head_commit = result.stdout.strip()
     except Exception:
         pass
 
-    if venv_mtime >= 0 and head_commit_ts >= 0:
-        diff = venv_mtime - head_commit_ts
-        print(f"[install --check] venv_mtime={venv_mtime:.0f} HEAD_commit_ts={head_commit_ts:.0f} diff={diff:.0f}s")
-        if diff < 0:
-            print("[install --check] WARN: venv is older than HEAD commit — consider running 'harness install'", file=sys.stderr)
-            return 1
-        print("[install --check] OK: venv is up-to-date")
+    # 5) 输出对比报告（stdout）
+    if venv_commit:
+        print(f"[install --check] venv installed from: {venv_commit}")
+    elif venv_mtime >= 0:
+        print(f"[install --check] venv_mtime={venv_mtime:.0f} (direct_url.json not found; fallback to mtime)")
     else:
-        print(f"[install --check] venv_mtime={venv_mtime:.0f} HEAD_commit_ts={head_commit_ts:.0f} (partial data)")
+        print("[install --check] venv commit: unknown (pipx metadata not found)")
+
+    if head_commit:
+        print(f"[install --check] local repo HEAD: {head_commit}")
+    else:
+        print("[install --check] local repo HEAD: unknown (git not available)")
+
+    # 6) 计算 diff hint
+    if venv_commit and head_commit:
+        if venv_commit == head_commit:
+            print("[install --check] OK: venv is up-to-date")
+            return 0
+        # git log venv_commit..HEAD 统计落后 commit 数
+        try:
+            diff_result = subprocess.run(
+                ["git", "log", f"{venv_commit}..{head_commit}", "--oneline"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if diff_result.returncode == 0:
+                behind_lines = [l for l in diff_result.stdout.strip().splitlines() if l]
+                behind_count = len(behind_lines)
+                if behind_count > 0:
+                    print(
+                        f"[install --check] WARN: venv {behind_count} commit(s) behind HEAD "
+                        f"— push changes then 'pipx reinstall harness-workflow'",
+                        file=sys.stderr,
+                    )
+                    return 1
+                # venv_commit 不在 HEAD 祖先链（非线性历史）
+                print("[install --check] WARN: venv commit not in local history (diverged or force-pushed)", file=sys.stderr)
+                return 1
+        except Exception:
+            pass
+        print(f"[install --check] WARN: venv commit ({venv_commit[:8]}) differs from HEAD ({head_commit[:8]})", file=sys.stderr)
+        return 1
+    elif venv_mtime >= 0 and head_commit:
+        # 兜底：mtime 对比
+        try:
+            ts_result = subprocess.run(
+                ["git", "log", "-1", "--format=%ct", "--", "src/harness_workflow/workflow_helpers.py"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if ts_result.returncode == 0 and ts_result.stdout.strip():
+                head_commit_ts = float(ts_result.stdout.strip())
+                diff = venv_mtime - head_commit_ts
+                print(f"[install --check] venv_mtime={venv_mtime:.0f} HEAD_commit_ts={head_commit_ts:.0f} diff={diff:.0f}s")
+                if diff < 0:
+                    print("[install --check] WARN: venv is older than HEAD commit — consider running 'harness install'", file=sys.stderr)
+                    return 1
+                print("[install --check] OK: venv is up-to-date (mtime check)")
+                return 0
+        except Exception:
+            pass
 
     return 0
 

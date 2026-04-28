@@ -126,6 +126,15 @@
 - regression 契约自检：`run_contract_cli(root, contract='regression')` rc=0
 - 本阶段已结束。
 
+## [2026-04-28] bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件）testing 完成 + gate 修复
+
+- **角色**：测试工程师（testing / sonnet）
+- **执行内容**：TC-01~TC-10 覆盖（9 PASS / TC-07 N/A P2）；真实场景 dogfood 5 维全 PASS；全量回归 13 pre-existing fail / 0 新增 fail；5 项合规扫描全 PASS
+- **gate 修复**：`_is_stage_work_done("testing")` 增 bugfix 模式分路（test-evidence.md）—— 对应 chg-07 同模式修法，testing 阶段发现并就地修复
+- **chg-06 contingency**：不触发，chg-01 反向清理完整覆盖
+- **artifact-placement**：exit 0 PASS；**human-docs**：exit 1（D-11=B 留痕放行）
+- **结果**：PASS，转 acceptance
+
 ## [2026-04-28] req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）chg-01（testing 红线 + safer dogfood + commit revert dry-run）testing 完成
 
 - **角色**：测试工程师（testing / sonnet）
