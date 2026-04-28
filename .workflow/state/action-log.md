@@ -125,3 +125,12 @@
 - 经验沉淀草案：经验九（契约/源代码/部署 三维失配诊断模板）写入 decision.md §3，最终落点由 chg-02 done 决定
 - regression 契约自检：`run_contract_cli(root, contract='regression')` rc=0
 - 本阶段已结束。
+
+## [2026-04-28] req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）chg-01（testing 红线 + safer dogfood + commit revert dry-run）testing 完成
+
+- **角色**：测试工程师（testing / sonnet）
+- **执行内容**：10 TC 核查（9 PASS / 1 N/A 留尾）；新增 16 用例全绿；全量回归 665 passed / 6 pre-existing fail / 0 新增 fail；5 项合规扫描全 PASS；破坏性 git 红线自检合规
+- **TC-08 决策**：N/A（留尾）— executing 明示未实现，P1 优先级，不阻塞
+- **6 历史 fail 溯源**：全部 pre-existing（req-43/44/45/46 引入），与 chg-01 零交集
+- **artifact-placement**：exit 0 PASS；**human-docs**：exit 1（D-11=B 留痕放行）
+- **结果**：PASS，转 acceptance

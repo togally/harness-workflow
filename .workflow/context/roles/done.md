@@ -25,6 +25,19 @@
   - **Evaluation 层**：检查评估标准是否达成
   - **Constraints 层**：检查约束条件是否遵守
 
+### Step 2.5: commit revert dry-run 抽样（sug-31（done 后 commit + revert dry-run 自动化）落地）
+
+对本 req 所有 chg commit 执行 `git revert --dry-run` / `git revert --no-commit --no-edit -n <sha>` dry-run 抽样：
+
+1. 从 `changes/` 目录 ls 计数本 req chg 数（N），取最近 N+1 个 commit sha；
+2. 逐一执行 `git revert --no-commit -n <sha>`（**dry-run 模式，不产生新 commit**）；
+3. 检查返回码：
+   - exit 0（无 conflict）→ dry-run 通过，在 done-report.md 记录"revert 抽样：PASS"；
+   - exit 1（有 conflict）→ **不阻塞 done 阶段**，但在 acceptance-report.md / done-report.md 写入：
+     `⚠️ revert 抽样发现冲突，建议在 harness archive 前先 harness regression "<冲突描述>"`；
+4. 每次 dry-run 后执行 `git checkout -- .` 恢复（或 `git revert --abort`）；
+5. 与 testing.md §R1 越界 / revert 抽样互补：本段是 done 阶段全 chg 抽样 + harness archive 前置自检维度。
+
 ### Step 3: 工具层专项检查
 - 询问本轮有无 CLI/MCP 工具适配性问题
 - 记录到回顾报告中

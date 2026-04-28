@@ -1,0 +1,4 @@
+id: "req-47"
+title: "整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发"
+archived_at: "2026-04-28T03:28:19.910026+00:00"
+origin_stage: "done"

@@ -111,6 +111,52 @@ subprocess.run([sys.executable, "-m", "harness_workflow.cli", "next", ...], ...)
 2. 子进程隔离（tmpdir mock，不污染当前仓库）；
 3. stdout + runtime.yaml stage + feedback.jsonl 事件数断言。
 
+## 破坏性 git 命令禁止（sug-51（testing git restore 事故 + tmpdir 红线）落地）
+
+> 来源溯源：req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症））现场 testing subagent 跑 `git restore src/` 事故。
+
+**红线**：testing subagent **禁止**在当前仓库执行任何破坏性 git 命令：
+
+- 禁止：`git restore` / `git reset --hard` / `git checkout .` / `git clean -f` / `git branch -D` / `git rebase -i`
+- 禁止范围：不含 `--dry-run` / `--no-commit -n` 等明确声明无副作用的 flag。
+
+**白名单豁免**（以下操作只读 / dry-run，允许使用）：
+
+- `git diff --name-only` / `git log` / `git show`
+- `git revert --dry-run <sha>` / `git revert --no-commit -n <sha>`
+- 任何 `--stat` / `--name-status` / `--dry-run` 只读查询模式
+
+**违规后果**：命中破坏性 git 命令 → test-report.md 标记 FAIL + 强制走 `harness regression`。
+
+## tmpdir mock 红线（sug-51（testing git restore 事故 + tmpdir 红线） + sug-52（dogfood 实跑流程模板）联合落地）
+
+**红线**：testing dogfood **必须**使用 `pytest tmp_path` / `tempfile.mkdtemp()` 创建独立工作区：
+
+- 禁止直接改写当前仓库 git 状态（包括 `git init` / `git add` / `git commit` 在当前 repo 根执行）；
+- 所有写操作（创建文件、修改 yaml、跑 CLI）必须在 tmpdir 中进行；
+- 参考设计：`tests/test_workflow_next_subprocess.py` fixture（chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）已落 4 路径模板）。
+
+## dogfood 标准流程模板（sug-52（dogfood 实跑流程模板）落地）
+
+> 配套样本指针：`tests/test_workflow_next_subprocess.py`（chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）已落 4 路径 fixture + `_run_harness_next()` wrapper）。
+
+**4 维必须满足**：CLI 子进程入口 / tmpdir 隔离 / stdout 断言 / runtime + feedback 状态断言。
+
+```python
+# tmpdir 工作区 fixture
+def test_xxx_dogfood(tmp_path):
+    # 1. 复制 minimal .workflow 骨架到 tmpdir
+    #    shutil.copytree(repo_root / ".workflow", tmp_path / ".workflow", ...)
+    # 2. subprocess.run([sys.executable, '-m', 'harness_workflow.cli', 'next'],
+    #                   cwd=tmp_path, capture_output=True, text=True)
+    # 3. 断言 stdout / runtime.yaml stage / feedback.jsonl 事件数
+    assert result.returncode == 0
+    rt = yaml.safe_load((tmp_path / ".workflow/state/runtime.yaml").read_text())
+    assert rt["stage"] == "<expected_stage>"
+```
+
+**触发条件**：chg 涉及 CLI 入口 / `harness next` / `harness install` / `harness change` / `harness archive` 等子命令时，plan.md §4 测试用例设计必须含 ≥ 1 条 dogfood TC（P0 优先级）。
+
 ## 完成条件
 - 全部用例通过 → `harness next` → `acceptance`
 - 有用例失败 → `harness regression "<失败描述>"` → 诊断后路由

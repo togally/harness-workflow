@@ -67,6 +67,15 @@ acceptance 阶段开始前，**必须**验证部署版本与当前 source 一致
 - `_is_stage_work_done` import 成功
 - venv mtime = <timestamp>，HEAD commit ts = <timestamp>，差值 ≥ 0
 
+### dev mode 豁免子条款（sug-55（chg-02 部署同步契约 dev mode flag）落地）
+
+`HARNESS_DEV_MODE=1` 环境变量为真时，acceptance 阶段**不强制**要求 `pipx install --force` + venv mtime 检查：
+
+- **dev（HARNESS_DEV_MODE=1）**：豁免部署同步硬条目检查（本地开发迭代时使用）；
+- **prod / ci（默认，HARNESS_DEV_MODE 未设或非 "1"）**：严格部署同步检查（chg-02（over-chain bug 真修 + deploy 契约 + 子进程 dogfood）行为保持不变）；
+- **切换路径**：`harness install --check` 子命令做版本对比预警（不强制重装）；
+- **安全约束**：CI 配置文件**不应** `export HARNESS_DEV_MODE=1`；dev mode 豁免仅供本地开发态主动使用。
+
 ## 完成条件
 
 **前置硬门禁**：`harness validate --human-docs` exit code = 0 才进入人工判定；未绿则 FAIL 不走人工 gate。

@@ -16,6 +16,7 @@
 ## roles
 - [roles/acceptance.md](roles/acceptance.md) — Acceptance Stage Experience
 - [roles/analyst.md](roles/analyst.md) — 经验：分析师（analyst）
+- [roles/done.md](roles/done.md) — Done Stage Experience
 - [roles/executing.md](roles/executing.md) — Development Stage Experience
 - [roles/planning.md](roles/planning.md) — Planning Stage Experience
 - [roles/regression.md](roles/regression.md) — Regression Stage Experience

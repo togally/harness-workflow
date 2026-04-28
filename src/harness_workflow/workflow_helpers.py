@@ -6418,11 +6418,121 @@ def migrate_bugfix_layout(root: Path, dry_run: bool = False) -> int:
     return 1 if conflicts else 0
 
 
+def _revert_dry_run_self_check(
+    root: Path,
+    req_id: str,
+    skip_check: bool = False,
+) -> int:
+    """archive 前置 revert dry-run 自检 helper。
+
+    对本 req 最近 N 个 commit（N = changes/ 目录 chg 数 + 1）执行
+    `git revert --no-commit -n <sha>` dry-run 抽样，捕获返回码：
+
+    - 无 conflict → 返回 0；
+    - 有 conflict → 输出修复指引 + 返回 1（默认阻塞归档）；
+    - skip_check=True → 仅 stderr 警告 + 返回 0（escape hatch）。
+
+    req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）/
+    chg-01（testing 红线 + safer dogfood + commit revert dry-run）落地
+    sug-31（done 后 commit + revert dry-run 自动化）。
+    """
+    import sys
+
+    # 确认 git repo
+    git_check = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if git_check.returncode != 0 or git_check.stdout.strip() != "true":
+        print("[revert-dry-run] 不在 git 仓库中，跳过检查", file=sys.stderr)
+        return 0
+
+    # 计算 changes/ 目录 chg 数
+    chg_count = 1  # 默认至少抽样 1 个
+    flow_base = root / ".workflow" / "flow" / "requirements"
+    if flow_base.exists():
+        for req_dir in flow_base.iterdir():
+            if req_dir.is_dir() and (req_dir.name.startswith(f"{req_id}-") or req_dir.name == req_id):
+                changes_dir = req_dir / "changes"
+                if changes_dir.exists():
+                    chg_count = max(1, sum(1 for c in changes_dir.iterdir() if c.is_dir()))
+                break
+    n = chg_count + 1
+
+    # 获取最近 N 个 commit sha
+    git_log = subprocess.run(
+        ["git", "log", f"--max-count={n}", "--format=%H"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if git_log.returncode != 0:
+        print("[revert-dry-run] git log 失败，跳过检查", file=sys.stderr)
+        return 0
+
+    commit_shas = [s.strip() for s in git_log.stdout.strip().splitlines() if s.strip()]
+    if not commit_shas:
+        print("[revert-dry-run] 无 commit 记录，跳过检查", file=sys.stderr)
+        return 0
+
+    conflict_shas: list[str] = []
+
+    for sha in commit_shas:
+        # 先确保工作区干净（stash 或 reset）—— 仅 dry-run，不产生实际 revert commit
+        # dry-run 用法：git revert --no-commit -n <sha>，然后 git revert --abort 或 git checkout -- .
+        revert_result = subprocess.run(
+            ["git", "revert", "--no-commit", "-n", sha],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        # 无论是否冲突，先清理工作区
+        subprocess.run(
+            ["git", "checkout", "--", "."],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            ["git", "revert", "--abort"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        if revert_result.returncode != 0:
+            conflict_shas.append(sha)
+
+    if not conflict_shas:
+        print(f"[revert-dry-run] PASS：抽样 {len(commit_shas)} 个 commit，revert dry-run 无冲突")
+        return 0
+
+    # 有冲突
+    print(
+        f"[revert-dry-run] {'警告（--skip-revert-check 模式）' if skip_check else 'FAIL'}："
+        f"revert 抽样发现冲突（{len(conflict_shas)} / {len(commit_shas)} 个 commit）",
+        file=sys.stderr,
+    )
+    for sha in conflict_shas:
+        print(f"  冲突 commit: {sha[:12]}", file=sys.stderr)
+    if not skip_check:
+        print(
+            "提示：revert 抽样发现冲突。可用 'harness archive --skip-revert-check' 强制跳过（保留 escape hatch）",
+            file=sys.stderr,
+        )
+        return 1
+
+    # skip_check=True：仅警告不阻塞
+    return 0
+
+
 def archive_requirement(
     root: Path,
     requirement_name: str,
     folder: str = "",
     force_done: bool = False,
+    skip_revert_check: bool = False,
 ) -> int:
     """归档 requirement 或 bugfix。
 
@@ -6435,6 +6545,11 @@ def archive_requirement(
     ``force_done`` 用于 sweep 历史活跃 bugfix：把目标 state yaml 的 ``stage`` 强置
     为 ``done``、``status`` 设为 ``done``、``completed_at`` 填当前时间，然后走正常
     归档路径。仅对 bugfix 生效；对 requirement 是 no-op（保留接口对称）。
+
+    ``skip_revert_check``：为 True 时跳过 revert dry-run 前置自检（保留 escape hatch）。
+    req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）/
+    chg-01（testing 红线 + safer dogfood + commit revert dry-run）落地
+    sug-31（done 后 commit + revert dry-run 自动化）。
     """
     from datetime import datetime as _dt
 
@@ -6471,6 +6586,14 @@ def archive_requirement(
     req_dir = resolve_requirement_reference(source_root, raw_ref, "cn")
     if not req_dir:
         raise SystemExit(f"{kind_label.capitalize()} does not exist: {requirement_name}")
+
+    # --- revert dry-run 前置自检（sug-31（done 后 commit + revert dry-run 自动化）落地）---
+    # 仅对 requirement（非 bugfix）跑 revert dry-run；
+    # skip_revert_check=True 时仅警告不阻塞（escape hatch）。
+    if not is_bugfix:
+        _rc_revert = _revert_dry_run_self_check(root, raw_ref, skip_check=skip_revert_check)
+        if _rc_revert != 0:
+            return _rc_revert
 
     # --- force-done：在移动目录前改写 state yaml ---
     state_yaml_path: Path | None = None

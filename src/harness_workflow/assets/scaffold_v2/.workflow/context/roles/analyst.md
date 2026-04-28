@@ -83,6 +83,21 @@
 - **regression_scope 默认 targeted**：仅在破坏面特别广时改为 `full`；
 - 执行 `harness validate --contract test-case-design-completeness` 通过后，方可进入 Step B3。
 
+**dogfood TC 必填字段（sug-52（dogfood 实跑流程模板）落地）**：
+
+当 chg 涉及 CLI 入口 / `harness next` / `harness install` / `harness change` / `harness archive` 等子命令时，§4 测试用例设计必须含 ≥ 1 条 dogfood TC，且包含以下必填字段：
+
+- 用例名（TC-Dogfood-NN）
+- tmpdir fixture（使用 `tmp_path` 或 `tempfile.mkdtemp()`）
+- 子进程命令（`subprocess.run([sys.executable, '-m', 'harness_workflow.cli', ...])`）
+- stdout 断言
+- runtime stage 断言（`runtime.yaml` 中 `stage` 字段）
+- `feedback.jsonl` 事件数断言
+- 对应 AC 字段（非空）
+- 优先级 P0
+
+配套样本指针：`tests/test_workflow_next_subprocess.py` + `testing.md §dogfood 标准流程模板`。
+
 **Step B3：产出检查**
 
 - 对照退出条件逐项确认。

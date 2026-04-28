@@ -39,6 +39,15 @@ def main() -> int:
             "active bugfixes. The operator is responsible for correctness."
         ),
     )
+    parser.add_argument(
+        "--skip-revert-check",
+        dest="skip_revert_check",
+        action="store_true",
+        help=(
+            "Skip revert dry-run self-check before archiving (sug-31（done 后 commit + revert dry-run 自动化） escape hatch). "
+            "Conflict still reported to stderr but archive proceeds."
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -58,6 +67,7 @@ def main() -> int:
         selected,
         folder=args.folder,
         force_done=args.force_done,
+        skip_revert_check=getattr(args, "skip_revert_check", False),
     )
 
 

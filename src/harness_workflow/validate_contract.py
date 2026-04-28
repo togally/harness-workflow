@@ -800,8 +800,108 @@ def check_stage_work_completion(root: Path) -> int:
     return 1
 
 
+def check_testing_no_destructive_git(root: Path, req_id: str | None = None) -> int:
+    """testing-no-destructive-git lint.
+
+    扫描 testing subagent action-log.md 是否含破坏性 git 命令。
+
+    默认扫描范围：所有 req-id ≥ 41 活跃目录的 action-log.md。
+    指定 req_id 时仅扫该 req。
+
+    破坏性命令 regex：
+        \\bgit\\s+(restore|reset\\s+--hard|checkout\\s+\\.|clean\\s+-f|branch\\s+-D|rebase\\s+-i)\\b
+        （不含 --dry-run / --no-commit -n / 读操作等白名单豁免形态）
+
+    WARN 模式（默认）：exit 0 + stderr 报告命中行。
+    后续 chg 可切换为 FAIL 模式（exit 1），本 chg 不强切。
+
+    Returns:
+        0 = PASS（无命中，WARN 模式下命中也返回 0）。
+
+    req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）/
+    chg-01（testing 红线 + safer dogfood + commit revert dry-run）落地 sug-51（testing git restore 事故 + tmpdir 红线）。
+    """
+    # 破坏性 git 命令 regex（不含白名单形态）
+    _DESTRUCTIVE_RE = re.compile(
+        r"\bgit\s+(?:restore|reset\s+--hard|checkout\s+\.|clean\s+-f|branch\s+-D|rebase\s+-i)\b"
+    )
+    # 白名单豁免：含这些 flag 的行不视为破坏性
+    _WHITELIST_PATTERNS = (
+        "--dry-run",
+        "--no-commit -n",
+        "--no-commit",
+        "git diff",
+        "git log",
+        "git show",
+        "git revert --no-commit",
+    )
+
+    sessions_dir = root / ".workflow" / "state" / "sessions"
+    if not sessions_dir.exists():
+        print("PASS: testing-no-destructive-git (no sessions dir found)", file=sys.stderr)
+        return 0
+
+    warn_records: list[tuple[Path, int, str]] = []  # (file, lineno, excerpt)
+
+    def _should_scan_req(dir_name: str) -> bool:
+        """仅扫 req-id ≥ 41 目录（形如 req-41 / req-42 等）。"""
+        m = re.match(r"^req-(\d+)$", dir_name)
+        if m:
+            return int(m.group(1)) >= 41
+        return False
+
+    scan_dirs: list[Path] = []
+    if req_id:
+        target_dir = sessions_dir / req_id
+        if target_dir.exists():
+            scan_dirs.append(target_dir)
+        # 也扫 sessions_dir 下含 req_id 前缀的目录
+        for d in sessions_dir.iterdir():
+            if d.is_dir() and d.name == req_id and d not in scan_dirs:
+                scan_dirs.append(d)
+    else:
+        for d in sessions_dir.iterdir():
+            if d.is_dir() and _should_scan_req(d.name):
+                scan_dirs.append(d)
+
+    for req_dir in scan_dirs:
+        action_log = req_dir / "action-log.md"
+        if not action_log.exists():
+            continue
+        try:
+            lines = action_log.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for lineno, line in enumerate(lines, start=1):
+            # 白名单豁免：含白名单 pattern 的行跳过
+            if any(wp in line for wp in _WHITELIST_PATTERNS):
+                continue
+            if _DESTRUCTIVE_RE.search(line):
+                warn_records.append((action_log, lineno, line.strip()[:120]))
+
+    if warn_records:
+        print(
+            f"WARN: testing-no-destructive-git — 发现 {len(warn_records)} 行破坏性 git 命令（WARN 模式，exit 0）",
+            file=sys.stderr,
+        )
+        print(
+            "  溯源：sug-51（testing git restore 事故 + tmpdir 红线）/ testing.md §破坏性 git 命令禁止",
+            file=sys.stderr,
+        )
+        for fpath, ln, excerpt in warn_records:
+            try:
+                rel = fpath.relative_to(root)
+            except ValueError:
+                rel = fpath
+            print(f"  {rel}:{ln}: {excerpt}", file=sys.stderr)
+        return 0  # WARN 模式：默认 exit 0，后续 chg 可切 FAIL
+
+    print("PASS: testing-no-destructive-git (no destructive git commands found)")
+    return 0
+
+
 def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | None = None) -> int:
-    """CLI 入口：``harness validate --contract {all,7,regression,triggers,role-stage-continuity,artifact-placement,test-case-design-completeness}``。
+    """CLI 入口：``harness validate --contract {all,7,regression,triggers,role-stage-continuity,artifact-placement,test-case-design-completeness,testing-no-destructive-git}``。
 
     Returns:
         0 = 合规；1 = 发现违规或缺字段；2 = 参数错误。
@@ -863,5 +963,29 @@ def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | N
         # 单契约调用：校验当前 stage 关键产物是否齐全
         rc = check_stage_work_completion(root)
         total_violations += rc
+
+    if contract in ("testing-no-destructive-git",):
+        # req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）/
+        # chg-01（testing 红线 + safer dogfood + commit revert dry-run）落地 sug-51（testing git restore 事故 + tmpdir 红线）
+        # WARN 模式：exit 0 + stderr 报告命中行（后续 chg 可切 FAIL）
+        rc = check_testing_no_destructive_git(root)
+        total_violations += rc
+
+    if contract in ("deployment-sync",):
+        # req-47（整合清理所有 suggest，先判断当前版本适用性，再将清理后建议打包开发）/
+        # chg-01（testing 红线 + safer dogfood + commit revert dry-run）落地 sug-55（chg-02 部署同步契约 dev mode flag）
+        # HARNESS_DEV_MODE=1 时豁免部署同步检查
+        import os
+        dev_mode = os.environ.get("HARNESS_DEV_MODE", "").strip().lower()
+        if dev_mode in ("1", "true", "yes"):
+            print("PASS: deployment-sync (HARNESS_DEV_MODE=1, dev mode — 部署同步检查已豁免)")
+        else:
+            # prod/ci 模式：严格检查（基础 import 验证）
+            try:
+                from harness_workflow.workflow_helpers import _is_stage_work_done  # noqa: F401
+                print("PASS: deployment-sync (_is_stage_work_done import OK, 严格模式)")
+            except ImportError as exc:
+                print(f"FAIL: deployment-sync — ImportError: {exc}", file=sys.stderr)
+                total_violations += 1
 
     return 0 if total_violations == 0 else 1

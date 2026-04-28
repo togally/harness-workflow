@@ -252,8 +252,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "test-case-design-completeness"],
-        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3).",
+        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync"],
+        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）.",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
@@ -303,6 +303,12 @@ def build_parser() -> argparse.ArgumentParser:
         dest="force_done",
         action="store_true",
         help="For bugfixes only: bypass stage=='done' gate and force state to done before archiving. Use to sweep historical active bugfixes.",
+    )
+    archive_parser.add_argument(
+        "--skip-revert-check",
+        dest="skip_revert_check",
+        action="store_true",
+        help="Skip revert dry-run self-check before archiving (sug-31 escape hatch). Conflict still reported to stderr but archive proceeds.",
     )
 
     rename_parser = subparsers.add_parser("rename", help="Rename a requirement, change, or bugfix.")
@@ -561,6 +567,8 @@ def main() -> int:
             cmd_args = [args.requirement, "--force-done"]
             if args.folder:
                 cmd_args.extend(["--folder", args.folder])
+            if getattr(args, "skip_revert_check", False):
+                cmd_args.append("--skip-revert-check")
             return _run_tool_script("harness_archive.py", cmd_args, root)
 
         done_reqs: list[dict] = []
@@ -613,6 +621,8 @@ def main() -> int:
             cmd_args.extend(["--folder", args.folder])
         if args.force_done:
             cmd_args.append("--force-done")
+        if getattr(args, "skip_revert_check", False):
+            cmd_args.append("--skip-revert-check")
         return _run_tool_script("harness_archive.py", cmd_args, root)
     if args.command == "rename":
         cmd_args = [args.kind, args.current, args.new]

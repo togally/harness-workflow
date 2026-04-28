@@ -278,3 +278,15 @@
 {"ts": "2026-04-27T16:12:50.213286+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 614.925519}}
 {"ts": "2026-04-27T16:12:50.213670+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
 {"ts": "2026-04-27T16:18:49.560098+00:00", "event": "subagent_usage", "data": {"ts": "2026-04-27T16:18:49.559362+00:00", "task_type": "req", "req_id": "req-46", "stage": "done", "chg_id": null, "reg_id": null, "role": "done", "model": "opus", "usage": {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0, "total_tokens": 144945, "tool_uses": 51, "duration_ms": 288088}}}
+{"ts": "2026-04-28T02:05:23.162852+00:00", "event": "stage_duration", "data": {"stage": "requirement_review", "duration_seconds": 35552.948531}}
+{"ts": "2026-04-28T02:05:23.163547+00:00", "event": "stage_advance", "data": {"from_stage": "requirement_review", "to_stage": "planning"}}
+{"ts": "2026-04-28T02:29:20.984196+00:00", "event": "stage_duration", "data": {"stage": "planning", "duration_seconds": 1437.820025}}
+{"ts": "2026-04-28T02:29:20.984649+00:00", "event": "stage_advance", "data": {"from_stage": "planning", "to_stage": "ready_for_execution"}}
+{"ts": "2026-04-28T02:38:18.529101+00:00", "event": "stage_duration", "data": {"stage": "ready_for_execution", "duration_seconds": 537.543775}}
+{"ts": "2026-04-28T02:38:18.529607+00:00", "event": "stage_advance", "data": {"from_stage": "ready_for_execution", "to_stage": "executing"}}
+{"ts": "2026-04-28T02:52:38.931488+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 860.401491}}
+{"ts": "2026-04-28T02:52:38.931832+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-28T03:04:48.015919+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 729.083656}}
+{"ts": "2026-04-28T03:04:48.016229+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-28T03:18:35.407889+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 827.39081}}
+{"ts": "2026-04-28T03:18:35.408218+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
