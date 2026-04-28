@@ -88,3 +88,40 @@
 - AC-7 PASS（dogfood 计划在 chg-03 session-memory §4）
 - AC-9 PARTIAL PASS（chg-02 change.md line 27 chg-04 裸引用）
 - testing-report.md 落位：.workflow/state/requirements/req-42/testing-report.md
+
+## 2026-04-27T15:45Z — analyst-L1（opus） req-46 requirement_review + planning 续跑
+
+- 操作：req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）requirement_review + planning 双 stage 续跑（按 HM-1=A default-pick 自决推进）
+- 产出 5 个文件：
+  - .workflow/flow/requirements/req-46-.../requirement.md（§2-§5 全填）
+  - artifacts/main/requirements/req-46-.../requirement.md（raw artifact 副本）
+  - artifacts/main/requirements/req-46-.../requirement-review/sug-audit.md（45 sug 验证表 + 10 簇归类 + D-1~D-10 决策）
+  - artifacts/main/requirements/req-46-.../requirement-review/session-memory.md
+  - artifacts/main/requirements/req-46-.../planning/roadmap.md（10 chg 拆分 + DAG + 首批推荐 chg-1+chg-2+chg-7）
+  - artifacts/main/requirements/req-46-.../planning/session-memory.md
+- harness validate --human-docs：raw_artifact ✓；done 文档缺（D-11=B 留痕放行，不在本 stage 范围）
+- 决策清单：D-1~D-16 共 16 条 default-pick 决策（详见 sug-audit.md + roadmap.md）
+- 待用户拍板：首批 chg 范围（推荐 chg-1 over-chain dogfood 复验 + chg-2 usage-log runtime 接通 + chg-7 testing 红线）
+
+## 2026-04-27T07:50+ regression-L1（reg-01）诊断产出
+
+- **角色**: regression / opus
+- **任务**: reg-01（analyst 机器型工件误落 artifacts/）独立诊断 + 路由决策
+- **产出**:
+  - .workflow/flow/requirements/req-46-.../regressions/reg-01-.../regression.md（§2-§5 填充）
+  - .workflow/flow/requirements/req-46-.../regressions/reg-01-.../analysis.md（4 维根因分析）
+  - .workflow/flow/requirements/req-46-.../regressions/reg-01-.../decision.md（route_to: planning + Decision Status: confirmed + chg-0 设计要点）
+  - .workflow/flow/requirements/req-46-.../regressions/reg-01-.../meta.yaml（decision: confirmed / route_to: planning / created_chg_id_hint: chg-0）
+  - .workflow/flow/requirements/req-46-.../regressions/reg-01-.../session-memory.md（含 chg-0 草案 §6）
+- **状态**: PASS（confirmed → planning 路由已确定 → 转 chg-0 机器型工件路径修复 + 防再犯 lint）
+- **本阶段已结束。**
+
+## 2026-04-27 reg-02 诊断完成（regression / opus）
+
+- 操作：reg-02（over-chain bug 第三次本会话内实证（harness next --execute 4 跳跨 executing→done）— sug-46/-50/-53 同根因复发）诊断 + 路由
+- 产出 5 件机器型工件：regression.md / analysis.md / decision.md / meta.yaml / session-memory.md，全部落 `.workflow/flow/requirements/req-46-.../regressions/reg-02-.../`
+- 路由决定：confirmed → planning（写 chg-02 over-chain 真修 + while gate + dogfood 兜底）
+- 关键发现：pipx 部署版本 workflow_helpers.py 缺 `_is_stage_work_done` helper（mtime 2026-04-26 < commit b64bcd7 2026-04-27），src 层修复未同步到部署二进制层——三维失配
+- 经验沉淀草案：经验九（契约/源代码/部署 三维失配诊断模板）写入 decision.md §3，最终落点由 chg-02 done 决定
+- regression 契约自检：`run_contract_cli(root, contract='regression')` rc=0
+- 本阶段已结束。
