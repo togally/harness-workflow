@@ -1,0 +1,9 @@
+error_type: "schema-audit"
+fix_checklist_path: ".workflow/context/checklists/fix-schema-audit.md"
+retry_context:
+  violations:
+    - 旧格式目录残留（应迁移为 req-XX-{slug}.yaml）：.workflow/state/requirements/req-39/
+severity: "FAIL"
+detected_by: "check_schema_audit"
+timestamp: "2026-04-28T14:45:39.962670+00:00"
+recovery_attempts: 3
