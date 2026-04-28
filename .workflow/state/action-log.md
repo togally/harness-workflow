@@ -143,3 +143,8 @@
 - **6 历史 fail 溯源**：全部 pre-existing（req-43/44/45/46 引入），与 chg-01 零交集
 - **artifact-placement**：exit 0 PASS；**human-docs**：exit 1（D-11=B 留痕放行）
 - **结果**：PASS，转 acceptance
+
+## [2026-04-28] bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁）done 完成
+
+- **命令**：六层回顾 PASS（含 testing 红线违规事件 + redo 闭环记录）；4 条经验沉淀写入 `experience/roles/regression.md`（经验十四 dev-mode 三层探测 / 经验十五 build/ 缓存污染 mirror / 经验十六 白名单设计原则 / 经验十七 testing 红线遵守度）；产出 `done/六层回顾.md` + `done/session-memory.md` + `artifacts/main/bugfixes/bugfix-8-{slug}/bugfix-交付总结.md`。
+- **结果**：`harness validate --human-docs` exit=1（缺 3 个 legacy 四类 brief，按 D-11=B 留痕放行；req-41+ 已废止）；`harness validate --contract artifact-placement` exit=0。bugfix-8 done 阶段六层回顾 PASS；4 条 sug 候选待用户拍板入池形态（建议合并到下个 testing sandbox 加固 req）。

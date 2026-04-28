@@ -900,6 +900,131 @@ def check_testing_no_destructive_git(root: Path, req_id: str | None = None) -> i
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# bugfix-8 / chg-04：user-write-protected-zones 硬门禁 + dev-mode 三层探测      #
+# --------------------------------------------------------------------------- #
+
+def _is_dev_repo(root: Path) -> bool:
+    """三层探测本仓 / 用户项目分离边界。"""
+    import re as _re
+    import os
+    # 1) pyproject.toml::name == "harness-workflow"
+    pyproject = root / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            content = pyproject.read_text(encoding="utf-8")
+            m = _re.search(r'name\s*=\s*["\']harness-workflow["\']', content)
+            if m:
+                return True
+        except Exception:
+            pass
+    # 2) src/harness_workflow/ 源码目录存在
+    if (root / "src" / "harness_workflow").exists():
+        return True
+    # 3) HARNESS_DEV_REPO_ROOT env 命中
+    dev_env = os.environ.get("HARNESS_DEV_REPO_ROOT")
+    if dev_env:
+        try:
+            if Path(dev_env).resolve() == root.resolve():
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def check_user_write_protected_zones(root: Path) -> int:
+    """硬门禁：用户项目模式下扫描 .workflow/ + skill/commands 目录，识别野文件。
+
+    返回：违规文件数（0 = PASS / >0 = ABORT）。
+    """
+    # 1) dev mode 自动豁免
+    if _is_dev_repo(root):
+        return 0
+
+    # 2) 用户项目模式：扫保护区
+    from harness_workflow.workflow_helpers import (
+        _scaffold_v2_file_contents,
+        _load_managed_state,
+        _SCAFFOLD_V2_MIRROR_WHITELIST,
+    )
+
+    protected_zones = [
+        ".workflow",
+        ".claude/skills", ".claude/commands",
+        ".codex/skills", ".codex/commands",
+        ".kimi/skills", ".kimi/commands",
+        ".qoder/skills", ".qoder/commands",
+    ]
+
+    mirror = _scaffold_v2_file_contents(root, include_agents=False, include_claude=False, language="cn")
+    managed = _load_managed_state(root)
+
+    violations: list[str] = []
+    for zone in protected_zones:
+        zone_path = root / zone
+        if not zone_path.exists():
+            continue
+        for f in zone_path.rglob("*"):
+            if not f.is_file():
+                continue
+            relative = f.relative_to(root).as_posix()
+            # 三级豁免
+            if relative in mirror:
+                continue
+            if relative in managed:
+                continue
+            if any(w in relative for w in _SCAFFOLD_V2_MIRROR_WHITELIST):
+                continue
+            violations.append(relative)
+
+    if violations:
+        print(
+            f"\033[31m[user-write-protected-zones] ABORT: {len(violations)} violation(s) — 用户野文件命中保护区:\033[0m",
+            file=sys.stderr,
+        )
+        for v in violations[:30]:
+            print(f"  - {v}", file=sys.stderr)
+        if len(violations) > 30:
+            print(f"  ... and {len(violations) - 30} more", file=sys.stderr)
+        print("Hint: 用户自定义内容请放 artifacts/ 下；保护区仅 harness 工具能写。", file=sys.stderr)
+        return len(violations)
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# bugfix-8 / chg-05：build-cache-freshness dev mode lint                       #
+# --------------------------------------------------------------------------- #
+
+def check_build_cache_freshness(root: Path) -> int:
+    """dev mode lint：扫 build/lib/ 与 src/ 的差集，发现 stale 残留则 WARN（不 ABORT）。"""
+    if not _is_dev_repo(root):
+        return 0
+    build_lib = root / "build" / "lib" / "harness_workflow"
+    src_pkg = root / "src" / "harness_workflow"
+    if not build_lib.exists() or not src_pkg.exists():
+        return 0
+    stale = []
+    for f in build_lib.rglob("*"):
+        if not f.is_file():
+            continue
+        rel = f.relative_to(build_lib)
+        src_equiv = src_pkg / rel
+        if not src_equiv.exists():
+            stale.append(str(rel))
+    if stale:
+        print(
+            f"\033[33m[build-cache-freshness] WARNING: build/lib 含 {len(stale)} 个 src/ 已删的 stale 文件:\033[0m",
+            file=sys.stderr,
+        )
+        for s in stale[:10]:
+            print(f"  - {s}", file=sys.stderr)
+        if len(stale) > 10:
+            print(f"  ... and {len(stale) - 10} more", file=sys.stderr)
+        print("Hint: 跑 `rm -rf build/` 清理后再 `pipx install --force`。", file=sys.stderr)
+        return len(stale)  # non-zero return signals stale presence (WARN level, not ABORT)
+    return 0
+
+
 def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | None = None) -> int:
     """CLI 入口：``harness validate --contract {all,7,regression,triggers,role-stage-continuity,artifact-placement,test-case-design-completeness,testing-no-destructive-git}``。
 
@@ -987,5 +1112,19 @@ def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | N
             except ImportError as exc:
                 print(f"FAIL: deployment-sync — ImportError: {exc}", file=sys.stderr)
                 total_violations += 1
+
+    if contract in ("user-write-protected-zones",):
+        # bugfix-8 / chg-04：用户项目保护区硬门禁（dev mode 自动豁免）
+        rc = check_user_write_protected_zones(root)
+        if rc == 0:
+            print("PASS: user-write-protected-zones")
+        total_violations += rc
+
+    if contract in ("build-cache-freshness",):
+        # bugfix-8 / chg-05：dev mode lint，扫 build/lib/ 与 src/ 差集（WARN only）
+        rc = check_build_cache_freshness(root)
+        if rc == 0:
+            print("PASS: build-cache-freshness")
+        total_violations += rc
 
     return 0 if total_violations == 0 else 1

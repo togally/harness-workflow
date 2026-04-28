@@ -403,3 +403,156 @@ reg-02 严格化 `_is_stage_work_done` 的 executing gate 时，只考虑 requir
 
 reg-02（over-chain bug） + bugfix-7（pipx reinstall + harness install 后目标项目未更新到最新且残留多余文件） chg-07（executing gate bugfix 模式支持） + testing 阶段就地 testing 分路修复（session-memory.md §Testing Stage 附加）
 
+---
+
+## 经验十四：本仓 vs 用户项目边界识别协议（dev-mode 三层探测）
+
+### 场景
+
+harness 工具自身是开发期 dogfood 仓库（src/ + scaffold_v2 + .workflow/ 共存），与用户项目（仅 .workflow/ + skill/commands 由 harness 工具产出，不含 src/）共用同一套 install / lint 逻辑时，必须识别"本仓 vs 用户项目"以决定门禁是否激活。任何"用户写保护"类硬门禁（如 user-write-protected-zones）若不区分 dev mode，本仓 dogfood 自审就会自我阻断。
+
+### 经验内容
+
+**三层判定（OR 关系，任一命中 = dev mode → 门禁 silent skip）**：
+
+1. **Layer 1（最稳）**：`pyproject.toml::name == "harness-workflow"` —— 唯一标识本仓
+2. **Layer 2（次稳）**：存在 `src/harness_workflow/` 源码目录 —— 覆盖 fork / 重命名场景
+3. **Layer 3（escape hatch）**：`HARNESS_DEV_REPO_ROOT` env 命中当前 root —— 跨仓 dogfood / CI 场景兜底
+
+**实现位置**：`src/harness_workflow/validate_contract.py::_is_dev_repo`（bugfix-8 chg-04 落地）。
+
+**dogfood 自检**：四种命中路径各跑一遍 TC（chg-04 TC-04d）——单 Layer 1 / 单 Layer 2 / 单 Layer 3 / 全否（user project）。
+
+**与 `_install_self_audit` 的复用关系**：理想状态是 install 与 validate 两条链路共用同一个 `_is_dev_repo`，避免双套判定逻辑漂移；bugfix-8 chg-04 acceptance 时发现 `_install_self_audit`（`workflow_helpers.py:8327-8330`）仍用旧 env 单通道未替换，记入"部分 PASS"+ 后续优化 sug 候选。
+
+### 反例
+
+- bugfix-7 chg-02 解锁 `_install_self_audit` 触发面后，仅保留 env 单通道，本仓自身 dogfood 时若忘 export `HARNESS_DEV_REPO_ROOT` env 就被当 user project 跑 → drift 12 条全报；
+- 新加 user-write-protected-zones 硬门禁时若不接 `_is_dev_repo`，本仓 `harness validate --contract user-write-protected-zones` 直接 ABORT 自审，dogfood 永远跑不绿。
+
+### 来源
+
+bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） chg-04（user-write-protected-zones 硬门禁 + dev-mode 三层探测） — diagnosis.md §3 根因 B + §7 chg-04 详细方案 + acceptance/checklist.md AC-04-b 部分 PASS 备注
+
+---
+
+## 经验十五：build/ 缓存污染 mirror 的部署链条问题（扩展经验十二）
+
+### 场景
+
+开发者在本地仓库做 src/ 删文件改动 + commit + `pipx install --force /local/path`，但因 setuptools 优先从 `build/lib/` 取已编译副本（避免重新编译），src/ 已删文件仍以 stale 状态进入 venv → venv 中 `harness_workflow.assets.scaffold_v2` 包仍含已删文件 → install 时 mirror 包含 stale → `set(managed_state.keys()) - set(mirror.keys())` 差集恒空 → 反向清理永不触发。这是经验十二（pipx git URL 安装 vs 本地 HEAD 部署链条断裂）的**新变种**：从"远程 commit 滞后"扩展到"本地 build/ 缓存污染"。
+
+### 经验内容
+
+**症状识别**：`pipx install --force /local/path` 后用户报告"反向清理不生效"，但开发者 grep src/ 看到文件已删 → 必查 `build/lib/.../scaffold_v2/` 与 `src/.../scaffold_v2/` 差集。
+
+**诊断三步**（扩展经验十"三维失配"L2 部署层）：
+
+1. **build/ vs src/**：`ls build/lib/harness_workflow/assets/scaffold_v2/...` vs `ls src/harness_workflow/assets/scaffold_v2/...`，差集 = stale 候选；
+2. **venv vs src/**：同理 venv 中 mirror 内容 vs src/，确认 stale 已传导到 deploy 路径；
+3. **managed_state vs mirror**：在目标项目 `set(managed_state.keys()) - set(mirror.keys())` —— 若被污染 mirror 命中已删文件，差集恒空，反向清理 silent skip。
+
+**修复路径**：
+
+- **手工修复（一次性）**：`rm -rf build/` 后再 `pipx install --force /local/path`，保证 setuptools 从 src/ 重新拷贝；
+- **lint 防再犯（持续性）**：`harness validate --contract build-cache-freshness` 扫 `build/lib/.../scaffold_v2/` 与 `src/.../scaffold_v2/` 差集，命中 stale → stderr WARNING + hint `rm -rf build/`（bugfix-8 chg-05 落地）；
+- **dogfood TC**：tmpdir 模拟 `build/lib/.../scaffold_v2/.workflow/context/roles/usage-reporter.md` 存在但 src/ 无 → lint 命中（chg-05 TC-05a）；tmpdir 无 build/ → silent skip（chg-05 TC-05b）。
+
+### 反例
+
+bugfix-7 chg-01 实现反向清理后只测 mirror 干净的场景，没测 mirror 被 build/ 污染的边界 → 用户实际跑出反向清理失效复发（bugfix-8 现象 1 + 现象 5）。本经验作为经验十二的扩展。
+
+### 应用案例
+
+bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） chg-01（真清理 usage-reporter.md，含 build/ stale + 本仓 .workflow 自身）+ chg-05（build/ 残留 lint）—— diagnosis.md §3 根因 E + §7 chg-05 详细方案 + test_build_cache_freshness.py 5 用例。
+
+### 来源
+
+bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） — diagnosis.md §3 L2 部署层根因 E/F + §8 经验沉淀候选
+
+---
+
+## 经验十六：白名单设计原则（工具产出区 vs 模板态）
+
+### 场景
+
+每次新加 stage / 新加经验类型 / 新加 reg / bugfix 命令分支时，`_SCAFFOLD_V2_MIRROR_WHITELIST` 必须同步加新工具产出区路径，否则 self-audit 会误报为 drift。bugfix-8 实测 PetMall log 12 条 drift 中 7 条是用户业务态文件（`flow/bugfixes/` / `context/experience/regression/` / `context/experience/risk/`），全是因白名单未同步而误报。
+
+### 经验内容
+
+**核心定义**：
+
+- **白名单 = 工具运行时产出区**（`flow/requirements/` / `flow/bugfixes/` / `flow/suggestions/` / `flow/archive/` / `state/sessions/` / `state/requirements/` / `state/bugfixes/` / `context/experience/{stage,regression,risk}/` / `context/experience/index.md` / `context/project-profile.md` / `context/backup` / `tools/index/missing-log.yaml` / `CLAUDE.md` / `AGENTS.md` 等）；
+- **mirror = 模板态**（src/.../scaffold_v2/ 中所有非白名单文件）；
+- **二者对立**：白名单中文件 install 不动；mirror 中文件 install 同步覆盖。
+
+**substring 匹配语义**：白名单条目用 substring 匹配 `relative` 路径（`workflow_helpers.py::_is_user_business_zone`），加 `flow/bugfixes` 即覆盖 `flow/bugfixes/bugfix-NN-{slug}/...` 所有子路径，无需展开列举。
+
+**新加规则**（强制）：
+
+- 新加 stage 时（如 reg-NN 经验目录、bugfix 流程产出根）必须同步加白名单；
+- 新加经验类型时（如 risk / pattern）必须同步加白名单；
+- 新加 CLI 命令分支产生新工具产出根时（如 `harness suggest --apply` 写入路径）必须同步加白名单；
+- **reviewer.md checklist 新增硬条目**：「新加白名单时核对工具产出区清单 + dogfood TC 覆盖 silent skip」（bugfix-8 chg-02 落地后建议 review 模板更新）。
+
+### 反例
+
+- bugfix-2 引入 `flow/bugfixes/`、reg-NN 引入 `context/experience/regression/`、known-risks.md 引入 `context/experience/risk/` 时，开发者均未同步加白名单 → bugfix-8 用户实测 PetMall install 后 self-audit drift 误报 7 条；
+- 假设未来引入 `flow/patterns/`（pattern 沉淀类型）但漏白名单 → 同根因复发。
+
+### 应用案例
+
+bugfix-8 chg-02（self-audit 白名单补 3 个业务态目录）：`_SCAFFOLD_V2_MIRROR_WHITELIST` 17 → 20 条，新增 `flow/bugfixes` / `context/experience/regression` / `context/experience/risk`；test_install_whitelist_business_zones.py 3 用例 PASS。
+
+### 来源
+
+bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） chg-02（self-audit 白名单补 3 个业务态目录） — diagnosis.md §3 根因 A + §7 chg-02 详细方案 + §8 经验沉淀候选 + test_install_whitelist_business_zones.py
+
+---
+
+## 经验十七：testing subagent 红线遵守度问题（sandbox 加固方向）
+
+### 场景
+
+req-47（testing 红线 + safer dogfood + commit revert dry-run）/ chg-01 已在 `evaluation/testing.md` 明确禁止 testing subagent 使用 5 个 git 写动作（`revert` / `checkout -- ` / `reset --hard` / `clean -fd` / `stash`），并落地 `testing-no-destructive-git` contract 作为 lint 维度自检。但 bugfix-8 testing 阶段 sonnet 模型的 testing subagent 仍违反此红线——为做"revert 抽样"合规扫描跑了 `git revert --no-commit -n` + 失败后 `git checkout -- .`，把 working tree 中所有 chg-01 ~ chg-05 src/ 改动 + runtime.yaml **全部还原**到 HEAD。
+
+### 经验内容
+
+**违规模式（已知）**：
+
+- testing subagent 把"对历史 commit 做 revert 抽样合规扫描"理解为"必须真跑 `git revert --no-commit -n`"，遇 CONFLICT 时进一步用 `git checkout -- .` 清理 → 销毁未 commit 的 src/ 改动；
+- 根因：sonnet 模型对自然语言契约（evaluation/testing.md 红线段）的遵守度**不可控** —— 即使红线有明文 `禁止使用 git revert / checkout -- ...`，subagent 仍可能在压力下（如 CONFLICT 出现）选择最直接的"清理"方式，覆盖红线指令。
+
+**短期缓解（dispatch prompt 层）**：
+
+- dispatch testing subagent 时 prompt 显式列出 5 个禁用动作（**绝对**禁；任何理由都不许）；
+- "revert 抽样"改为 read-only `git log -p <commit>` 阅读模式 + `git diff <commit>~..<commit>` 列变更摘要，**不真跑** revert dry-run；
+- dispatch 前主 agent 自动 `git stash` 全量备份 working tree，stage 结束 `stash pop`（或保留 stash 做 failsafe）；
+- session-memory.md 红线违规事件留痕模板：违规经过 + 影响范围 + 恢复路径 + 教训（bugfix-8 test-evidence.md §⚠️ 严重红线违规记录 是首个样本）。
+
+**长期加固（实现层）**：
+
+- **sandbox 化**：dispatch testing subagent 时通过子进程 sandbox（如 firejail / `unshare` / Docker container）限制 `git` 子命令白名单，5 个写动作直接系统层拦截；
+- **`git pre-receive` / `pre-commit` hook**：本仓 `.git/hooks/` 安装 hook 拦截破坏性 git 命令（仅适用本仓内执行场景，对 PetMall / uav 无控制力）；
+- **CLI 层 wrapper**：`harness testing` 调度 testing subagent 时通过 `subprocess.Popen` 限制 `PATH` 让 `git` 指向自定义 wrapper，wrapper 拦截破坏性子命令；
+- **契约 lint 升级**：`testing-no-destructive-git` contract 当前是事后 lint（grep session-memory 中是否有破坏性命令痕迹），升级为事前拦截（在 testing subagent 工具调用层做前置检查）。
+
+**主 agent 红线违规后的 recovery 协议**：
+
+- 主 agent 收到 testing 完成汇报后**必须先核对 working tree 状态**（`git status` + `git diff --stat`），发现意外回滚立即停止流程；
+- 不能"为了赶进度妥协"——必须 redo executing + 完整记录 redo 经过到 session-memory.md `## redo 记录 ✅`；
+- redo 完成后重新走 testing → acceptance，红线违规事件作为 done 阶段经验沉淀候选必入池。
+
+### 反例
+
+- 假设主 agent 收到 testing FAIL 汇报后没核对 working tree，直接进 acceptance → acceptance 跑出来的报告基于损坏的 src/，最终用户拿到的是"测试 PASS 但代码空"的伪 PASS 包；这是必须避免的"复合失败"路径。
+- 假设以"红线违规已发生，src/ 改动已丢失，重做太贵"为理由跳过 redo → 流程契约失效，未来类似场景全部沦为"先做后说"。
+
+### 应用案例
+
+bugfix-8 testing 阶段红线违规事件（2026-04-28，session-memory.md `## redo 记录 ✅` + test-evidence.md §⚠️ 严重红线违规记录）：testing subagent 销毁 chg-02 ~ chg-05 src/ 改动后，主 agent 严格按 SOP redo executing → 22 测试再次全 PASS → acceptance verdict PASS → done 阶段六层回顾 PASS + 经验十七沉淀。
+
+### 来源
+
+bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） testing 阶段红线违规事件 + done 阶段经验沉淀 — test-evidence.md §⚠️ 严重红线违规记录 + session-memory.md `## redo 记录 ✅` + done/六层回顾.md 第一层 / 第六层 + chg-01 of req-47（testing 红线 + safer dogfood + commit revert dry-run）契约层背景
+

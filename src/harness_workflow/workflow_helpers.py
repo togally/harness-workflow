@@ -115,6 +115,9 @@ LEGACY_CLEANUP_TARGETS = [
     # req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））将其重命名为
     # `repository-layout.md`，存量项目应在 install 时自动清理旧文件，避免双 layout 共存。
     Path(".workflow") / "flow" / "artifacts-layout.md",
+    # bugfix-8 / chg-01：usage-reporter.md 已从 scaffold_v2 中移除；
+    # 存量项目若仍有该文件则 install 时兜底清理，防止 mirror 被污染时误判 drift。
+    Path(".workflow") / "context" / "roles" / "usage-reporter.md",
 ]
 OPTIONAL_EMPTY_DIRS = [
     Path(".workflow") / "flow" / "archive",
@@ -197,6 +200,10 @@ _SCAFFOLD_V2_MIRROR_WHITELIST: tuple[str, ...] = (
     "context/project-profile.md",    # _write_project_profile_if_changed 按 repo 元信息生成
     "CLAUDE.md",                     # render_template 按 repo_name 渲染（与 mirror 模板不同）
     "AGENTS.md",                     # 同 CLAUDE.md
+    # bugfix-8 / chg-02：补 3 条业务态目录（工具运行时产出区，不能从 mirror 覆盖）
+    "flow/bugfixes",                 # bugfix 流程产出区（harness bugfix 运行时写入）
+    "context/experience/regression", # regression 经验沉淀区（harness done 阶段写入）
+    "context/experience/risk",       # known-risks 经验沉淀区（harness done 阶段写入）
 )
 
 
@@ -3396,11 +3403,20 @@ def _sync_requirement_workflow_managed_files(
         # user-authored 分支语义对齐（两者均为"保护用户编辑不被覆盖"）。文案区分：
         # 此处为 user-modified（既有登记 + 改动），line ~2968 为 user-authored（新建）。
         if not check:
-            print(
-                f"[update_repo] skipping user-modified file {relative}; "
-                f"pass --force-managed to overwrite.",
-                file=sys.stderr,
-            )
+            if not force_managed:
+                # bugfix-8 / chg-03：透传防御 — 明示 force_managed=False 导致跳过
+                print(
+                    f"[update_repo] skipping user-modified file {relative}; "
+                    f"pass --force-managed to overwrite. (force_managed=False)",
+                    file=sys.stderr,
+                )
+            else:
+                # force_managed=True 但走到这里说明上游逻辑未能覆盖该分支（防御性日志）
+                print(
+                    f"[update_repo] WARNING: skipped modified {relative} despite force_managed=True — "
+                    f"unexpected branch; please report.",
+                    file=sys.stderr,
+                )
 
     if not check:
         save_requirement_runtime(root, load_requirement_runtime(root))
@@ -3491,11 +3507,20 @@ def _sync_scaffold_v2_mirror_to_live(
         # 默认保守：跳过 + stderr 提示
         actions.append(f"skipped user-modified (mirror) {relative}")
         if not check:
-            print(
-                f"[install_repo:mirror-sync] skipping user-modified file {relative}; "
-                f"pass --force-managed to overwrite.",
-                file=sys.stderr,
-            )
+            if not force_managed:
+                # bugfix-8 / chg-03：透传防御 — 明示 force_managed=False 导致跳过
+                print(
+                    f"[install_repo:mirror-sync] skipping user-modified file {relative}; "
+                    f"pass --force-managed to overwrite. (force_managed=False)",
+                    file=sys.stderr,
+                )
+            else:
+                # force_managed=True 但走到这里说明上游逻辑未能覆盖该分支（防御性日志）
+                print(
+                    f"[install_repo:mirror-sync] WARNING: skipped user-modified {relative} "
+                    f"despite force_managed=True — unexpected branch; please report.",
+                    file=sys.stderr,
+                )
 
     # ---- 反向清理：managed_state 中登记过但 mirror 已无的死条目 (Fix-A) ----
     # 遍历 set(managed_state.keys()) - set(mirror.keys())：这些文件曾被 install 写入（managed_state
@@ -3744,6 +3769,9 @@ def install_repo(
     # Lazy import to avoid circular dependency
     from harness_workflow.cli import prompt_platform_selection
 
+    # bugfix-8 / chg-03：透传防御 — 入口打印 force_managed 状态，让用户直观看到参数透传。
+    print(f"[install_repo] force_managed received: {force_managed}", file=sys.stderr)
+
     actions: list[str] = []
 
     # ---- 公共前置（install + update 均执行）----
@@ -3913,6 +3941,18 @@ def install_repo(
     # req-36（harness install 同步契约完整性修复（存量项目 .workflow/ 与 scaffold_v2 mirror 保持一致））/
     # chg-02 + chg-06：install 末尾自检（chg-06 解锁触发面，存量项目也跑 audit）。
     _install_self_audit(root)
+
+    # bugfix-8 / chg-04：install 末尾接入 user-write-protected-zones 扫描（信息打印；不强制 ABORT）。
+    if not check:
+        try:
+            from harness_workflow.validate_contract import check_user_write_protected_zones
+            violations = check_user_write_protected_zones(root)
+            if violations == 0:
+                print("[install_repo] user-write-protected-zones: PASS (0 violations)", file=sys.stderr)
+            # violations > 0 时 check_user_write_protected_zones 已打印详细日志
+        except Exception as exc:
+            print(f"[install_repo] user-write-protected-zones check error: {exc}", file=sys.stderr)
+
     return 0
 
 

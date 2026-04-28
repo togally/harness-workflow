@@ -252,8 +252,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync"],
-        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）.",
+        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness"],
+        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）.",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
