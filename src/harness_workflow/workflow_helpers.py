@@ -3671,13 +3671,16 @@ def cleanup_state_bak_files(root: Path, check: bool) -> list[str]:
     return actions
 
 
-def init_repo(root: Path, write_agents: bool, write_claude: bool) -> int:
+def init_repo(root: Path, write_agents: bool, write_claude: bool, force_managed: bool = False) -> int:
+    # bugfix-9 / chg-01（init_repo force_managed 透传修复）：新增 force_managed 参数并向下传递，
+    # 修复 install_repo(force_managed=True) 内部调用 init_repo 时透传断链的问题。
+    # harness_init.py / install_agent 调用时保持默认 False（初始化场景不需要强制覆盖）。
     _, actions = _sync_requirement_workflow_managed_files(
         root,
         include_agents=write_agents,
         include_claude=write_claude,
         check=False,
-        force_managed=False,
+        force_managed=force_managed,
     )
 
     print("Created files:")
@@ -3842,9 +3845,10 @@ def install_repo(
                 print(f"Kept: {', '.join(result['kept'])}")
 
             # init_repo 内 write_if_missing 已做存在跳过（幂等天然）
+            # bugfix-9 / chg-01：透传 force_managed，修复 --force-managed 时 init_repo 内部仍用 False 的断链。
             write_agents = "codex" in selected
             write_claude = "cc" in selected
-            init_repo(root, write_agents=write_agents, write_claude=write_claude)
+            init_repo(root, write_agents=write_agents, write_claude=write_claude, force_managed=force_managed)
 
     # ---- 吸收 update_repo：active_agent 解析（原 L3336-L3350）----
     effective_agent: str | None = None

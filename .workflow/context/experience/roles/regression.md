@@ -556,3 +556,91 @@ bugfix-8 testing 阶段红线违规事件（2026-04-28，session-memory.md `## r
 
 bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） testing 阶段红线违规事件 + done 阶段经验沉淀 — test-evidence.md §⚠️ 严重红线违规记录 + session-memory.md `## redo 记录 ✅` + done/六层回顾.md 第一层 / 第六层 + chg-01 of req-47（testing 红线 + safer dogfood + commit revert dry-run）契约层背景
 
+---
+
+## 经验十八：硬门禁保护区设计原则（用户可能写入 ∩ 工具不写入）
+
+### 场景
+
+设计 / 扩展"用户写保护"类硬门禁（如 `user-write-protected-zones`）时，需要决定哪些目录纳入保护区扫描列表。bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁）chg-04 把 `.{claude,codex,kimi,qoder}/skills/` 与 `commands/` 8 个 agent 工具产出目录一并放进 `protected_zones`，依赖三级豁免（`_SCAFFOLD_V2_MIRROR_WHITELIST` / `managed-files.json` / mirror）识别工具产出。结果 `install_local_skills()` 写入的 269 个 SKILL/COMMAND 文件全部漏豁免（mirror 用 `include_agents=False` 不含 agent 目录、managed-files 只跟踪 `.workflow/`、whitelist substring 不匹配 agent 目录），用户每次跑 `harness install` 后 `harness validate --contract user-write-protected-zones` 报 `ABORT: 269 violation(s)`，CI / dogfood 永久阻断。
+
+### 经验内容
+
+**核心原则**：硬门禁保护区 = "用户**可能**写入但**应该禁止**" ∩ "工具**不**写入"。
+
+二维判定矩阵（任一象限只有 ✓ 才入保护区）：
+
+| 用户可能写入 | 工具是否写入 | 是否入保护区 |
+|------------|------------|------------|
+| ✓ 可能 | ✗ 不写 | **✓ 入保护区**（如 `.workflow/`：用户可能手写 reg-NN.md / 自定义 stage 文档，但应禁止） |
+| ✓ 可能 | ✓ 也写 | ⚠️ 重叠区——保护区应**仅覆盖用户写入的文件类**（粒度细到文件名 / pattern，不到整目录） |
+| ✗ 不可能 | ✓ 写 | **✗ 不入保护区**（agent 目录 / `commands/` / `skills/`：100% 工具产出，扫描必然要"豁免一切"） |
+| ✗ 不可能 | ✗ 不写 | 不存在或不需保护 |
+
+**反面案例**：bugfix-8 chg-04 把 `.{claude,codex,kimi,qoder}/skills/` 与 `commands/` 放进保护区——这些目录天然属于"用户不可能写入 + 工具 100% 写入"象限，根本不该入保护区；试图用三级豁免"识别工具产出 / 排除"是把简单问题复杂化，结果 mirror 不含 agent → 豁免漏判 → 全量误报。
+
+**正面修法**：直接缩小保护区到"用户可能写入"目录（本仓 `.workflow/`），不依赖豁免链识别工具产出。bugfix-9（force-managed 透传修复 + user-write 门禁误报修复）chg-02 落地：`protected_zones = [".workflow"]`，移除所有 agent 目录 / commands 目录条目；保护语义无损（agent 目录 / commands 目录内即使有"野文件"，`install_local_skills()` 下一次 install 会全量覆盖消除）。
+
+**判定 checklist**（新增 / 调整保护区前自问）：
+
+1. 该目录是否会有用户合理写入？（典型：`.workflow/` ✓ / `.claude/skills/` ✗）
+2. 该目录是否完全由工具产出？（典型：`.claude/skills/` ✓ / `.workflow/` ✗）
+3. 二者均 ✓（重叠）→ 收窄保护到"文件名 / pattern"，不到整目录；
+4. 第二条单 ✓ → **不入保护区**，依赖工具产出 + install 覆盖即可保证一致性；
+5. 第一条单 ✓ → 入保护区，三级豁免做精细控制。
+
+### 反例
+
+- bugfix-8 chg-04 设计：依赖"豁免一切工具产出"识别 269 个 install_local_skills 文件，mirror 不含 agent 直接豁免漏判全量误报；
+- 假设未来加 `.tool-cache/` / `node_modules/` 等纯工具产出目录到保护区，同根因复发。
+
+### 应用案例
+
+bugfix-9（force-managed 透传修复 + user-write 门禁误报修复）chg-02（user-write-protected-zones 移除 skill/commands 扫描列表）— `validate_contract.py::check_user_write_protected_zones::protected_zones` 从 9 项缩减为 1 项（仅 `.workflow`）；TC-B1 实测 269 文件不误报，TC-B2 实测 `.workflow/context/roles/my-custom.md` 野文件仍被拦截。
+
+### 来源
+
+bugfix-9（force-managed 透传修复 + user-write 门禁误报修复）/ chg-02（user-write-protected-zones 移除 skill/commands 扫描列表）— bugfix.md §Root Cause Analysis Bug B + diagnosis.md §3 根因 + session-memory.md §3 完成步骤
+
+---
+
+## 经验十九：testing/done 阶段 git 写命令完全禁止
+
+### 场景
+
+testing / done 阶段的 subagent / 主 agent 进行验证（合规扫描 / 部署同步检查 / 六层回顾）时，遇到"revert 抽样"等需要操作 git 历史的合规项。bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁）testing 阶段 sonnet subagent 把"revert 抽样合规扫描"理解为"必须真跑 `git revert --no-commit -n`"，遇 CONFLICT 后用 `git checkout -- .` 清理，**销毁 chg-01 ~ chg-05 全部 src/ 改动 + runtime.yaml**。恢复成本：手动改 runtime.yaml + 重新派发 executing。
+
+### 经验内容
+
+**绝对红线**：testing / done 阶段**完全禁止** 7 个 git 写命令：
+- `git revert`（含 `--dry-run` / `--no-commit` 任何变体）
+- `git checkout`（含 `-- <path>` / `<commit>`）
+- `git reset --hard` / `--mixed` / `--soft`
+- `git clean -f` / `-fd`
+- `git stash` / `stash pop`
+- `git rm` / `git mv`
+- `git commit`（包括 `--amend`）
+
+**强化措施**：
+
+1. **dispatch prompt 显式列禁用清单**：testing / done subagent 派发时 prompt 末尾必须含一段「禁止使用 git 写命令」并列出上述 7 个命令名（已在 bugfix-8 / bugfix-9 dispatch 落地，效果实证）；
+2. **revert 抽样改 read-only**：用 `git log -p <sha>` 阅读模式 + `git diff <sha>~..<sha>` 列变更摘要替代 `git revert --dry-run`；若 chg 还在 working tree（无 commit sha）则直接标 **N/A 留痕**，不强行触发；
+3. **主 agent 接收 testing/done 完成汇报后必查 working tree**：`git status` + `git diff --stat`，发现意外回滚立即停止流程并 redo executing（主 agent recovery 协议）；
+4. **长期方向**：testing 子进程 sandbox 化（firejail / `unshare` / Docker container / git PATH wrapper），从系统层拦截破坏性 git 命令——此条已记入 bugfix-8 sug 候选，bugfix-9 周期实证「prompt 缓解可作短期 stop-gap」但**不替代** sandbox 长期加固。
+
+**bugfix-9 实战检验**：testing subagent（sonnet）严格遵守红线，revert 抽样标 N/A 留痕（理由："chg 在 working tree，无 commit sha；硬门禁禁止破坏性 git 命令"），全程 read-only，**未触发**违规事件——经验十七 of bugfix-8 的 prompt 缓解策略获得首次完整 bugfix 周期实战验证。
+
+### 反例
+
+- bugfix-8 testing subagent：试图"真跑 revert dry-run"销毁 working tree（详见经验十七）；
+- 假设 done 阶段六层回顾时为"验证 commit revert dry-run 抽样"真跑 `git revert` 同根因复发——本经验明示 done 阶段同样禁止。
+
+### 应用案例
+
+- **反面**：bugfix-8 testing 阶段红线违规事件（详见经验十七 + bugfix-8 test-evidence.md §⚠️ 严重红线违规记录 + session-memory.md §redo 记录）；
+- **正面**：bugfix-9 testing / done 阶段全程 read-only，revert 抽样均 N/A 留痕（test-evidence.md §revert 抽样 + done/六层回顾.md 第六层）。
+
+### 来源
+
+bugfix-8（用户项目区与开发期区分离 + 反向清理盲区修复 + 用户写保护硬门禁） testing 红线违规事件（反面）+ bugfix-9（force-managed 透传修复 + user-write 门禁误报修复） testing/done 阶段 read-only 实证（正面）+ chg-01 of req-47（testing 红线 + safer dogfood + commit revert dry-run）契约层背景
+

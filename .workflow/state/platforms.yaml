@@ -5,4 +5,4 @@ enabled:
 - cc
 - kimi
 last_updated: '2026-04-28'
-active_agent: kimi
+active_agent: claude
