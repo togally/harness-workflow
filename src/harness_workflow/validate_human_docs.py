@@ -43,7 +43,6 @@ from pathlib import Path
 from typing import Iterable
 
 from harness_workflow.workflow_helpers import (
-    FLAT_LAYOUT_FROM_REQ_ID,
     resolve_bugfix_root,
     resolve_requirement_reference,
     resolve_requirement_root,
@@ -58,8 +57,10 @@ from harness_workflow.workflow_helpers import (
 # req-41+：精简扫描，只扫 raw requirement.md（artifacts 副本）+ 交付总结.md；
 #           四类 brief 不再列入白名单（BRIEF_DEPRECATED_FROM_REQ_ID 标记废止边界）。
 
-LEGACY_REQ_ID_CEILING = 37   # req-02 ~ req-37：走 legacy 扫描，废止项已删，不报 missing
-MIXED_TRANSITION_REQ_ID = 38  # req-38：双轨共存，新扁平或旧 changes/ 子目录任一命中即 ok
+# req-02 ~ req-37 走 legacy 扫描（废止项已删），数字 37 直接内联；req-38 双轨共存，数字 38 内联。
+# （bugfix-11 方向C 已删除机器文档路径的阈值常量和路径分支 helper；
+#  此处 legacy ceiling/mixed-transition 仅用于 validate_human_docs 对人文档校验，保留逻辑不变，
+#  常量名已移除。）
 
 # req-id >= BRIEF_DEPRECATED_FROM_REQ_ID 时，四类 brief（需求摘要 / 变更简报 / 实施说明 / 回归简报）
 # 不再列入白名单扫描（req-41（废四类 brief）/ chg-03（validate_human_docs 重写删四类 brief））。
@@ -334,9 +335,9 @@ def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
 
     - req-id ≥ BRIEF_DEPRECATED_FROM_REQ_ID (41)：精简扫描，只查 raw requirement.md + 交付总结.md；
       四类 brief 不再校验（废止）。
-    - req-id ≤ LEGACY_REQ_ID_CEILING (37)：legacy changes/ 子目录扫描；废止项已从常量删，自然不报 missing。
-    - req-id == MIXED_TRANSITION_REQ_ID (38)：双轨共存，新扁平或旧 changes/ 任一命中即 ok。
-    - req-id ∈ [39, 40]（FLAT_LAYOUT_FROM_REQ_ID ~ BRIEF_DEPRECATED_FROM_REQ_ID-1）：
+    - req-id ≤ 37（legacy req-02 ~ req-37）：legacy changes/ 子目录扫描；废止项已从常量删，自然不报 missing。
+    - req-id == 38（混合过渡期）：双轨共存，新扁平或旧 changes/ 任一命中即 ok。
+    - req-id ∈ [39, 40]（req-39/40 历史存量 flat layout）：
       严格新扁平，扫 req 根目录前缀文件（含四类 brief）。
     """
     req_num = _extract_req_num(req_dir.name)
@@ -359,11 +360,11 @@ def _collect_req_items(req_dir: Path) -> list[ValidationItem]:
             )
         )
 
-    if req_num == -1 or req_num <= LEGACY_REQ_ID_CEILING:
-        # legacy：changes/ 子目录扫描
+    if req_num == -1 or req_num <= 37:
+        # legacy（req-02 ~ req-37）：changes/ 子目录扫描
         items.extend(_collect_chg_items_legacy(req_dir))
-    elif req_num == MIXED_TRANSITION_REQ_ID:
-        # 混合过渡期：双轨择一命中即 ok
+    elif req_num == 38:
+        # 混合过渡期（req-38）：双轨择一命中即 ok
         items.extend(_collect_chg_items_mixed(req_dir))
     else:
         # 新规（req-39 / req-40）：严格扁平路径（含四类 brief）

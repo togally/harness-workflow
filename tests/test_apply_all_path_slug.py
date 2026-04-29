@@ -32,6 +32,7 @@ def _make_harness_workspace(tmpdir: Path, language: str = "english") -> Path:
     (root / ".workflow" / "context").mkdir(parents=True)
     (root / ".workflow" / "state" / "requirements").mkdir(parents=True)
     (root / ".workflow" / "state" / "sessions").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "requirements").mkdir(parents=True)
     (root / ".workflow" / "flow" / "suggestions").mkdir(parents=True)
     (root / "artifacts" / "main" / "requirements").mkdir(parents=True)
     (root / ".codex" / "harness").mkdir(parents=True)
@@ -113,7 +114,7 @@ class ApplyAllPathSlugTest(unittest.TestCase):
 
         self.assertEqual(rc, 0, "apply_all 应返回 0")
 
-        # 定位生成的 req_dir（通过 glob artifacts/main/requirements/req-01-*）
+        # artifacts 对人 folder 存在（req 目录占位）
         reqs_dir = self.root / "artifacts" / "main" / "requirements"
         candidates = sorted(reqs_dir.glob("req-01-*"))
         self.assertEqual(
@@ -121,7 +122,12 @@ class ApplyAllPathSlugTest(unittest.TestCase):
             1,
             f"应存在恰好 1 个 req-01-* 目录，实际 {candidates}",
         )
-        req_md = candidates[0] / "requirement.md"
+        # 方向C: requirement.md 在 flow/requirements/ 下
+        flow_candidates = sorted(
+            (self.root / ".workflow" / "flow" / "requirements").glob("req-01-*")
+        )
+        self.assertEqual(len(flow_candidates), 1, f"flow/requirements/ 下应有 req-01-* 目录")
+        req_md = flow_candidates[0] / "requirement.md"
         self.assertTrue(req_md.exists(), f"requirement.md 应存在于 {req_md}")
         text = req_md.read_text(encoding="utf-8")
         self.assertIn(
@@ -143,6 +149,7 @@ class ApplyAllPathSlugTest(unittest.TestCase):
 
         self.assertEqual(rc, 0, "apply_all 应返回 0")
 
+        # artifacts 对人 folder 存在（req 目录占位）
         reqs_dir = self.root / "artifacts" / "main" / "requirements"
         candidates = sorted(reqs_dir.glob("req-01-*"))
         self.assertEqual(
@@ -150,7 +157,12 @@ class ApplyAllPathSlugTest(unittest.TestCase):
             1,
             f"应存在恰好 1 个 req-01-* 目录，实际 {candidates}",
         )
-        req_md = candidates[0] / "requirement.md"
+        # 方向C: requirement.md 在 flow/requirements/ 下
+        flow_candidates = sorted(
+            (self.root / ".workflow" / "flow" / "requirements").glob("req-01-*")
+        )
+        self.assertEqual(len(flow_candidates), 1, f"flow/requirements/ 下应有 req-01-* 目录")
+        req_md = flow_candidates[0] / "requirement.md"
         text = req_md.read_text(encoding="utf-8")
         self.assertIn(
             "## 合并建议清单",

@@ -187,25 +187,31 @@ class ArchiveRequirementFlowSmoke(unittest.TestCase):
         self.assertTrue(flow_archive_dirs, "req-41 flow archive 目录应存在")
 
     def test_archive_requirement_legacy_fallback(self) -> None:
-        """legacy（req-id <= 38）仍走旧路径：folder 搬到 artifacts/{branch}/archive/requirements/。"""
+        """方向C: req-37（原 legacy）也走 flow layout：机器型迁 flow/archive + 对人 folder 原位。"""
         from harness_workflow.workflow_helpers import archive_requirement
 
-        # 使用 test_archive_requirement_flat.py 中相同的 legacy fixture 初始化方式
-        _init_legacy_req_for_archive(self.root, "req-37", "legacy fallback test")
+        # 方向C: 使用 flow layout fixture（机器型文档在 flow/requirements/）
+        _init_legacy_req_for_archive_flow(self.root, "req-37", "legacy fallback test")
 
         rc = archive_requirement(self.root, "req-37")
         self.assertEqual(rc, 0)
 
-        # legacy: archive 目录存在
-        archive_req_dirs = list(
-            (self.root / "artifacts" / "main" / "archive" / "requirements").glob("req-37*")
-        )
-        self.assertTrue(archive_req_dirs, "legacy req-37 应归档到 artifacts/main/archive/requirements/")
-
-        # legacy: flow/archive 不存在（legacy 走旧路径）
+        # 方向C: 机器型文档迁到 flow/archive/main/（不在 artifacts/archive/）
         flow_archive_base = self.root / ".workflow" / "flow" / "archive" / "main"
-        flow_archive_dirs = list(flow_archive_base.glob("req-37-*")) if flow_archive_base.exists() else []
-        self.assertEqual(flow_archive_dirs, [], "legacy req-37 不应出现在 flow/archive 下")
+        flow_archive_dirs = list(flow_archive_base.glob("req-37-*"))
+        self.assertTrue(
+            flow_archive_dirs,
+            "方向C: req-37 应归档到 flow/archive/main/（废弃 legacy 路径）",
+        )
+
+        # 旧 artifacts/archive/ 下不应有该 req
+        old_archive_base = self.root / "artifacts" / "main" / "archive" / "requirements"
+        old_archived = list(old_archive_base.glob("req-37-*")) if old_archive_base.exists() else []
+        self.assertEqual(
+            old_archived,
+            [],
+            "方向C: artifacts/archive/requirements/ 下不应有 req-37（废弃 legacy 路径）",
+        )
 
 
 def _init_legacy_req_for_archive(
@@ -213,7 +219,7 @@ def _init_legacy_req_for_archive(
     req_id: str,
     req_title: str = "legacy test req",
 ) -> Path:
-    """构造 req-id <= 38 的 legacy req fixture。返回 req_dir。"""
+    """构造 req-id <= 38 的 legacy req fixture（旧格式，已废弃）。返回 artifacts_req_dir。"""
     from harness_workflow.slug import slugify_preserve_unicode
 
     slug = slugify_preserve_unicode(req_title) or req_title.replace(" ", "-")
@@ -258,6 +264,66 @@ def _init_legacy_req_for_archive(
         encoding="utf-8",
     )
     return req_dir
+
+
+def _init_legacy_req_for_archive_flow(
+    root: Path,
+    req_id: str,
+    req_title: str = "legacy test req",
+) -> tuple[Path, Path]:
+    """方向C: 构造原 legacy req 的 flow layout fixture。返回 (artifacts_req_dir, flow_req_dir)。"""
+    from harness_workflow.slug import slugify_preserve_unicode
+
+    slug = slugify_preserve_unicode(req_title) or req_title.replace(" ", "-")
+    dir_name = f"{req_id}-{slug}"
+
+    (root / ".workflow" / "state" / "requirements").mkdir(parents=True)
+    (root / ".workflow" / "state" / "sessions").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "requirements").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "archive").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "suggestions").mkdir(parents=True)
+    (root / ".codex" / "harness").mkdir(parents=True)
+    (root / ".codex" / "harness" / "config.json").write_text(
+        json.dumps({"language": "english"}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    # 对人 folder（原位保留，方向C）
+    artifacts_req_dir = root / "artifacts" / "main" / "requirements" / dir_name
+    artifacts_req_dir.mkdir(parents=True)
+    (artifacts_req_dir / "chg-01-变更简报.md").write_text("# 变更简报\n", encoding="utf-8")
+
+    # 机器型 flow folder（方向C 权威路径）
+    flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+    flow_req_dir.mkdir(parents=True)
+    (flow_req_dir / "requirement.md").write_text("# Requirement\n", encoding="utf-8")
+
+    state_yaml = root / ".workflow" / "state" / "requirements" / f"{dir_name}.yaml"
+    state_yaml.write_text(
+        "\n".join([
+            f'id: "{req_id}"',
+            f'title: "{req_title}"',
+            'stage: "done"',
+            'status: "active"',
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    (root / ".workflow" / "state" / "runtime.yaml").write_text(
+        "\n".join([
+            f'current_requirement: "{req_id}"',
+            f'current_requirement_title: "{req_title}"',
+            'stage: "done"',
+            'operation_type: "requirement"',
+            f'operation_target: "{req_id}"',
+            'conversation_mode: "open"',
+            f'active_requirements: ["{req_id}"]',
+            "",
+        ]),
+        encoding="utf-8",
+    )
+    return artifacts_req_dir, flow_req_dir
 
 
 if __name__ == "__main__":

@@ -99,8 +99,17 @@ def test_archive_requirement_resets_ff_mode(tmp_path: Path, monkeypatch) -> None
     (root / ".workflow/state").mkdir()
     (root / ".workflow/state/requirements").mkdir()
     (root / ".workflow/state/bugfixes").mkdir()
+    # 对人 folder（artifacts）
     (root / "artifacts/main/requirements/req-40-fixture").mkdir(parents=True)
-    (root / "artifacts/main/requirements/req-40-fixture/requirement.md").write_text(
+    # 方向C: flow requirements dir（机器型文档根）
+    (root / ".workflow/flow/requirements/req-40-fixture").mkdir(parents=True)
+    (root / ".workflow/flow/archive").mkdir(parents=True)
+    (root / ".workflow/flow/suggestions").mkdir(parents=True)
+    (root / ".codex/harness").mkdir(parents=True)
+    (root / ".codex/harness/config.json").write_text(
+        '{"language": "english"}\n', encoding="utf-8"
+    )
+    (root / ".workflow/flow/requirements/req-40-fixture/requirement.md").write_text(
         "# req-40（fixture）\n", encoding="utf-8"
     )
     (root / ".workflow/state/requirements/req-40-fixture.yaml").write_text(

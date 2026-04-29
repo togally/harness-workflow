@@ -347,96 +347,29 @@ bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑
 
 ---
 
-## 经验：5 chg 大批量端到端 + auto-commit 实操
+## 经验十四：契约层 vs 实现层失配——路径策略常量废弃时测试套件同步更新
 
 ### 场景
 
-req 拆 ≥ 5 chg 且 chg 之间存在数据通路 / helper 共用依赖时，executing 阶段需端到端实施 5 chg + 一次性 auto-commit + 同步 scaffold mirror。
+bugfix-11：`workflow_helpers.py` 中 `create_requirement` / `create_change` / `create_regression` 使用三段式分水岭（`FLAT_LAYOUT_FROM_REQ_ID = 39` / `FLOW_LAYOUT_FROM_REQ_ID = 41`）决定机器型文档落位。契约文档（`repository-layout.md`）已更新为"req-41+ 全走 flow layout"，但 CLI 实现层仍按 harness-workflow 自身仓历史 timeline 的数字阈值判断，导致下游用户仓任何 fresh repo / 切新 branch 起步场景（req-01~NN 均 < 39）100% 命中 legacy 路径。
+
+废弃三段式分水岭（方向 C）后，测试套件中有 14 个文件覆盖旧三路分支行为，直接产生 32 条新增 fail，必须同步更新。
 
 ### 经验内容
 
-req-43（交付总结完善）实操要点：
-
-1. **chg 顺序按依赖链推进**：chg-01（接通 record_subagent_usage 派发链路（吸收 sug-25））helper 加 task_type → chg-03（per-stage 合并到 stage × role × model 单表渲染）helper 加 task_type 路径切换 → chg-04（bugfix 引入 bugfix-交付总结.md（done 模板精简版））+ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）消费 task_type；chg-02（补齐 stage 流转点 entered_at + exited_at 时间戳）独立可并行。乱序 → 后置 chg pytest 失败需回滚；
-2. **每 chg 独立 pytest 文件**：`tests/test_req43_chg{01..05}.py` 各 7-10 条用例，按 chg 边界隔离失败爆炸面（某 chg 单测失败不影响其他 chg）；
-3. **scaffold_v2 mirror 实时同步**：每个 chg 改 `.workflow/context/roles/{role}.md` 或 `.workflow/flow/repository-layout.md` 后，立即 sync 到 `src/harness_workflow/assets/scaffold_v2/...` 对应路径 + 在 commit 前 `diff -rq` 抽样 → 不要等到 chg 全完了才补 mirror（与 bugfix-6 经验一致）；
-4. **auto-commit 一次落地 5 chg**：所有 chg pytest 全绿后一次性 `git commit -m "executing: req-43 5 chg 端到端"`（如 befec5b），git log 颗粒清晰 + 单点 revert；
-5. **null-safety 防御性写法默认开启**：req-43 chg-01 落地 `(usage or {}).get(key, 0)` 防 KeyError，类似模式（usage / state / yaml dict 字段缺失）应在所有 helper 入口默认应用，不待 testing 阶段反例补；
-6. **新建 fixture 注意 ensure_harness_root 完整性**：req-43 chg-05 实测 `_init_repo` fixture 漏建 `.workflow/context` 目录导致测试失败 → 完整初始化 harness 根结构是 fixture 默认要求，缺失即 throw 在 ensure_harness_root 阶段。
+1. **常量/函数废弃前先 grep 测试覆盖面**：用 `grep -rl "FLAT_LAYOUT_FROM_REQ_ID\|_use_flat_layout\|use_flow_layout" tests/` 列出受影响测试文件，建 fix 清单，不要边改源码边被突发 fail 打断。
+2. **fixture 路径同步是主要工作量**：大多数测试失败不是"逻辑错"，而是 fixture 只建了 `artifacts/main/requirements/{dir_name}/`，废弃 legacy 分支后 `create_change` / `create_regression` / `archive_requirement` 转而查找 `.workflow/flow/requirements/{dir_name}/`，找不到就 raise。fix 模式：在 `setUp` / `_init_*` helper 里**同时建** artifacts 目录（对人产物）和 flow 目录（机器型文档）。
+3. **测试语义倒转的文件要完整重写**：原来验证"req-38 走 artifacts/changes/"的测试，方向 C 后语义变为"req-38 也走 flow/requirements/req-38-*/changes/"；与其逐行 patch，不如整文件重写，逻辑更清晰，reviewer 可一眼看到新期望。
+4. **standalone regression 路径要同步确认**：`create_regression` 在 `current_requirement` 为空时走 standalone 路径——废弃 legacy 后，standalone path 从 `artifacts/main/regressions/` 变为 `.workflow/flow/regressions/`；`test_regression_helpers.py` 等文件的 `regressions_base` 必须同步。
+5. **废弃常量的 lint 测试要加进 TC**：`DeprecatedConstantsLintTest`（grep src 中常量赋值 = 0 命中）是方向 C 的 VC-03 核心断言，应在测试重写时一并加入 `test_use_flow_layout.py`，确保源码回退时测试立刻红灯。
+6. **pre-existing fail diff = 0 是硬标准**：废弃操作往往导致隐藏失败浮出，必须 `git stash` → 基线计数 → `git stash pop` → 修复后再计数，确认 diff = 0 新增 fail。不要用肉眼判断"应该是 pre-existing"——基线对比才可信。
 
 ### 反例
 
-- chg 顺序倒装 → 后置 chg helper 调用未实现的前置 chg 函数 → pytest 红 → 需回滚 + 重新排序；
-- mirror 后补 → acceptance 阶段 diff -rq 抽样暴露差异 → 切回 executing 修复，浪费 stage 流转；
-- pytest 文件混在一起 → 单 chg 失败定位时长爆炸，且 git log 显示 5 chg 同时改一个测试文件，颗粒度模糊。
+- 只改源码常量，不同步 fixture 路径：pytest 出现 32 条新增 fail，全部是"FileNotFoundError: flow/requirements/req-XX-slug not found"，根因是 fixture 只建 artifacts 目录，修法千篇一律但量大；如果提前 grep 测试覆盖面就可以批量预判。
+- 把"逻辑倒转"的测试用 `if/else patch` 改造而不是重写：逻辑倒转后"if 走旧路径 / else 走新路径"的结构在方向 C 下永远走 else，条件分支成死代码，reviewer 难理解。
+- 不做基线对比直接数 pass/fail：方向 C 改动后偶发 import 错误可能掩盖 fail 数量，导致"51 fail"实为"52 fail"被误判为通过。
 
 ### 来源
 
-req-43（交付总结完善）— executing 阶段 5 chg 端到端 + 43 新 pytest + auto-commit befec5b + scaffold mirror 4 文件 diff=0
-
----
-
-## 经验：dogfood 类 bug 修复 executing 阶段不 auto-commit + 改完直接 dogfood 自验
-
-### 场景
-
-修复影响 `harness suggest` / `harness rename` / `harness next` 等 CLI 自身的 bug 时（如 req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症））），改动同时生效于"被修复的 CLI"和"产出本 req 的 CLI 链路"。常规 auto-commit 模式可能让未验证的修复落入 git history。
-
-### 经验内容
-
-req-44 executing 实操要点：
-
-1. **不 auto-commit**：chg-01 / chg-02 改完 `workflow_helpers.py` 后，executing 不调 `git commit`，留给下游 dogfood + acceptance 通过后再统一 commit；
-2. **改完即 dogfood 自验**：executing 完成 helper 改动 + 配套 pytest 全绿后，直接在 testing 阶段（甚至 executing 末尾）seed mock sug / mock rename → 调被修复的 helper 自验，确认"修复本身"在真实仓库环境跑得通；
-3. **同源 helper 抽取避免双分支漂移**：`apply_suggestion` 与 `apply_all_suggestions` 内容写入逻辑共用 `_append_sug_body_to_req_md`（按 `_use_flow_layout(req_id)` 双路径分支），单点修改不触发双侧回归；
-4. **runtime 同步字段对称扩展**：`rename_requirement` 既要 mv 三处目录（artifacts/ + state/ + .workflow/flow/），也要同步 runtime 的 `current_requirement_title` / `locked_requirement_title` 两 \*_title 字段，缺一即"路径改了状态没改"半挂状态。
-
-### 反例
-
-- auto-commit 后才 dogfood → 修复有问题但已落 git history → 需 revert / 二次 fix → 颗粒度乱；
-- 只跑 pytest 不 dogfood → fixture 隔离环境通过 → 真实链路（如 `_use_flow_layout` 路径分支）未实证 → bugfix-6 后路径不匹配再次复发；
-- helper 抽双份独立实现（apply / apply_all 各写一遍）→ 后续修改一侧时另一侧漂移，回归面扩大。
-
-### 来源
-
-req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） — executing 阶段 chg-01 + chg-02 改完不 auto-commit / dogfood 自验 / 同源 helper 抽取 / runtime *_title 字段对称扩展
-
----
-
-## 经验：BUG fix 后 dogfood 自验 + commit + push 形成闭环（req-45 引入，防 git restore 类工件再丢）
-
-### 场景
-
-CLI bug 修复 req（如 req-45（harness next over-chain bug 修复（紧急））） 触发 regression 路由后的 2nd executing 重做场景：上一轮 testing 跑 `git restore .` 擦掉了 src/ 全部 executing 改动（BUG-03 P0 Critical），重做的 src 改动若不立即 commit + push，再次出现破坏性 git 命令时仍会再丢一次。req-44 经验"executing 不 auto-commit 留给 testing/acceptance 后统一 commit"在 BUG fix 重做场景**不适用**——必须立即 commit + push 形成闭环。
-
-### 经验内容
-
-**BUG fix 重做场景的 executing 闭环（req-45 2nd executing 范式，commit b64bcd7）**：
-
-1. **改完即 auto-commit**：与 req-44 经验"不 auto-commit"相反，BUG fix 重做完成 src/ 改动 + pytest 全绿 + dogfood 自验通过后，**立即** `git commit -m "fix: <BUG-NN> 修复点 + dogfood 自验"`，commit 颗粒按 BUG ID 而非按 chg。
-2. **commit 后立即 push**：`git push origin <branch>`，让远程仓库形成第二备份，破坏性 git 命令最坏只能擦工作区不擦远程；恢复路径 = `git fetch + git reset --hard origin/<branch>`。
-3. **commit message 含 dogfood 验证证据**：如 `fix: gate 插桩位置修对 + dogfood 验证`，让 reviewer / acceptance 阶段能从 git log 读出修复闭环证据。
-4. **dogfood 自验在 commit 之前**：顺序固定 = 改 src → pytest 全绿 → dogfood 自验（tmpdir mock + helper 直调 + stdout/stage 断言）→ commit + push；调换会让"未验证修复"落入 git history。
-5. **session-memory 留 executing（重做）段**：与首次 executing 段并列，含 BUG fix 描述 / 修复点 / TC 修正清单 / dogfood 实跑结论 / commit sha，让 testing 二次干净执行时能完整复盘。
-
-**何时走"不 auto-commit"路径**（req-44 范式）：
-
-- 非 BUG fix 重做的常规 executing；
-- 影响 CLI 自身行为的 chg（dogfood 自验本身需要 testing 阶段做完整链路验证）；
-- 多 chg 端到端实施（req-43 范式：5 chg 全绿后一次 commit）。
-
-**何时走"立即 commit + push"路径**（本经验 req-45 范式）：
-
-- regression 路由后的 BUG fix 重做（防 git restore 类事故再丢工件）；
-- 已有破坏性 git 命令事故记录（本 req session-memory 含 BUG-03 等）；
-- 跨多个 stage 的 src/ 改动（每完成一个 stage 至少落一次 commit + push）。
-
-### 反例
-
-- BUG fix 重做完不 commit → testing 二次执行又跑破坏性 git 命令 → src/ 再丢 → 三次 executing → 雪球 stage 流转（典型反例 = 若 req-45 2nd executing 不 commit b64bcd7 + push，3rd testing 再跑 git restore 仍可能擦改动）。
-- commit 在 dogfood 自验之前 → 未验证修复落入 git history → 后续 revert 颗粒不清晰。
-- commit message 不含 BUG ID / dogfood 证据 → reviewer 抽样时无法快速定位"哪个 commit 闭环了哪个 BUG"。
-
-### 来源
-
-req-45（harness next over-chain bug 修复（紧急）） — 2nd executing 重做 BUG-01（gate 插桩位置错）+ BUG-02（TC-02/03/06 断言修正）+ commit b64bcd7 + push 防再丢 + 2nd testing 干净 9/9 PASS 闭环验证
+bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）— executing 阶段废弃三段式分水岭（方向 C）+ 14 个测试文件同步更新

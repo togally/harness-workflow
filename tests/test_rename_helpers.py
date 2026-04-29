@@ -31,6 +31,8 @@ def _make_harness_workspace(tmpdir: Path, language: str = "english") -> Path:
     (root / ".workflow" / "state").mkdir(parents=True)
     (root / ".workflow" / "state" / "requirements").mkdir(parents=True)
     (root / ".workflow" / "state" / "bugfixes").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "requirements").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "suggestions").mkdir(parents=True)
     (root / "artifacts" / "main" / "requirements").mkdir(parents=True)
     (root / "artifacts" / "main" / "bugfixes").mkdir(parents=True)
     (root / ".codex" / "harness").mkdir(parents=True)
@@ -71,13 +73,18 @@ def _seed_requirement(
     *,
     make_current: bool = False,
 ) -> Path:
-    """在工作区中铺一个最小化的 requirement 产出 + state yaml。"""
+    """在工作区中铺一个最小化的 requirement 产出 + state yaml。
+    方向C: 同时创建 flow/requirements/{req_id}-{slug}/ 目录（机器型文档根）。
+    """
     req_dir = root / "artifacts" / "main" / "requirements" / f"{req_id}-{slug}"
     _write(
         req_dir / "meta.yaml",
         f'id: "{req_id}"\ntitle: "{title}"\n',
     )
     _write(req_dir / "requirement.md", f"# {title}\n\n## Goal\n...\n")
+    # 方向C: 同时创建 flow requirements 目录
+    flow_req_dir = root / ".workflow" / "flow" / "requirements" / f"{req_id}-{slug}"
+    flow_req_dir.mkdir(parents=True, exist_ok=True)
     _write(
         root / ".workflow" / "state" / "requirements" / f"{req_id}-{slug}.yaml",
         "\n".join(
@@ -272,8 +279,9 @@ class CreateChangeSlugTest(unittest.TestCase):
         rc = create_change(self.root, "新变更：含 空格 和 冒号")
         self.assertEqual(rc, 0)
 
-        req_dir = self.root / "artifacts" / "main" / "requirements" / "req-13-host-req"
-        changes_dir = req_dir / "changes"
+        # 方向C: change 落 flow/requirements/req-13-host-req/changes/
+        flow_req_dir = self.root / ".workflow" / "flow" / "requirements" / "req-13-host-req"
+        changes_dir = flow_req_dir / "changes"
         self.assertTrue(changes_dir.exists())
         dirs = [d.name for d in changes_dir.iterdir() if d.is_dir()]
         self.assertEqual(len(dirs), 1)

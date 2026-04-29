@@ -35,5 +35,5 @@ Focus:
 
 - explain the current stage, current task, and next action first
 - then advance according to the actual state instead of assuming a fixed sequence
-- if the version is already `ready_for_execution`, do not start implementation automatically; ask for confirmation or use `harness next --execute`
+- if the current stage is `analysis`, confirm change.md + plan.md are produced before running `harness next` to advance to executing
 - if workflow state is incomplete, stop and require state repair first

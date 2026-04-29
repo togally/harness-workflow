@@ -1,12 +1,12 @@
 """Tests for req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-01（apply / apply-all CLI 路径与内容修复）.
 
 覆盖 plan.md §4 测试用例 TC-01 ~ TC-06：
-- TC-01: apply-all 后 bugfix-6 路径成功（flow layout req-id >= 41）
-- TC-02: apply-all legacy req-id 路径兼容（_use_flow_layout 返回 False）
+- TC-01: apply-all 后 flow layout 路径成功（所有 req-id 走 flow layout）
+- TC-02: apply-all req-01（方向C）也走 flow layout
 - TC-03: apply-all req_md 不存在时不 unlink
 - TC-04: apply 单 sug 取 sug.title 当 req title
 - TC-05: apply 单 sug 真写入 requirement.md
-- TC-06: apply 单 sug 后 bugfix-6 路径落位
+- TC-06: apply 单 sug 后 flow 路径落位
 """
 
 from __future__ import annotations
@@ -108,12 +108,10 @@ class TestApplyAllFlowPath(unittest.TestCase):
         shutil.rmtree(self.tempdir, ignore_errors=True)
 
     def test_tc01_apply_all_flow_layout_success(self) -> None:
-        """TC-01: req-id >= 41, apply-all uses .workflow/flow/requirements/ path, sug unlinked, req_md contains 合并建议清单."""
-        from harness_workflow.workflow_helpers import apply_all_suggestions, _use_flow_layout
+        """TC-01: apply-all uses .workflow/flow/requirements/ path, sug unlinked, req_md contains 合并建议清单."""
+        from harness_workflow.workflow_helpers import apply_all_suggestions
 
-        # Force req id to be >= 41 so _use_flow_layout returns True
-        # We do this by pre-seeding enough req dirs to bump _next_req_id to >= 41
-        # Simpler: override _next_req_id via req state dirs
+        # Force req id to be >= 41 so we end up with req-41
         for i in range(1, 41):
             (self.root / ".workflow" / "state" / "requirements" / f"req-{i:02d}-dummy.yaml").write_text(
                 f'id: "req-{i:02d}"\ntitle: "dummy {i}"\n', encoding="utf-8"
@@ -132,7 +130,7 @@ class TestApplyAllFlowPath(unittest.TestCase):
         self.assertFalse(sug2.exists(), "sug-44 应被 unlink")
 
         # requirement.md should be in .workflow/flow/requirements/
-        flow_reqs = root = self.root / ".workflow" / "flow" / "requirements"
+        flow_reqs = self.root / ".workflow" / "flow" / "requirements"
         candidates = sorted(flow_reqs.glob("req-41-*"))
         self.assertEqual(len(candidates), 1, f"应存在恰好 1 个 req-41-* 在 flow/, 实际 {list(flow_reqs.iterdir())}")
         req_md = candidates[0] / "requirement.md"
@@ -141,29 +139,39 @@ class TestApplyAllFlowPath(unittest.TestCase):
         self.assertIn("## 合并建议清单", text, "requirement.md 应含 ## 合并建议清单")
         self.assertIn("sug-43", text)
         self.assertIn("sug-44", text)
-        # Verify _use_flow_layout returns True for req-41
-        self.assertTrue(_use_flow_layout("req-41"))
+        # 方向C: requirement.md 在 flow/requirements/（artifacts/ 下不应有 requirement.md）
+        artifacts_req_md = self.root / "artifacts" / "main" / "requirements" / candidates[0].name / "requirement.md"
+        self.assertFalse(
+            artifacts_req_md.exists(),
+            "方向C: requirement.md 不应在 artifacts/ 路径下",
+        )
 
     def test_tc02_apply_all_legacy_path_compatible(self) -> None:
-        """TC-02: legacy req-id（_use_flow_layout returns False）, body written to artifacts/ path."""
+        """方向C: req-01 也走 flow layout，requirement.md 落 flow/requirements/ 路径."""
         from harness_workflow.workflow_helpers import apply_all_suggestions
 
-        # No pre-seeding, so _next_req_id will be req-01 (_use_flow_layout returns False)
+        # 方向C: 无预置 req，_next_req_id 将分配 req-01，一律走 flow layout
         sug1 = _seed_pending_sug(self.root, "sug-01", "legacy sug title", "LEGACY-BODY")
 
         pack_title = "legacy pack"
         rc = apply_all_suggestions(self.root, pack_title=pack_title)
-        self.assertEqual(rc, 0, "legacy 路径 apply-all 应返回 0")
+        self.assertEqual(rc, 0, "方向C: req-01 apply-all 应返回 0")
 
-        # req_md should be in artifacts/main/requirements/ for legacy req-id
-        reqs_dir = self.root / "artifacts" / "main" / "requirements"
-        candidates = sorted(reqs_dir.glob("req-01-*"))
-        self.assertEqual(len(candidates), 1, f"应存在恰好 1 个 req-01-*, 实际 {list(reqs_dir.iterdir())}")
+        # 方向C: requirement.md 应在 flow/requirements/（不在 artifacts/）
+        flow_reqs = self.root / ".workflow" / "flow" / "requirements"
+        candidates = sorted(flow_reqs.glob("req-01-*"))
+        self.assertEqual(len(candidates), 1, f"应存在恰好 1 个 req-01-* 在 flow/, 实际 {list(flow_reqs.iterdir())}")
         req_md = candidates[0] / "requirement.md"
-        self.assertTrue(req_md.exists())
+        self.assertTrue(req_md.exists(), f"requirement.md 应在 flow/ 目录，实际: {req_md}")
         text = req_md.read_text(encoding="utf-8")
         self.assertIn("## 合并建议清单", text)
         self.assertIn("LEGACY-BODY", text)
+        # 验证方向C: requirement.md 在 flow/requirements/（不在 artifacts/ 下）
+        artifacts_req_md = self.root / "artifacts" / "main" / "requirements" / candidates[0].name / "requirement.md"
+        self.assertFalse(
+            artifacts_req_md.exists(),
+            "方向C: requirement.md 不应在 artifacts/ 路径下",
+        )
 
     def test_tc03_apply_all_missing_req_md_no_unlink(self) -> None:
         """TC-03: req_md 不存在时，exit != 0, sug 文件保留, stderr 含 ERROR."""
@@ -236,7 +244,7 @@ class TestApplySuggestionContent(unittest.TestCase):
         self.assertNotIn("这是 content 首行", title_in_runtime)
 
     def test_tc05_apply_writes_sug_body_to_requirement_md(self) -> None:
-        """TC-05: apply 后 requirement.md 末含 ## 合并建议清单 + sug body marker."""
+        """TC-05: apply 后 requirement.md 末含 ## 合并建议清单 + sug body marker（方向C: 落 flow/requirements/）."""
         from harness_workflow.workflow_helpers import apply_suggestion
 
         sug_path = _seed_pending_sug(
@@ -248,10 +256,10 @@ class TestApplySuggestionContent(unittest.TestCase):
         rc = apply_suggestion(self.root, "sug-11")
         self.assertEqual(rc, 0)
 
-        # Find the created requirement.md (legacy path, req-01)
-        reqs_dir = self.root / "artifacts" / "main" / "requirements"
-        candidates = sorted(reqs_dir.glob("req-01-*"))
-        self.assertEqual(len(candidates), 1)
+        # 方向C: requirement.md 应在 flow/requirements/（不在 artifacts/）
+        flow_reqs = self.root / ".workflow" / "flow" / "requirements"
+        candidates = sorted(flow_reqs.glob("req-01-*"))
+        self.assertEqual(len(candidates), 1, f"flow/requirements/ 下应有 req-01-*, 实际 {list(flow_reqs.iterdir())}")
         req_md = candidates[0] / "requirement.md"
         self.assertTrue(req_md.exists())
         text = req_md.read_text(encoding="utf-8")

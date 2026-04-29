@@ -22,8 +22,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 def _init_harness_repo(root: Path, parent_req_id: str = "req-40", parent_req_title: str = "parent req title foo") -> None:
     (root / ".workflow" / "state" / "requirements").mkdir(parents=True)
     (root / ".workflow" / "state" / "sessions").mkdir(parents=True)
+    (root / ".workflow" / "flow" / "requirements").mkdir(parents=True)
     (root / ".workflow" / "flow" / "suggestions").mkdir(parents=True)
     (root / "artifacts" / "main" / "requirements" / f"{parent_req_id}-demo").mkdir(parents=True)
+    # 方向C: flow requirements dir（机器型文档根）
+    (root / ".workflow" / "flow" / "requirements" / f"{parent_req_id}-demo").mkdir(parents=True)
     (root / ".codex" / "harness").mkdir(parents=True)
     (root / ".codex" / "harness" / "config.json").write_text(
         json.dumps({"language": "english"}, ensure_ascii=False) + "\n",
@@ -84,18 +87,12 @@ class RegressionIndependentTitleTest(unittest.TestCase):
         self.assertTrue(runtime.get("current_regression", "").startswith("reg-"))
 
         # 目录 slug 必须以 "bar" 为主（parent title "parent req title foo" 不应出现）
-        # req-40 >= 39：新扁平路径，机器型文档落 .workflow/state/sessions/req-40/regressions/
-        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）
-        state_reg_dirs = list(
-            (self.root / ".workflow" / "state" / "sessions" / "req-40" / "regressions").glob("reg-*")
+        # 方向C: 机器型文档落 .workflow/flow/requirements/req-40-demo/regressions/
+        flow_reg_dirs = list(
+            (self.root / ".workflow" / "flow" / "requirements" / "req-40-demo" / "regressions").glob("reg-*")
         )
-        # 也兜底扫 legacy 路径（req-id < 39 场景）
-        legacy_reg_dirs = list(
-            (self.root / "artifacts" / "main" / "requirements").glob("req-*/regressions/reg-*")
-        )
-        regressions_dirs = state_reg_dirs or legacy_reg_dirs
-        self.assertTrue(regressions_dirs, "regression 目录必须存在")
-        reg_dir_name = regressions_dirs[0].name
+        self.assertTrue(flow_reg_dirs, "regression 目录必须存在")
+        reg_dir_name = flow_reg_dirs[0].name
         self.assertIn("bar", reg_dir_name.lower())
         self.assertNotIn("parent", reg_dir_name.lower())
 

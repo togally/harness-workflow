@@ -98,10 +98,10 @@ class TestAppendSugBodyIdempotent(unittest.TestCase):
 
     def test_ec02_idempotent_marker(self) -> None:
         """二次调用同 sug body 时，## 合并建议清单 marker 只出现 1 次（聚合不重复生成）。"""
-        from harness_workflow.workflow_helpers import _append_sug_body_to_req_md, _use_flow_layout
+        from harness_workflow.workflow_helpers import _append_sug_body_to_req_md
 
-        # 为 legacy req-id（<= 40）构造 artifacts/ requirement.md
-        req_md = self.root / "artifacts" / "main" / "requirements" / "req-01-test" / "requirement.md"
+        # 方向C: 所有 req-id 走 flow layout，requirement.md 在 flow/requirements/
+        req_md = self.root / ".workflow" / "flow" / "requirements" / "req-01-test" / "requirement.md"
         req_md.parent.mkdir(parents=True, exist_ok=True)
         req_md.write_text("# Test Req\n\n## Goal\n...\n", encoding="utf-8")
 

@@ -75,19 +75,10 @@ DEFAULT_STATE_RUNTIME = {
     "ff_stage_history": [],
     "active_requirements": [],
 }
-# req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）
-# 三级布局常量：
-#   req-id ≤ LEGACY_REQ_ID_CEILING (<=38)：legacy 路径（含 req-38 混合过渡）
-#   FLAT_LAYOUT_FROM_REQ_ID <= req-id <= 40 (39-40)：state-flat 路径（机器型文档落 .workflow/state/，对人文档落 artifacts/）
-#   req-id >= FLOW_LAYOUT_FROM_REQ_ID (>=41)：flow 路径（机器型工件落 .workflow/flow/requirements/{req-id}-{slug}/）
-LEGACY_REQ_ID_CEILING = 38  # req-02 ~ req-38 走 legacy 路径（含 req-38 混合过渡）
-FLAT_LAYOUT_FROM_REQ_ID = 39  # req-39 及以后强制扁平 + state 机器型文档
-# req-41（机器型工件回 flow/requirements + 关注点分离）/ chg-02（CLI 路径迁移 flow layout）
-FLOW_LAYOUT_FROM_REQ_ID = 41  # req-41 及以后机器型工件落 .workflow/flow/requirements/
-# bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A1：
-# bugfix-6 起强制 flow layout；bugfix-1 ~ bugfix-5 走 A5 存量迁移。
-BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID = 6
-
+# bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+# 三级布局常量（数字阈值分水岭）已被删除。
+# 所有 req / chg / regression 一律走 flow layout（.workflow/flow/requirements/{req-id}-{slug}/），
+# 无 fallback 分支，无 legacy 路径创建。
 LEGACY_CLEANUP_ROOT = Path(".workflow") / "context" / "backup" / "legacy-cleanup"
 LEGACY_CLEANUP_TARGETS = [
     Path("flow"),
@@ -4213,42 +4204,6 @@ def _next_suggestion_id(root: Path) -> str:
     return f"sug-{max_num + 1:02d}"
 
 
-def _use_flat_layout(req_id: str) -> bool:
-    """Return True if req_id should use the new flat layout (req-39+).
-
-    req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
-    - req-id >= 39 → True（新扁平路径：机器型文档落 .workflow/state/，对人文档落 artifacts/ 平铺）
-    - req-id <= 38 → False（legacy 路径：保持旧 changes/ / regressions/ 子目录结构）
-    - req-38 特殊：混合过渡期，CLI 行为保持 legacy（MIXED_TRANSITION_REQ_ID 处理由 chg-02 负责）
-
-    注：_use_flow_layout(x) → True 蕴含 _use_flat_layout(x) → True（flow ⊂ flat）。
-    """
-    if not req_id:
-        return False
-    m = re.match(r"^req-(\d+)$", req_id.strip())
-    if not m:
-        return False
-    return int(m.group(1)) >= FLAT_LAYOUT_FROM_REQ_ID
-
-
-def _use_flow_layout(req_id: str) -> bool:
-    """Return True if req_id should use the flow layout (req-41+).
-
-    req-41（机器型工件回 flow/requirements + 关注点分离）/ chg-02（CLI 路径迁移 flow layout）:
-    - req-id >= 41 → True（flow 路径：机器型工件落 .workflow/flow/requirements/{req-id}-{slug}/）
-    - req-id <= 40 → False（state-flat 或 legacy 路径）
-    - 非法 id（空串 / None / 非 req-\\d+ 形式）→ False
-
-    语义：_use_flow_layout(x) → True 蕴含 _use_flat_layout(x) → True（flow ⊂ flat）；
-    三分支互斥顺序：flow → flat → legacy。
-    """
-    if not req_id:
-        return False
-    m = re.match(r"^req-(\d+)$", req_id.strip())
-    if not m:
-        return False
-    return int(m.group(1)) >= FLOW_LAYOUT_FROM_REQ_ID
-
 
 #: req-50（现有流程优化）/ chg-01（5-stage sequence 落地）：
 #: req-id >= 50 使用新 5-stage workflow（analysis / executing / testing / acceptance / done）；
@@ -4438,18 +4393,13 @@ def _append_sug_body_to_req_md(
 ) -> Path:
     """把 sug body 追加到新 req 的 requirement.md。
 
-    req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-01（apply / apply-all CLI 路径与内容修复）:
-    - 按 _use_flow_layout(req_id) 解析 requirement.md 的正确路径：
-        * True（req-id >= 41）→ .workflow/flow/requirements/{dir_name}/requirement.md
-        * False（legacy / flat）→ resolve_requirement_root(root)/{dir_name}/requirement.md
+    bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）:
+    - 所有 req 一律走 flow layout：.workflow/flow/requirements/{dir_name}/requirement.md
     - 在文末追加 ## 合并建议清单 段（多次调用幂等聚合到同一段下）。
     - req_md 不存在时 raise FileNotFoundError（调用方决定是否 abort）。
     - 返回写入的 Path。
     """
-    if _use_flow_layout(req_id):
-        req_md = root / ".workflow" / "flow" / "requirements" / dir_name / "requirement.md"
-    else:
-        req_md = resolve_requirement_root(root) / dir_name / "requirement.md"
+    req_md = root / ".workflow" / "flow" / "requirements" / dir_name / "requirement.md"
 
     if not req_md.exists():
         raise FileNotFoundError(f"requirement.md not found at {req_md}")
@@ -4715,9 +4665,8 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
     # req-44（apply-all artifacts/ 旧路径修复（bugfix-6 后遗症）） / chg-01（apply / apply-all CLI 路径与内容修复）:
     # 1) 路径拼接必须走 `_path_slug` 清洗，与 `create_requirement` 同源；
     #    未清洗的 title 含 `/` / `（）` / 空格 / 引号等时 req_dir 解析 miss → 清单追加静默跳过。
-    # 2) 路径分支：_use_flow_layout(req_id) True（req-id >= 41）→
-    #    .workflow/flow/requirements/{dir_name}/requirement.md（AC-01 修复核心）；
-    #    False → resolve_requirement_root(root)/{dir_name}/（legacy / flat 兼容）。
+    # 2) 路径：bugfix-11 方向C（废弃三段式分水岭）一律走
+    #    .workflow/flow/requirements/{dir_name}/requirement.md
     # 3) 原子顺序：先 tmp.write_text → tmp.replace(req_md) 原子 rename 成功，
     #    才进入 unlink 循环；任一步失败必须打印 stderr 并返回非零、不 unlink。
     if not req_id:
@@ -4727,7 +4676,7 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
     slug_part = _path_slug(title)
     dir_name = f"{req_id}-{slug_part}" if slug_part else req_id
 
-    # 逐条 sug body 追加（调用统一 helper，路径分支在 helper 内按 _use_flow_layout 决定）
+    # 逐条 sug body 追加（调用统一 helper，一律走 flow layout）
     for path, suggest_id, suggest_title in pending:
         # 取 sug frontmatter title 优先（与 apply_suggestion 对齐）
         sug_state = load_simple_yaml(path)
@@ -4789,41 +4738,18 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     skipped: list[str] = []
     replacements = {"ID": req_num_id, "TITLE": requirement_title}
 
-    if _use_flow_layout(req_num_id):
-        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-        # flow 路径：机器型 requirement.md 落 .workflow/flow/requirements/{req-id}-{slug}/requirement.md
-        # artifacts/ 目录仅放对人文档（需求摘要.md placeholder），不建 changes/ 子目录
-        flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
-        write_if_missing(
-            flow_req_dir / "requirement.md",
-            render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
-            created,
-            skipped,
-        )
-        # artifacts/ 目录只建根目录，不建 changes/ 子目录（扁平结构约束）
-        requirement_dir.mkdir(parents=True, exist_ok=True)
-    elif _use_flat_layout(req_num_id):
-        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
-        # 新扁平路径：机器型 requirement.md 落 .workflow/state/requirements/{req-id}/
-        # artifacts/ 目录仅放对人文档（需求摘要.md placeholder），不建 changes/ 子目录
-        state_req_dir = root / ".workflow" / "state" / "requirements" / req_num_id
-        write_if_missing(
-            state_req_dir / "requirement.md",
-            render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
-            created,
-            skipped,
-        )
-        # artifacts/ 目录只建根目录，不建 changes/ 子目录（扁平结构约束）
-        requirement_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        # Legacy 路径（req-id <= 38）：保持旧 requirement.md + changes/ 子目录结构
-        write_if_missing(
-            requirement_dir / "requirement.md",
-            render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
-            created,
-            skipped,
-        )
-        (requirement_dir / "changes").mkdir(parents=True, exist_ok=True)
+    # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+    # 所有 req 一律走 flow layout：机器型 requirement.md 落 .workflow/flow/requirements/{req-id}-{slug}/
+    # artifacts/ 目录仅放对人文档（§2 白名单内），不建 changes/ 子目录。
+    flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+    write_if_missing(
+        flow_req_dir / "requirement.md",
+        render_template("requirement.md.tmpl", repo_name, config["language"], replacements),
+        created,
+        skipped,
+    )
+    # artifacts/ 目录只建根目录，不建 changes/ 子目录（扁平结构约束）
+    requirement_dir.mkdir(parents=True, exist_ok=True)
 
     state_file = root / ".workflow" / "state" / "requirements" / f"{dir_name}.yaml"
     if not state_file.exists():
@@ -4869,20 +4795,6 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     return 0
 
 
-def _use_flow_layout_for_bugfix(bugfix_id: str) -> bool:
-    """判定 bugfix 是否走 flow layout（机器型文档落 .workflow/flow/bugfixes/）。
-
-    bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A1：
-    bugfix-id >= BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID（6）时走 flow layout；
-    bugfix-1 ~ bugfix-5 走 A5 存量迁移，新建时已不再触发（历史已存在）。
-    """
-    try:
-        num = int(bugfix_id.replace("bugfix-", "").strip())
-        return num >= BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID
-    except (ValueError, AttributeError):
-        return True  # 未知格式默认 flow layout
-
-
 def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, title: str | None = None) -> int:
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
@@ -4900,24 +4812,20 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
     skipped: list[str] = []
     replacements = {"ID": bfx_num_id, "TITLE": bugfix_title}
 
-    # bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A1：
-    # flow layout（bugfix-6+）：机器型文档落 .workflow/flow/bugfixes/{dir}/；
+    # bugfix-11（H-E3 扩范围）：所有 bugfix 无条件走 flow layout，
+    # 机器型文档落 .workflow/flow/bugfixes/{dir}/；
     # artifacts/ 路径仅创建 README.md 占位说明"对人产物预留目录"。
-    use_flow = _use_flow_layout_for_bugfix(bfx_num_id)
-    if use_flow:
-        bugfix_dir = root / ".workflow" / "flow" / "bugfixes" / dir_name
-        artifacts_dir = root / "artifacts" / branch / "bugfixes" / dir_name
-        # 在 artifacts/ 创建占位 README 说明"对人产物预留目录"
-        readme_content = (
-            f"# {bfx_num_id}（{bugfix_title}）对人产物预留目录\n\n"
-            "本目录为对人可读产物（如 SQL 脚本、部署文档、对外报告等）的预留位置。\n"
-            "机器型工件（bugfix.md / session-memory.md / regression/diagnosis.md 等）\n"
-            f"已迁至 `.workflow/flow/bugfixes/{dir_name}/`。\n\n"
-            "如本次 bugfix 有对人产物（如部署脚本），请将其放置于本目录。\n"
-        )
-        write_if_missing(artifacts_dir / "README.md", readme_content, created, skipped)
-    else:
-        bugfix_dir = root / "artifacts" / branch / "bugfixes" / dir_name
+    bugfix_dir = root / ".workflow" / "flow" / "bugfixes" / dir_name
+    artifacts_dir = root / "artifacts" / branch / "bugfixes" / dir_name
+    # 在 artifacts/ 创建占位 README 说明"对人产物预留目录"
+    readme_content = (
+        f"# {bfx_num_id}（{bugfix_title}）对人产物预留目录\n\n"
+        "本目录为对人可读产物（如 SQL 脚本、部署文档、对外报告等）的预留位置。\n"
+        "机器型工件（bugfix.md / session-memory.md / regression/diagnosis.md 等）\n"
+        f"已迁至 `.workflow/flow/bugfixes/{dir_name}/`。\n\n"
+        "如本次 bugfix 有对人产物（如部署脚本），请将其放置于本目录。\n"
+    )
+    write_if_missing(artifacts_dir / "README.md", readme_content, created, skipped)
 
     write_if_missing(
         bugfix_dir / "bugfix.md",
@@ -4994,56 +4902,20 @@ def create_bugfix(root: Path, name: str | None, bugfix_id: str | None = None, ti
 def _next_chg_id(req_dir: Path, root: Path | None = None, req_id: str | None = None) -> str:
     """Return the next available chg-NN id within a requirement.
 
-    三级布局扫描策略：
-    - req-id >= 41（flow layout）: scans .workflow/flow/requirements/{req-id}-{slug}/changes/chg-* for max id.
-    - req-id >= 39（flat layout）: scans .workflow/state/sessions/{req-id}/chg-* for max id,
-      with legacy fallback to artifacts changes/ dir for conflict avoidance.
-    - req-id <= 38（legacy）: scans artifacts req_dir/changes/chg-* as before.
+    bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+    所有 req 一律走 flow layout：扫 .workflow/flow/requirements/{req-id}-{slug}/changes/chg-* 分配 id。
+    req_dir 已是 flow req dir；扫其 changes/ 子目录取 max id。
     """
     max_num = 0
-    # Determine req_id from req_dir name if not provided
-    _req_id = req_id or ""
-    if not _req_id and req_dir:
-        m_dir = re.match(r"^(req-\d+)", req_dir.name)
-        if m_dir:
-            _req_id = m_dir.group(1)
-
-    if root and _req_id and _use_flow_layout(_req_id):
-        # Flow layout: scan .workflow/flow/requirements/{req-id}-{slug}/changes/chg-*
-        # req_dir is already the flow req dir; scan its changes/ subdir
-        changes_dir = req_dir / "changes"
-        if changes_dir.exists():
-            for item in changes_dir.iterdir():
-                if not item.is_dir():
-                    continue
-                m = re.match(r"chg-(\d+)", item.name)
-                if m:
-                    max_num = max(max_num, int(m.group(1)))
-    elif root and _req_id and _use_flat_layout(_req_id):
-        # Flat layout: scan .workflow/state/sessions/{req-id}/chg-*
-        state_sessions_dir = root / ".workflow" / "state" / "sessions" / _req_id
-        if state_sessions_dir.exists():
-            for item in state_sessions_dir.iterdir():
-                if not item.is_dir():
-                    continue
-                m = re.match(r"chg-(\d+)", item.name)
-                if m:
-                    max_num = max(max_num, int(m.group(1)))
-        # Legacy fallback: also scan artifacts changes/ dir to avoid id conflicts
-        changes_dir = req_dir / "changes"
-        if changes_dir.exists():
-            for item in changes_dir.iterdir():
-                m = re.match(r"chg-(\d+)", item.name)
-                if m:
-                    max_num = max(max_num, int(m.group(1)))
-    else:
-        # Legacy: scan artifacts req_dir/changes/
-        changes_dir = req_dir / "changes"
-        if changes_dir.exists():
-            for item in changes_dir.iterdir():
-                m = re.match(r"chg-(\d+)", item.name)
-                if m:
-                    max_num = max(max_num, int(m.group(1)))
+    # Flow layout: scan req_dir/changes/chg-* for max id
+    changes_dir = req_dir / "changes"
+    if changes_dir.exists():
+        for item in changes_dir.iterdir():
+            if not item.is_dir():
+                continue
+            m = re.match(r"chg-(\d+)", item.name)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
     return f"chg-{max_num + 1:02d}"
 
 
@@ -5064,22 +4936,11 @@ def create_change(
     req_ref = requirement_id.strip() or str(runtime.get("current_requirement", "")).strip()
     req_dir = None
     if req_ref:
-        branch = _get_git_branch(root) or "main"
-        if _use_flow_layout(req_ref):
-            # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-            # flow 路径：req_dir 在 .workflow/flow/requirements/{req-id}-{slug}/
-            req_dir = resolve_requirement_reference(
-                root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
-            )
-            # artifacts/ req dir 仍需用于 _next_chg_id 兼容（如无则用 flow req_dir）
-            artifacts_req_dir = resolve_requirement_reference(
-                root / "artifacts" / branch / "requirements", req_ref, config["language"]
-            ) or req_dir
-        else:
-            req_dir = resolve_requirement_reference(
-                root / "artifacts" / branch / "requirements", req_ref, config["language"]
-            )
-            artifacts_req_dir = req_dir
+        # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+        # 所有 req 一律走 flow layout：req_dir 在 .workflow/flow/requirements/{req-id}-{slug}/
+        req_dir = resolve_requirement_reference(
+            root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+        )
     if not req_dir:
         raise SystemExit("No active requirement. Run `harness requirement <title>` first.")
 
@@ -5094,41 +4955,14 @@ def create_change(
     linked_requirement = req_ref
     replacements = {"ID": chg_num_id, "TITLE": change_title, "REQUIREMENT_ID": linked_requirement or "None"}
 
-    if _use_flow_layout(req_ref):
-        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-        # flow 路径：机器型文档（change.md / plan.md / session-memory.md / regression/required-inputs.md）
-        # 落 .workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/
-        flow_chg_dir = req_dir / "changes" / dir_name
-        write_if_missing(flow_chg_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(flow_chg_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(flow_chg_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(flow_chg_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        change_dir = flow_chg_dir
-    elif _use_flat_layout(req_ref):
-        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
-        # 新扁平路径：机器型文档（change.md / plan.md / session-memory.md / regression/required-inputs.md）
-        # 落 .workflow/state/sessions/{req-id}/{chg-id}-{slug}/
-        state_chg_dir = root / ".workflow" / "state" / "sessions" / req_ref / dir_name
-        write_if_missing(state_chg_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(state_chg_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(state_chg_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(state_chg_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        # 对人文档 placeholder（chg-NN-变更简报.md）落 artifacts/ 扁平根目录，供 planning 角色填充
-        brief_placeholder = artifacts_req_dir / f"{chg_num_id}-变更简报.md"
-        write_if_missing(
-            brief_placeholder,
-            f"# 变更简报：{chg_num_id} {change_title}\n\n<!-- TODO: planning 角色填写 -->\n",
-            created,
-            skipped,
-        )
-        change_dir = state_chg_dir
-    else:
-        # Legacy 路径（req-id <= 38）：保持旧 changes/ 子目录结构
-        change_dir = req_dir / "changes" / dir_name
-        write_if_missing(change_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(change_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(change_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(change_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+    # 所有 req 一律走 flow layout：机器型文档落 .workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/
+    flow_chg_dir = req_dir / "changes" / dir_name
+    write_if_missing(flow_chg_dir / "change.md", render_template("change.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(flow_chg_dir / "plan.md", render_template("change-plan.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(flow_chg_dir / "regression" / "required-inputs.md", render_template("regression-required-inputs.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(flow_chg_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    change_dir = flow_chg_dir
 
     print(f"Change workspace: {change_dir}")
     for path in created:
@@ -5158,24 +4992,18 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     req_ref = str(runtime.get("current_requirement", "")).strip()
     req_dir = None
     if req_ref:
-        if _use_flow_layout(req_ref):
-            # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-            # flow 路径：req_dir 在 .workflow/flow/requirements/{req-id}-{slug}/
-            req_dir = resolve_requirement_reference(
-                root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
-            )
-        else:
-            req_dir = resolve_requirement_reference(
-                resolve_requirement_root(root), req_ref, config["language"]
-            )
-    regressions_base = (req_dir / "regressions") if req_dir else (resolve_requirement_root(root).parent / "regressions")
+        # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+        # 所有 req 一律走 flow layout：req_dir 在 .workflow/flow/requirements/{req-id}-{slug}/
+        req_dir = resolve_requirement_reference(
+            root / ".workflow" / "flow" / "requirements", req_ref, config["language"]
+        )
+    regressions_base = (req_dir / "regressions") if req_dir else (root / ".workflow" / "flow" / "regressions")
 
     # 分配 reg-NN 前缀（若调用方显式传入 regression_id 且已是 reg-\d+ 形式则沿用，否则按顺序分配）
     if regression_id and re.match(r"^reg-\d+$", regression_id.strip()):
         reg_num_id = regression_id.strip()
-    elif _use_flow_layout(req_ref):
-        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-        # flow 路径：扫 .workflow/flow/requirements/{req-id}-{slug}/regressions/reg-* 分配 id
+    else:
+        # bugfix-11 / 方向C：flow layout 扫 regressions_base 分配 id
         max_from_flow = 0
         if regressions_base.exists():
             for item in regressions_base.iterdir():
@@ -5185,30 +5013,6 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
                 if m:
                     max_from_flow = max(max_from_flow, int(m.group(1)))
         reg_num_id = f"reg-{max_from_flow + 1:02d}"
-    elif _use_flat_layout(req_ref):
-        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
-        # 新扁平路径：扫 .workflow/state/sessions/{req-id}/regressions/reg-* 分配 id，
-        # 同时 fallback 扫 legacy regressions_base 避免冲突
-        state_reg_base = root / ".workflow" / "state" / "sessions" / req_ref / "regressions"
-        max_from_state = 0
-        if state_reg_base.exists():
-            for item in state_reg_base.iterdir():
-                if not item.is_dir():
-                    continue
-                m = re.match(r"reg-(\d+)", item.name)
-                if m:
-                    max_from_state = max(max_from_state, int(m.group(1)))
-        max_from_legacy = 0
-        if regressions_base.exists():
-            for item in regressions_base.iterdir():
-                if not item.is_dir():
-                    continue
-                m = re.match(r"reg-(\d+)", item.name)
-                if m:
-                    max_from_legacy = max(max_from_legacy, int(m.group(1)))
-        reg_num_id = f"reg-{max(max_from_state, max_from_legacy) + 1:02d}"
-    else:
-        reg_num_id = _next_regression_id(regressions_base)
 
     slug_part = slugify_preserve_unicode(regression_title) or "regression"
     dir_name = f"{reg_num_id}-{slug_part}"
@@ -5218,45 +5022,15 @@ def create_regression(root: Path, name: str | None, regression_id: str | None = 
     # 便于后续命令通过 id 反查目录）。
     replacements = {"ID": reg_num_id, "TITLE": regression_title}
 
-    if _use_flow_layout(req_ref):
-        # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-        # flow 路径：机器型文档（regression.md / analysis.md / decision.md / meta.yaml / session-memory.md）
-        # 落 .workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/
-        flow_reg_dir = regressions_base / dir_name
-        regression_dir = flow_reg_dir
-        write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
-    elif _use_flat_layout(req_ref):
-        # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
-        # 新扁平路径：机器型文档（regression.md / analysis.md / decision.md / meta.yaml / session-memory.md）
-        # 落 .workflow/state/sessions/{req-id}/regressions/{reg-id}-{slug}/
-        state_reg_dir = root / ".workflow" / "state" / "sessions" / req_ref / "regressions" / dir_name
-        regression_dir = state_reg_dir
-        write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
-        # 对人文档 placeholder（reg-NN-回归简报.md）落 artifacts/ 扁平根目录，供 regression 角色填充
-        if req_dir:
-            brief_placeholder = req_dir / f"{reg_num_id}-回归简报.md"
-            write_if_missing(
-                brief_placeholder,
-                f"# 回归简报：{reg_num_id} {regression_title}\n\n<!-- TODO: regression 角色填写 -->\n",
-                created,
-                skipped,
-            )
-    else:
-        # Legacy 路径（req-id <= 38）：保持旧 regressions/ 子目录结构
-        regression_dir = regressions_base / dir_name
-        write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
-        write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
+    # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+    # 所有 req 一律走 flow layout：机器型文档落
+    # .workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/
+    regression_dir = regressions_base / dir_name
+    write_if_missing(regression_dir / "regression.md", render_template("regression.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "analysis.md", render_template("regression-analysis.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "decision.md", render_template("regression-decision.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "session-memory.md", render_template("session-memory.md.tmpl", repo_name, config["language"], replacements), created, skipped)
+    write_if_missing(regression_dir / "meta.yaml", render_template("regression-meta.yaml.tmpl", repo_name, config["language"], replacements), created, skipped)
 
     runtime["current_regression"] = reg_num_id
     # req-30 / chg-01：reg-* 无独立 state yaml，title 取传入的 regression_title 作为缓存值。
@@ -6676,9 +6450,9 @@ def archive_requirement(
     is_bugfix = raw_ref.startswith("bugfix-")
     kind_label = "bugfix" if is_bugfix else "requirement"
 
-    # req-41（机器型工件回 flow/requirements）/ chg-02（CLI 路径迁移 flow layout）:
-    # flow req (req-id >= 41)：source_root = .workflow/flow/requirements/
-    is_flow_req = not is_bugfix and _use_flow_layout(raw_ref)
+    # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
+    # 所有 req 一律走 flow layout；is_flow_req 恒为 True（对 req- 前缀），is_bugfix 例外。
+    is_flow_req = not is_bugfix and bool(re.match(r"^req-\d+$", raw_ref.strip()))
 
     if is_bugfix:
         source_root = resolve_bugfix_root(root)
@@ -6689,6 +6463,7 @@ def archive_requirement(
         state_subdir = "requirements"
         archive_subdir = "requirements"
     else:
+        # 兜底：非 req- 前缀、非 bugfix 类型（不应正常触发，保留安全出口）
         source_root = resolve_requirement_root(root)
         state_subdir = "requirements"
         archive_subdir = "requirements"
@@ -6814,11 +6589,11 @@ def archive_requirement(
                 shutil.move(str(req_file), str(target / "state.yaml"))
                 break
 
-    # req-39（对人文档家族契约化 + artifacts 扁平化）/ chg-05（CLI 路径对齐扁平化）:
-    # 若 req 是扁平 layout（req-id >= 39），额外收齐
-    # .workflow/state/requirements/{req-id}/ 下机器型文档（requirement.md 等）到归档目录。
-    # legacy req 的 .workflow/state/requirements/{dir_name}.yaml 已由上方代码处理（state.yaml）。
-    if archived_req_id and not is_bugfix and _use_flat_layout(archived_req_id):
+    # bugfix-11 / 方向C：三段式分水岭废弃后，state/requirements/{req-id}/ 子目录
+    # 仅存 req-39/40 历史遗留（flat layout）；flow layout req 的机器型文档已在
+    # .workflow/flow/requirements/{req-id}-{slug}/ 内，随整个 folder 整体迁移，无需额外处理。
+    # 对存量 req-39/40 的归档行为：若 state/requirements/{req-id}/ 目录仍存在，照旧迁移到 state_requirements/。
+    if archived_req_id and not is_bugfix and not is_flow_req:
         state_req_machine_dir = root / ".workflow" / "state" / "requirements" / archived_req_id
         if state_req_machine_dir.exists():
             state_machine_dst = target / "state_requirements"

@@ -29,8 +29,6 @@ from harness_workflow.validate_human_docs import (  # noqa: E402
     BRIEF_DEPRECATED_FROM_REQ_ID,
     BUGFIX_LEVEL_DOCS,
     CHANGE_LEVEL_DOCS,
-    LEGACY_REQ_ID_CEILING,
-    MIXED_TRANSITION_REQ_ID,
     REQ_LEVEL_DOCS,
     REQ_LEVEL_DOCS_SIMPLIFIED,
     STATUS_MALFORMED,
@@ -41,6 +39,11 @@ from harness_workflow.validate_human_docs import (  # noqa: E402
     run_cli,
     validate_human_docs,
 )
+
+# bugfix-11 方向C：LEGACY_REQ_ID_CEILING / MIXED_TRANSITION_REQ_ID 常量已从模块导出删除，
+# 此处用内联值替代（37 / 38），保持测试逻辑不变。
+_LEGACY_REQ_ID_CEILING_INLINE = 37
+_MIXED_TRANSITION_REQ_ID_INLINE = 38
 
 
 class ValidateHumanDocsTest(unittest.TestCase):
@@ -270,11 +273,11 @@ class ValidateHumanDocsTest(unittest.TestCase):
         self.assertEqual(exit_code, 0, "文档齐全时 exit code 应为 0")
 
     def test_legacy_ceiling_constant(self) -> None:
-        """AC-11（部分）：LEGACY_REQ_ID_CEILING == 37，MIXED_TRANSITION_REQ_ID == 38（id 首次引用自证）。"""
-        # LEGACY_REQ_ID_CEILING（req-37 legacy 豁免上界）
-        self.assertEqual(LEGACY_REQ_ID_CEILING, 37)
-        # MIXED_TRANSITION_REQ_ID（req-38 混合过渡期标识）
-        self.assertEqual(MIXED_TRANSITION_REQ_ID, 38)
+        """AC-11（部分）：legacy ceiling = 37，mixed transition = 38（bugfix-11 后常量已内联，此处验证行为等价）。"""
+        # bugfix-11 方向C 后 LEGACY_REQ_ID_CEILING / MIXED_TRANSITION_REQ_ID 常量从模块导出删除，
+        # 用内联值等价断言。
+        self.assertEqual(_LEGACY_REQ_ID_CEILING_INLINE, 37)
+        self.assertEqual(_MIXED_TRANSITION_REQ_ID_INLINE, 38)
 
     # ---- req-41+ 精简扫描新增用例（chg-03，AC-08 / AC-09 / AC-06）-----------
 
@@ -442,7 +445,7 @@ class ValidateHumanDocsCliTest(unittest.TestCase):
 
     def test_cli_exits_nonzero_on_missing_docs(self) -> None:
         """AC-5（CLI 串联）：旧路径 legacy req-28，缺文档时 subprocess exit code = 1。"""
-        # 构造只有 需求摘要.md 的 req-28（≤ LEGACY_REQ_ID_CEILING，走 legacy 路径）
+        # 构造只有 需求摘要.md 的 req-28（≤ 37 legacy 豁免上界，走 legacy 路径）
         req_dir = (
             self.root
             / "artifacts"

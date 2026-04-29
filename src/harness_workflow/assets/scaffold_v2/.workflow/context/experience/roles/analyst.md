@@ -60,13 +60,13 @@ req-id ≥ 41 起，analyst 在 planning stage 必须按 `Step B2.5` 在 `plan.m
 
 1. **机器型起点**：`git diff --name-only HEAD..` 拿到当前 chg 的所有改动文件清单，作为"波及接口清单"骨架。
 2. **人工补全调用链**：对每个改动文件，grep 跨模块 import / 跨模块函数调用，把所有"间接波及的接口契约 / 配置项 / CLI 子命令"补到清单。
-3. **不漏 helper 改动**：如果改动是 helper 内部行为，要把"调用 helper 的所有上游入口"也列入波及（如 `_use_flow_layout` 改动 → `create_requirement / create_bugfix / create_change` 三个入口都波及）。
+3. **不漏 helper 改动**：如果改动是 helper 内部行为，要把"调用 helper 的所有上游入口"也列入波及（如路径判断 helper 改动 → `create_requirement / create_bugfix / create_change` 三个入口都波及）。
 
 **用例粒度建议**：
 
 - **每条 AC 至少 1 条 P0 用例**：覆盖正常路径；
 - **每条 AC 至少 1 条 P0 反例**：覆盖关键失败路径（如 lint FAIL case / 路径冲突 case）；
-- **波及接口的"对外契约边界"必须 P0**：如 `_use_flow_layout_for_bugfix(bugfix_id) -> bool` 的边界（bugfix-5 → False / bugfix-6 → True），属对外契约必 P0；
+- **波及接口的"对外契约边界"必须 P0**：如 bugfix 路径判断 helper `_path_judgment(bugfix_id) -> bool` 的边界（bugfix-5 → False / bugfix-6 → True），属对外契约必 P0；
 - **内部辅助函数走 P1 / P2**：纯实现细节（如字符串拼接 helper）不必每个分支都 P0，按风险加权。
 
 **`regression_scope` 字段决策**：

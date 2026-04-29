@@ -10,7 +10,7 @@ migrated_from: ".workflow/flow/artifacts-layout.md（req-39（对人文档家族
 
 本文件是全仓库路径语义的**权威定义**，覆盖三大子树：`.workflow/state/`（runtime 真·实时数据）/ `.workflow/flow/`（权威工作流工件）/ `artifacts/`（对人可读签字执行产物）。
 
-本文件由 req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-01（repository-layout 契约底座（git mv + 三大子树 §2 重写））从 `.workflow/flow/artifacts-layout.md` 升格重写，是后续 chg-02（CLI 路径迁移（FLOW_LAYOUT_FROM_REQ_ID + create_/archive_ 改写））/ chg-03（validate_human_docs 重写 + 白名单清理）/ chg-04（角色文件去路径化 + 删四类 brief 模板）/ chg-05（done.md 交付总结模板扩 §效率与成本）/ chg-06（harness-manager.md §3.6 Step 4 升级硬门禁）/ chg-07（dogfood 活证 + scaffold_v2 mirror + 收口）/ chg-08（硬门禁六扩 TaskList + stdout + 提交信息）的公共语义基。
+本文件由 req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））/ chg-01（repository-layout 契约底座（git mv + 三大子树 §2 重写））从 `.workflow/flow/artifacts-layout.md` 升格重写，是后续 chg-02（CLI 路径迁移）/ chg-03（validate_human_docs 重写 + 白名单清理）/ chg-04（角色文件去路径化 + 删四类 brief 模板）/ chg-05（done.md 交付总结模板扩 §效率与成本）/ chg-06（harness-manager.md §3.6 Step 4 升级硬门禁）/ chg-07（dogfood 活证 + scaffold_v2 mirror + 收口）/ chg-08（硬门禁六扩 TaskList + stdout + 提交信息）的公共语义基。bugfix-11 方向C 落地后本文件 §3 统一 flow layout 落位。
 
 ---
 
@@ -102,37 +102,37 @@ artifacts/
 
 **机器型文档**定义：由 CLI / agent 写入、主要供工作流引擎 / agent 读取的结构化文档；人一般不直接操作。
 
-req-41+ 所有机器型工件统一落 `.workflow/flow/requirements/{req-id}-{slug}/` 子树。
+**bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C 起**：所有 req / chg / regression 机器型工件一律落 `.workflow/flow/requirements/{req-id}-{slug}/` 子树，无 fallback，无 legacy 路径创建分支。
 
 ### req 级落位
 
-| 机器型文档 | 权威路径（req-41+ flow 新位） | 旧路径（req-39/40 state/ flat layout） | 旧路径（req-02 ~ req-38 legacy） |
-|-----------|------------------------------|---------------------------------------|-------------------------------|
-| `requirement.md` | `.workflow/flow/requirements/{req-id}-{slug}/requirement.md` | `.workflow/state/requirements/{req-id}/requirement.md` | `artifacts/{branch}/requirements/{req-id}-{slug}/requirement.md` |
-| `testing-report.md` | `.workflow/flow/requirements/{req-id}-{slug}/testing-report.md` | `.workflow/state/requirements/{req-id}/testing-report.md` | `artifacts/.../requirements/{req-id}-{slug}/testing-report.md` |
-| `acceptance-report.md` | `.workflow/flow/requirements/{req-id}-{slug}/acceptance-report.md` | `.workflow/state/requirements/{req-id}/acceptance-report.md` | `artifacts/.../requirements/{req-id}-{slug}/acceptance-report.md` |
-| `usage-log.yaml` | `.workflow/flow/requirements/{req-id}-{slug}/usage-log.yaml` | `.workflow/state/sessions/{req-id}/usage-log.yaml` | （无 legacy 路径）|
-| `{req-id}.yaml`（含 stage_timestamps） | `.workflow/flow/requirements/{req-id}-{slug}/{req-id}.yaml` | `.workflow/state/requirements/{req-id}/{req-id}.yaml` | （无 legacy 路径）|
+| 机器型文档 | 权威路径（flow layout，全部 req） |
+|-----------|-------------------------------|
+| `requirement.md` | `.workflow/flow/requirements/{req-id}-{slug}/requirement.md` |
+| `testing-report.md` | `.workflow/flow/requirements/{req-id}-{slug}/testing-report.md` |
+| `acceptance-report.md` | `.workflow/flow/requirements/{req-id}-{slug}/acceptance-report.md` |
+| `usage-log.yaml` | `.workflow/flow/requirements/{req-id}-{slug}/usage-log.yaml` |
+| `{req-id}.yaml`（含 stage_timestamps） | `.workflow/flow/requirements/{req-id}-{slug}/{req-id}.yaml` |
 
 ### chg 级落位
 
-| 机器型文档 | 权威路径（req-41+ flow 新位） | 旧路径（req-39/40 state/ flat layout） |
-|-----------|------------------------------|---------------------------------------|
-| `change.md` | `.workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/change.md` | `.workflow/state/sessions/{req-id}/{chg-id}/change.md` |
-| `plan.md` | `.workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/plan.md` | `.workflow/state/sessions/{req-id}/{chg-id}/plan.md` |
-| `session-memory.md` | `.workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/session-memory.md` | `.workflow/state/sessions/{req-id}/{chg-id}/session-memory.md` |
+| 机器型文档 | 权威路径（flow layout，全部 req） |
+|-----------|-------------------------------|
+| `change.md` | `.workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/change.md` |
+| `plan.md` | `.workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/plan.md` |
+| `session-memory.md` | `.workflow/flow/requirements/{req-id}-{slug}/changes/{chg-id}-{slug}/session-memory.md` |
 
 ### regression 级落位
 
-| 机器型文档 | 权威路径（req-41+ flow 新位） | 旧路径（req-39/40 state/ flat layout） |
-|-----------|------------------------------|---------------------------------------|
-| `regression.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/regression.md` | `.workflow/state/sessions/{req-id}/regressions/{reg-id}/regression.md` |
-| `analysis.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/analysis.md` | `.workflow/state/sessions/{req-id}/regressions/{reg-id}/analysis.md` |
-| `decision.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/decision.md` | `.workflow/state/sessions/{req-id}/regressions/{reg-id}/decision.md` |
-| `meta.yaml` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/meta.yaml` | `.workflow/state/sessions/{req-id}/regressions/{reg-id}/meta.yaml` |
-| `session-memory.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/session-memory.md` | `.workflow/state/sessions/{req-id}/regressions/{reg-id}/session-memory.md` |
+| 机器型文档 | 权威路径（flow layout，全部 req） |
+|-----------|-------------------------------|
+| `regression.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/regression.md` |
+| `analysis.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/analysis.md` |
+| `decision.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/decision.md` |
+| `meta.yaml` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/meta.yaml` |
+| `session-memory.md` | `.workflow/flow/requirements/{req-id}-{slug}/regressions/{reg-id}-{slug}/session-memory.md` |
 
-**注意**：机器型文档路径迁移由 chg-02（CLI 路径迁移（FLOW_LAYOUT_FROM_REQ_ID + create_/archive_ 改写））落地 CLI 行为（req-id ≥ 41 走 flow/ 新位，req-id ∈ [39, 40] 维持 state/ legacy fallback）；本 chg-01（repository-layout 契约底座（git mv + 三大子树 §2 重写））只定义权威落位，不执行 CLI 迁移。
+**注意**：harness-workflow 自身仓历史存量 req-02 ~ req-40 的 artifacts/ / state/ 路径**原地保留**（git log 历史，不迁移、不删除）；CLI 不再为任何新 req 创建旧分支路径（bugfix-11 方向C）。
 
 ---
 
@@ -161,7 +161,7 @@ bugfix-6+ 所有机器型工件统一落 `.workflow/flow/bugfixes/{bugfix-id}-{s
 
 ## 3.1 archive 行为定义（req-42（archive 重定义：对人不挪 + 摘要废止）/ chg-01（repository-layout 扩 archive 段））
 
-本节定义 `harness archive` 对 req-id ≥ 42 的归档行为。三条规则自 req-42（archive 重定义：对人不挪 + 摘要废止）起生效；req-id ≤ 41 走 §4 legacy / state-flat / flow 列对应的历史行为。
+本节定义 `harness archive` 对 req-id ≥ 42 的归档行为。三条规则自 req-42（archive 重定义：对人不挪 + 摘要废止）起生效。
 
 ### sug 子树落位（req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务））
 
@@ -186,7 +186,7 @@ artifacts/
 
 helper 约束：`archive_requirement` 不调 `shutil.move(artifacts/.../requirements/{slug})` 整 folder。
 
-适用范围：req-id ≥ 42 起生效；req-id ≤ 41 走 §4 三段式分水岭列对应行为。
+适用范围：req-id ≥ 42 起生效。
 
 ### (ii) 摘要 md 废止
 
@@ -210,33 +210,9 @@ req-42（archive 重定义：对人不挪 + 摘要废止）自身归档时按本
 
 ---
 
-## 4. 历史存量豁免与三段式分水岭
+## 4. 命名前缀约定（全部 req 白名单范围）
 
-### 分水岭总览
-
-| 区间 | 布局规则 | 机器型工件位 | 对人产物位 | archive 时序 |
-|------|---------|-------------|----------|-------------|
-| req-02（湖南 UAV MQTT 接入）~ req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）（legacy） | 旧多层 brief 结构 | `artifacts/.../changes/{chg-id}/` 等旧位 | `artifacts/.../requirements/{req-id}-{slug}/` 含 `changes/` 子目录 | folder 整搬到 `artifacts/{branch}/archive/requirements/{slug}/` |
-| req-39（对人文档家族契约化 + artifacts 扁平化）~ req-40（flat layout 过渡） | 扁平对人文档 + state/ 机器型 | `.workflow/state/requirements/{req-id}/` / `.workflow/state/sessions/{req-id}/` | `artifacts/main/requirements/{req-id}-{slug}/` 扁平（无 `changes/` 子目录） | `state/requirements/{req-id}/` 迁 `target/state_requirements/`，对人 folder 维持 |
-| req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））+（flow/ 新位） | 本文件全约束 | `.workflow/flow/requirements/{req-id}-{slug}/`（本文件 §3 权威） | `artifacts/main/requirements/{req-id}-{slug}/` 扁平（仅 §2 白名单内） | 对人 folder 原位 + 机器型迁 `.workflow/flow/archive/{branch}/{slug}/`，无摘要 md |
-
-### 豁免细则
-
-- **req-02（湖南 UAV MQTT 接入）~ req-37（阶段结束汇报简化：周转时不给选项，只停下 + 报本阶段结束 + 报状态）**：原有 `artifacts/` 结构（含 `changes/` 子目录 + 四类 brief）**全部保留**，不迁移、不删除、不改写；git log 自带历史分水岭。
-- **req-38（api-document-upload 工具闭环：触发门禁 + MCP pre-check 协议 + 存量项目同步）**：作为混合过渡期样本——已有的旧结构 `changes/chg-NN/` 原地保留；新规对人文档按扁平结构追补（req-38 / chg-06（req-38 对人文档按新扁平结构追补试点）完成）。
-- **req-39（对人文档家族契约化 + artifacts 扁平化）/ req-40（活跃需求）**：机器型文档仍在 `.workflow/state/sessions/` + `.workflow/state/requirements/`（flat layout legacy fallback）；对人文档已按扁平规则落 `artifacts/`；两 req 的现有目录位**不迁移**，只有 req-41+ 走本文件 §3 flow/ 新位。
-
-### 禁止行为
-
-- 禁止对 req-02 ~ req-40 的 `artifacts/` / `state/` 历史结构执行 `mv` / `rm` / 重命名。
-- 禁止因新规生效而回填历史对人文档（历史已有的按旧规留档，缺失的由各自 req 自行决定是否补）。
-- 禁止把机器型文档写入 `artifacts/` 下任何路径（req-41+ 严格执行）。
-
----
-
-## 5. 命名前缀约定（req-41+ 白名单范围）
-
-**目的**：`artifacts/` 扁平目录下，req-41+ 只允许 §2 白名单内文件名；禁止用废止的四类 brief 命名。
+**目的**：`artifacts/` 扁平目录下，所有 req 只允许 §2 白名单内文件名；禁止用废止的四类 brief 命名。
 
 ### 前缀规则
 
@@ -248,17 +224,17 @@ req-42（archive 重定义：对人不挪 + 摘要废止）自身归档时按本
 | 部署类 SQL | `deploy-YYYYMMDD.sql` | `deploy-20260424.sql` |
 | 其他按需 | `{类型}-{描述}.md` 或按白名单模式 | `runbook-prod-restart.md` |
 
-### req-41+ 白名单范围说明
+### 白名单范围说明
 
-req-41+ 的 `artifacts/` 目录**只允许** §2 白名单内的文件名（`requirement.md` / `交付总结.md` / `决策汇总.md` / SQL / 部署 / 接入 / runbook / 手册 / 合同附件 / 其他按需声明类型）。
+所有 req 的 `artifacts/` 目录**只允许** §2 白名单内的文件名（`requirement.md` / `交付总结.md` / `决策汇总.md` / SQL / 部署 / 接入 / runbook / 手册 / 合同附件 / 其他按需声明类型）。
 
-四类 brief（req 级摘要 / chg 级对人简报 / chg 级对人说明 / regression 级对人简报）及独立用量报告已由 req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））废止，req-41+ **禁止**在 `artifacts/` 目录写入此类文件名。
+四类 brief（req 级摘要 / chg 级对人简报 / chg 级对人说明 / regression 级对人简报）及独立用量报告已由 req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））废止，**全部 req 禁止**在 `artifacts/` 目录写入此类文件名。
 
-req-02 ~ req-40 存量目录中已有旧式文件名的，按旧规原地保留（历史豁免，见 §4）。
+harness-workflow 自身仓 req-02 ~ req-40 历史存量目录中已有旧式文件名的，原地保留（git 历史足迹，不迁移、不删除）。
 
 ---
 
-## 6. 参考
+## 5. 参考
 
 - req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））§3.1 Scope-共骨架：顶层契约扩管 + 角色文件去路径化。
 - req-41 §5.2 推荐 chg DAG：chg-01（契约底座）→ chg-02（CLI 路径迁移）/ chg-03（validate 重写）/ chg-04（角色去路径化）→ chg-05（done 扩段）/ chg-06（harness-manager 硬门禁）→ chg-07（dogfood 收口）。

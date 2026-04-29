@@ -1,0 +1,4 @@
+id: "bugfix-4"
+title: "harness install 升级清理：旧 layout 残留 / .bak / branch 名 / schema 不一致"
+archived_at: "2026-04-25T06:16:44.343648+00:00"
+origin_stage: "done"

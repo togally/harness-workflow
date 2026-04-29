@@ -113,10 +113,10 @@ class CreateRegressionDirNamingTest(unittest.TestCase):
         reg_id = str(runtime["current_regression"])
         self.assertRegex(reg_id, r"^reg-\d{2}$")
 
-        # 产出目录位于 artifacts/main/regressions/ 下（当前无 current_requirement，兜底到 artifacts/main/regressions）
+        # 方向C: 无 current_requirement 时，产出目录落 .workflow/flow/regressions/（standalone regression）
         import re
 
-        regressions_base = self.root / "artifacts" / "main" / "regressions"
+        regressions_base = self.root / ".workflow" / "flow" / "regressions"
         self.assertTrue(regressions_base.exists())
         dirs = [d for d in regressions_base.iterdir() if d.is_dir()]
         self.assertEqual(len(dirs), 1)
@@ -129,7 +129,8 @@ class CreateRegressionDirNamingTest(unittest.TestCase):
         rc = create_regression(self.root, "确认问题：按钮点击异常")
         self.assertEqual(rc, 0)
 
-        regressions_base = self.root / "artifacts" / "main" / "regressions"
+        # 方向C: standalone regression 落 .workflow/flow/regressions/
+        regressions_base = self.root / ".workflow" / "flow" / "regressions"
         dirs = [d.name for d in regressions_base.iterdir() if d.is_dir()]
         self.assertEqual(len(dirs), 1)
         # 全角冒号被过滤为 `-`，中文保留，带 reg-NN 前缀
@@ -145,7 +146,8 @@ class CreateRegressionDirNamingTest(unittest.TestCase):
 
         create_regression(self.root, "first issue")
         create_regression(self.root, "second issue")
-        regressions_base = self.root / "artifacts" / "main" / "regressions"
+        # 方向C: standalone regression 落 .workflow/flow/regressions/
+        regressions_base = self.root / ".workflow" / "flow" / "regressions"
         names = sorted(d.name for d in regressions_base.iterdir() if d.is_dir())
         self.assertEqual(len(names), 2)
         self.assertTrue(names[0].startswith("reg-01-"))
@@ -187,7 +189,8 @@ class ConfirmPreservesStateTest(unittest.TestCase):
         self.assertEqual(reg_id_after_confirm, reg_id_before, "--confirm must NOT clear current_regression")
 
         # 2a. meta.yaml 里 status 应被更新为 confirmed（若目录可定位）
-        regressions_base = self.root / "artifacts" / "main" / "regressions"
+        # 方向C: standalone regression 落 .workflow/flow/regressions/
+        regressions_base = self.root / ".workflow" / "flow" / "regressions"
         dirs = [d for d in regressions_base.iterdir() if d.is_dir()]
         self.assertEqual(len(dirs), 1)
         meta_path = dirs[0] / "meta.yaml"

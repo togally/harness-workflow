@@ -1,22 +1,19 @@
-"""Tests for req-42（archive 重定义：对人不挪 + 摘要废止）/ chg-04（pytest 三层级 + scaffold mirror 收口）.
+"""Tests updated for bugfix-11 方向C（废弃三段式分水岭）.
 
-AC-6：覆盖三层级 archive 行为，每层独立 fixture + 独立断言。
+原测试覆盖三层级 archive 行为（legacy/state-flat/flow）。
+bugfix-11 方向C 废弃三段式分水岭后：
+- 所有 req 一律走 flow layout（.workflow/flow/requirements/）
+- legacy（req-36）和 state-flat（req-40）fixture 更新为 flow layout
+- 归档路径统一为 .workflow/flow/archive/main/{slug}/
+- 对人 folder（artifacts/main/requirements/{slug}/）原位保留
+- 不再走 artifacts/main/archive/requirements/ 路径
 
-层级划分（来自 FLAT_LAYOUT_FROM_REQ_ID=39 / FLOW_LAYOUT_FROM_REQ_ID=41）：
-- legacy（req-id ≤ 38）   → source_root = artifacts/main/requirements/
-                            target = artifacts/main/archive/requirements/{slug}/
-- state-flat（39-40）      → 同 legacy 归档路径，额外迁 .workflow/state/requirements/{req-id}/ → target/state_requirements/
-- flow（req-id ≥ 41）      → source_root = .workflow/flow/requirements/
-                            target = .workflow/flow/archive/main/{slug}/
-                            对人 folder（artifacts/main/requirements/{slug}/）原位保留
-                            不产摘要 md
-
-Fixture 隔离矩阵（风险 R-12 缓解）：
-  | 层级       | dummy req-id | req_id 数字 | 预期分支           |
-  |-----------|-------------|------------|-------------------|
-  | legacy    | req-36      | 36         | legacy（≤38）     |
-  | state-flat| req-40      | 40         | state-flat（39-40）|
-  | flow      | req-97      | 97         | flow（≥41）        |
+Fixture 隔离矩阵（方向C 后）：
+  | 层级   | dummy req-id | 预期分支                     |
+  |-------|-------------|------------------------------|
+  | 原 legacy    | req-36 | flow layout（方向C 废弃 legacy） |
+  | 原 state-flat| req-40 | flow layout（方向C 废弃 state-flat） |
+  | flow         | req-97 | flow layout（不变）           |
 
 每 fixture 独立 tmp_path，独立 dummy req-id，互不干扰。
 """
@@ -82,12 +79,13 @@ def _write_state_yaml(root: Path, dir_name: str, req_id: str, req_title: str) ->
     )
 
 
-def _init_legacy_fixture(root: Path) -> tuple[str, str, Path]:
-    """构造 req-id = req-36（legacy ≤ 38）的 dummy 工作区。
+def _init_legacy_fixture(root: Path) -> tuple[str, str, Path, Path]:
+    """构造 req-id = req-36（原 legacy ≤ 38）的 dummy 工作区（方向C 后走 flow layout）。
 
-    返回 (req_id, dir_name, artifacts_req_dir)。
-    legacy 层：对人 folder 在 artifacts/main/requirements/{dir_name}/，
-              归档目标 artifacts/main/archive/requirements/{dir_name}/。
+    返回 (req_id, dir_name, artifacts_req_dir, flow_req_dir)。
+    方向C：对人 folder 在 artifacts/main/requirements/{dir_name}/（原位保留）
+           机器型 folder 在 .workflow/flow/requirements/{dir_name}/
+           归档目标 .workflow/flow/archive/main/{dir_name}/。
     """
     from harness_workflow.slug import slugify_preserve_unicode
 
@@ -98,25 +96,28 @@ def _init_legacy_fixture(root: Path) -> tuple[str, str, Path]:
 
     _base_dirs(root)
 
-    # 对人 folder（source）：artifacts/main/requirements/{dir_name}/
+    # 对人 folder（source）：artifacts/main/requirements/{dir_name}/（原位保留）
     artifacts_req_dir = root / "artifacts" / "main" / "requirements" / dir_name
     artifacts_req_dir.mkdir(parents=True)
-    (artifacts_req_dir / "requirement.md").write_text("# Requirement\n", encoding="utf-8")
     (artifacts_req_dir / "chg-01-变更简报.md").write_text("# 变更简报\n", encoding="utf-8")
+
+    # 机器型 flow folder（方向C 权威路径）
+    flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+    flow_req_dir.mkdir(parents=True)
+    (flow_req_dir / "requirement.md").write_text("# Requirement\n", encoding="utf-8")
 
     _write_state_yaml(root, dir_name, req_id, req_title)
     _write_runtime(root, req_id, req_title)
-    return req_id, dir_name, artifacts_req_dir
+    return req_id, dir_name, artifacts_req_dir, flow_req_dir
 
 
 def _init_state_flat_fixture(root: Path) -> tuple[str, str, Path, Path]:
-    """构造 req-id = req-40（state-flat ∈ [39, 40]）的 dummy 工作区。
+    """构造 req-id = req-40（原 state-flat ∈ [39, 40]）的 dummy 工作区（方向C 后走 flow layout）。
 
-    返回 (req_id, dir_name, artifacts_req_dir, state_req_machine_dir)。
-    state-flat 层：
-      - 对人 folder 在 artifacts/main/requirements/{dir_name}/
-      - 归档目标 artifacts/main/archive/requirements/{dir_name}/
-      - .workflow/state/requirements/{req_id}/ 机器型目录额外迁到 target/state_requirements/
+    返回 (req_id, dir_name, artifacts_req_dir, flow_req_dir)。
+    方向C：对人 folder 在 artifacts/main/requirements/{dir_name}/（原位保留）
+           机器型 folder 在 .workflow/flow/requirements/{dir_name}/
+           归档目标 .workflow/flow/archive/main/{dir_name}/。
     """
     from harness_workflow.slug import slugify_preserve_unicode
 
@@ -127,26 +128,25 @@ def _init_state_flat_fixture(root: Path) -> tuple[str, str, Path, Path]:
 
     _base_dirs(root)
 
-    # 对人 folder（source）
+    # 对人 folder（source）：原位保留（方向C）
     artifacts_req_dir = root / "artifacts" / "main" / "requirements" / dir_name
     artifacts_req_dir.mkdir(parents=True)
     (artifacts_req_dir / "需求摘要.md").write_text("# 需求摘要\n", encoding="utf-8")
     (artifacts_req_dir / "chg-01-变更简报.md").write_text("# 变更简报\n", encoding="utf-8")
 
-    # 机器型 state 目录：.workflow/state/requirements/{req_id}/
-    state_req_machine_dir = root / ".workflow" / "state" / "requirements" / req_id
-    state_req_machine_dir.mkdir(parents=True)
-    (state_req_machine_dir / "requirement.md").write_text("# Requirement\n", encoding="utf-8")
-
-    # sessions
-    sessions_dir = root / ".workflow" / "state" / "sessions" / req_id
-    chg_dir = sessions_dir / "chg-01-test-change"
+    # 机器型 flow folder（方向C 权威路径）
+    flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+    flow_req_dir.mkdir(parents=True)
+    (flow_req_dir / "requirement.md").write_text("# Requirement\n", encoding="utf-8")
+    changes_dir = flow_req_dir / "changes"
+    changes_dir.mkdir(parents=True)
+    chg_dir = changes_dir / "chg-01-test-change"
     chg_dir.mkdir(parents=True)
     (chg_dir / "session-memory.md").write_text("# Session Memory\n", encoding="utf-8")
 
     _write_state_yaml(root, dir_name, req_id, req_title)
     _write_runtime(root, req_id, req_title)
-    return req_id, dir_name, artifacts_req_dir, state_req_machine_dir
+    return req_id, dir_name, artifacts_req_dir, flow_req_dir
 
 
 def _init_flow_fixture(root: Path) -> tuple[str, str, Path, Path]:
@@ -204,99 +204,95 @@ class ArchiveRequirementThreeTiersTest(unittest.TestCase):
         self.root = Path(self._tmp.name) / "repo"
 
     # -----------------------------------------------------------------------
-    # Tier 1: legacy（req-id ≤ 38）
+    # Tier 1: 原 legacy（req-id ≤ 38）→ 方向C 后走 flow layout
     # -----------------------------------------------------------------------
 
     def test_archive_requirement_legacy_tier(self) -> None:
-        """AC-6 legacy 层（req-36 ≤ 38）：archive 走旧路径，folder 搬到 artifacts/main/archive/requirements/。"""
+        """方向C: req-36（原 legacy ≤ 38）归档走 flow layout，机器型迁 flow/archive + 对人 folder 原位。"""
         from harness_workflow.workflow_helpers import archive_requirement
 
-        req_id, dir_name, artifacts_req_dir = _init_legacy_fixture(self.root)
+        req_id, dir_name, artifacts_req_dir, flow_req_dir = _init_legacy_fixture(self.root)
 
         rc = archive_requirement(self.root, req_id)
         self.assertEqual(rc, 0, f"archive_requirement 应返回 0，实际 {rc}")
 
-        # 断言 1: 归档目标目录存在（folder 已整搬到 artifacts/main/archive/requirements/）
-        archive_req_base = self.root / "artifacts" / "main" / "archive" / "requirements"
-        archived_dirs = list(archive_req_base.glob(f"{req_id}-*"))
+        # 断言 1: 机器型文档迁到 flow/archive/main/（方向C）
+        flow_archive_base = self.root / ".workflow" / "flow" / "archive" / "main"
+        archived_dirs = list(flow_archive_base.glob(f"{req_id}-*"))
         self.assertTrue(
             archived_dirs,
-            f"legacy 层：归档后 artifacts/main/archive/requirements/ 下应有 {req_id}-* 目录，"
-            f"但未找到。目录内容：{list(archive_req_base.iterdir()) if archive_req_base.exists() else '(不存在)'}",
+            f"方向C: 归档后 flow/archive/main/ 下应有 {req_id}-* 目录，"
+            f"但未找到。目录内容：{list(flow_archive_base.iterdir()) if flow_archive_base.exists() else '(不存在)'}",
         )
         archive_dir = archived_dirs[0]
 
-        # 断言 2: 归档目录内容完整（含原对人文档）
+        # 断言 2: flow archive 目录内容完整（含 requirement.md）
         self.assertTrue(
             (archive_dir / "requirement.md").exists(),
-            f"legacy 层：归档目录 {archive_dir} 应含 requirement.md",
+            f"方向C: flow archive 目录 {archive_dir} 应含 requirement.md",
         )
 
-        # 断言 3: 源对人 folder 已迁走（legacy 路径下对人 folder 不保留原位）
-        self.assertFalse(
+        # 断言 3: 对人 folder 原位保留（方向C）
+        self.assertTrue(
             artifacts_req_dir.exists(),
-            f"legacy 层：source 对人 folder 应已迁走，但 {artifacts_req_dir} 仍存在",
+            f"方向C: 对人 folder 应原位保留，但 {artifacts_req_dir} 不存在",
         )
 
-        # 断言 4: flow/archive 下不应有该 req（legacy 不走 flow 路径）
-        flow_archive_base = self.root / ".workflow" / "flow" / "archive" / "main"
-        flow_archived = list(flow_archive_base.glob(f"{req_id}-*")) if flow_archive_base.exists() else []
+        # 断言 4: 旧 artifacts/archive/ 路径下不应有该 req（方向C 废弃 legacy 归档路径）
+        old_archive_base = self.root / "artifacts" / "main" / "archive" / "requirements"
+        old_archived = list(old_archive_base.glob(f"{req_id}-*")) if old_archive_base.exists() else []
         self.assertEqual(
-            flow_archived,
+            old_archived,
             [],
-            f"legacy 层：flow/archive 下不应有 {req_id}-*，但发现 {flow_archived}",
+            f"方向C: artifacts/archive/requirements/ 下不应有 {req_id}-*（废弃 legacy 路径），但发现 {old_archived}",
         )
 
     # -----------------------------------------------------------------------
-    # Tier 2: state-flat（req-id ∈ [39, 40]）
+    # Tier 2: 原 state-flat（req-id ∈ [39, 40]）→ 方向C 后走 flow layout
     # -----------------------------------------------------------------------
 
     def test_archive_requirement_state_flat_tier(self) -> None:
-        """AC-6 state-flat 层（req-40 ∈ [39,40]）：archive 走 artifacts/archive 路径 + 额外迁 state_requirements。"""
+        """方向C: req-40（原 state-flat ∈ [39,40]）归档走 flow layout，机器型迁 flow/archive + 对人 folder 原位。"""
         from harness_workflow.workflow_helpers import archive_requirement
 
-        req_id, dir_name, artifacts_req_dir, state_req_machine_dir = _init_state_flat_fixture(self.root)
+        req_id, dir_name, artifacts_req_dir, flow_req_dir = _init_state_flat_fixture(self.root)
 
         rc = archive_requirement(self.root, req_id)
         self.assertEqual(rc, 0, f"archive_requirement 应返回 0，实际 {rc}")
 
-        # 断言 1: 归档目标目录存在（folder 已整搬到 artifacts/main/archive/requirements/）
-        archive_req_base = self.root / "artifacts" / "main" / "archive" / "requirements"
-        archived_dirs = list(archive_req_base.glob(f"{req_id}-*"))
+        # 断言 1: 机器型文档迁到 flow/archive/main/（方向C）
+        flow_archive_base = self.root / ".workflow" / "flow" / "archive" / "main"
+        archived_dirs = list(flow_archive_base.glob(f"{req_id}-*"))
         self.assertTrue(
             archived_dirs,
-            f"state-flat 层：归档后 artifacts/main/archive/requirements/ 下应有 {req_id}-* 目录，"
-            f"但未找到。目录内容：{list(archive_req_base.iterdir()) if archive_req_base.exists() else '(不存在)'}",
+            f"方向C: 归档后 flow/archive/main/ 下应有 {req_id}-* 目录，"
+            f"但未找到。目录内容：{list(flow_archive_base.iterdir()) if flow_archive_base.exists() else '(不存在)'}",
         )
         archive_dir = archived_dirs[0]
 
-        # 断言 2: 归档目录含 state_requirements/ 子目录（state-flat 独有：机器型文档一起收齐）
-        state_machine_dst = archive_dir / "state_requirements"
+        # 断言 2: flow archive 目录内容完整（含 requirement.md 和 changes/）
         self.assertTrue(
-            state_machine_dst.exists(),
-            f"state-flat 层：归档目录 {archive_dir} 应含 state_requirements/ 子目录，"
-            f"但未找到。归档目录内容：{list(archive_dir.iterdir()) if archive_dir.exists() else '(不存在)'}",
+            (archive_dir / "requirement.md").exists(),
+            f"方向C: flow archive 目录 {archive_dir} 应含 requirement.md",
+        )
+        self.assertTrue(
+            (archive_dir / "changes").exists(),
+            f"方向C: flow archive 目录 {archive_dir} 应含 changes/ 子目录",
         )
 
-        # 断言 3: .workflow/state/requirements/{req_id}/ 机器型目录已迁走
-        self.assertFalse(
-            state_req_machine_dir.exists(),
-            f"state-flat 层：.workflow/state/requirements/{req_id}/ 应已迁走，但 {state_req_machine_dir} 仍存在",
-        )
-
-        # 断言 4: 源对人 folder 已迁走（state-flat 和 legacy 一样，对人 folder 不保留原位）
-        self.assertFalse(
+        # 断言 3: 对人 folder 原位保留（方向C）
+        self.assertTrue(
             artifacts_req_dir.exists(),
-            f"state-flat 层：source 对人 folder 应已迁走，但 {artifacts_req_dir} 仍存在",
+            f"方向C: 对人 folder 应原位保留，但 {artifacts_req_dir} 不存在",
         )
 
-        # 断言 5: flow/archive 下不应有该 req（state-flat 不走 flow 路径）
-        flow_archive_base = self.root / ".workflow" / "flow" / "archive" / "main"
-        flow_archived = list(flow_archive_base.glob(f"{req_id}-*")) if flow_archive_base.exists() else []
+        # 断言 4: 旧 artifacts/archive/ 路径下不应有该 req（方向C 废弃 state-flat 路径）
+        old_archive_base = self.root / "artifacts" / "main" / "archive" / "requirements"
+        old_archived = list(old_archive_base.glob(f"{req_id}-*")) if old_archive_base.exists() else []
         self.assertEqual(
-            flow_archived,
+            old_archived,
             [],
-            f"state-flat 层：flow/archive 下不应有 {req_id}-*，但发现 {flow_archived}",
+            f"方向C: artifacts/archive/requirements/ 下不应有 {req_id}-*（废弃 state-flat 路径），但发现 {old_archived}",
         )
 
     # -----------------------------------------------------------------------
