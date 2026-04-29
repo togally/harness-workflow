@@ -66,9 +66,18 @@ pipx 安装源是 GitHub 远程（`package_or_url = git+https://github.com/togal
 
 ```bash
 cd your-project
-harness install          # sets up .workflow/ scaffold + skill files for all platforms
-harness install --force  # force-overwrite existing skill files after a breaking update
+harness install                                    # interactive: select agent + sync scaffold（默认保护本地修改）
+harness install --agent <claude|codex|kimi|qoder> --force-managed  # 强制覆盖 user-modified scaffold（升级到含重大文档变化的版本时使用）
 ```
+
+**两种安装模式区别**（实证 req-50 升级场景）：
+
+| 命令 | 何时用 | 行为 |
+|---|---|---|
+| `harness install` | 第一次装 / 用户没改过 scaffold / 升级时只想拿新文件 | 选 agent → 同步 scaffold；遇 user-modified 文件**默认 skip**（drift 警告但不动）|
+| `harness install --agent <X> --force-managed` | 升级到含重大文档/契约变化的新版本 | 强制覆盖所有 user-modified scaffold；目标项目内容应该都是工具产出，用户不该手改 |
+
+> 默认 `harness install`（无 `--force-managed`）会跳过 user-modified 文件保护。若 self-audit drift 提示某些文件 "content differs"，那是上游改了但本地未同步——加 `--force-managed` 真同步。
 
 `harness install` is idempotent — safe to run repeatedly. It initializes the scaffold, syncs skill files, migrates legacy state, and writes the experience index and project profile.
 

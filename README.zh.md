@@ -47,9 +47,18 @@ pipx install -e /path/to/harness-workflow
 
 ```bash
 cd your-project
-harness install          # 初始化 .workflow/ 脚手架 + 各平台 skill 文件
-harness install --force  # 有 breaking update 后强制覆写已有 skill 文件
+harness install                                                    # 交互模式：选 agent + 同步 scaffold（默认保护本地修改）
+harness install --agent <claude|codex|kimi|qoder> --force-managed  # 强制覆盖 user-modified scaffold（升级到含重大文档变化的版本时使用）
 ```
+
+**两种安装模式区别**（实证 req-50 升级场景）：
+
+| 命令 | 何时用 | 行为 |
+|---|---|---|
+| `harness install` | 第一次装 / 用户没改过 scaffold / 升级时只想拿新文件 | 选 agent → 同步 scaffold；遇 user-modified 文件**默认 skip**（drift 警告但不动）|
+| `harness install --agent <X> --force-managed` | 升级到含重大文档/契约变化的新版本 | 强制覆盖所有 user-modified scaffold；目标项目内容应该都是工具产出，用户不该手改 |
+
+> 默认 `harness install`（无 `--force-managed`）会跳过 user-modified 文件保护。若 self-audit drift 提示某些文件 "content differs"，那是上游改了但本地未同步——加 `--force-managed` 真同步。
 
 `harness install` 幂等运行，可重复执行。它负责初始化脚手架、同步 skill 文件、迁移 legacy state、写盘 experience index 和 project profile。
 
