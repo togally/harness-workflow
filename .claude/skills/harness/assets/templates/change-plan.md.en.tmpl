@@ -1,8 +1,12 @@
-# Change Plan
+---
+id: {{ID}}
+title: "{{TITLE}}"
+created_at: {{DATE}}
+operation_type: change
+stage: {{STAGE}}
+---
 
 ## 1. Development Steps
-
-<!-- Each step should be concrete enough for a subagent to execute directly; step numbers are reused in session-memory to mark ✅/❌. -->
 
 ### Step 1: {{Step title}}
 
@@ -14,35 +18,19 @@
 
 ## 2. Verification Steps
 
-### 2.1 Unit tests / static checks
+- Static assertions: {{grep / diff / file existence}}
+- Smoke verification: {{manual end-to-end steps and expected results}}
+- AC mapping: AC-01 -> Step 1; AC-02 -> Step 2
 
-<!-- Example: list which files are touched and which grep/diff assertions must hold. -->
-- {{Static assertions such as grep, diff, file existence checks}}
+## 3. Dependencies & Order
 
-### 2.2 Manual smoke / integration verification
-
-<!-- Example: how to run an end-to-end verification locally. -->
-- {{Manual smoke steps and expected results}}
-
-### 2.3 AC Mapping
-
-<!-- Explicitly align AC from requirement.md / change.md with the steps above. -->
-- AC-XX -> Step X + 2.X;
-
-## 3. Dependencies & Execution Order
-
-<!-- Describe dependencies on other changes or systems, and any hard ordering inside this change. -->
-- {{Dependencies and ordering notes}}
+- {{Dependencies on other changes / external systems, and hard ordering within this change}}
 
 ## 4. Test Case Design
 
-<!-- bugfix-6 B4: analyst produces this in planning; testing consumes directly. -->
-<!-- Change regression_scope to full to trigger full regression in testing (default: targeted). -->
-
 > regression_scope: targeted
-> Affected interfaces (auto-generated from git diff --name-only + human supplement):
-> - {{file1}}
+> Affected interfaces: {{file1}}
 
-| Test Case | Input | Expected | AC Reference | Priority |
-|-----------|-------|----------|--------------|----------|
+| Test Case | Input | Expected | AC | Priority |
+|-----------|-------|----------|----|----------|
 | TC-01 | {{input}} | {{expected result}} | AC-01 | P0 |

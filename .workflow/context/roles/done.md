@@ -56,9 +56,8 @@
 ### Step 5: 流程完整性检查
 - 检查各阶段是否实际执行（非跳过）
 
-### Step 6: 输出回顾报告与建议转 suggest 池
+### Step 6: 输出回顾报告
 - 将回顾结果写入 `session-memory.md`
-- 提取 `done-report.md` 中的改进建议，自动创建 suggest 文件
 - **Step 6.x 聚合效率与成本数据**：
   1. 读取 `.workflow/flow/requirements/{req-id}-{slug}/usage-log.yaml`（含若干 subagent_usage entries，字段见 `record_subagent_usage` 格式）；
   2. 读取 req yaml `stage_timestamps`；
@@ -238,7 +237,7 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 
 ## 完成前必须检查
 
-1. `done-report.md` 中的改进建议已提取并写入 suggest 池（如存在）
+1. 若有改进点，用户可主动 `harness suggest` 手动入池。
 2. 若本轮 done 阶段的回顾发现新的产出标准、阶段变更或角色行为调整，必须检查 `.workflow/context/checklists/review-checklist.md` 是否需要同步更新。
 3. `runtime.yaml` 和 `state/requirements/{req-id}.yaml` 的状态是否一致？
 4. 回顾报告是否覆盖了全部六层？
@@ -369,13 +368,3 @@ done 阶段发现的职责外问题，若可在本阶段内处理（如 suggest 
 - 建议项使用 `> 建议：` 引用格式
 - 行动项使用 `**行动**：` 强调格式
 
-## 建议转 suggest 池
-
-主 agent 在保存 `done-report.md` 后，必须执行以下动作：
-
-1. **提取建议**：读取 `done-report.md` 中的 `## 改进建议` 区块
-2. **过滤去重**：去除空行、重复建议
-3. **创建 suggest**：对每条有效建议调用 `create_suggestion(root, content)`
-4. **记录结果**：在 `session-memory.md` 中记录创建的 suggest ID 列表
-
-> **注意**：如果 done-report 中没有改进建议，或建议已全部存在于 suggest 池中，则跳过此步骤。

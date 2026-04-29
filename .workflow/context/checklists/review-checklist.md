@@ -165,6 +165,27 @@
 - [ ] `stage_policies` 镜像与 yaml 一致：index.md "Stage 出口决策"表 / stages.md 各"出口决策"行 / role md 出口决策说明，均与 `.workflow/context/role-model-map.yaml` 顶层 `stage_policies` 字段一致（高）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 - [ ] `stage_policies` 字段与 `workflow_next` while 行为一致性抽样：acceptance 出口设 verdict 时 `workflow_next` 确实自动跳 done，executing 出口设 explicit 时确实需 `--execute`（中）（bugfix-5（同角色跨 stage 自动续跑硬门禁）修复点 6）
 
+## req-50（现有流程优化）/ chg-05（reviewer 加项 + llm-only-docs contract）新增检查项
+
+### LLM-only 文档 lint
+
+- [ ] **新加文档模板必须 LLM-only（高）**：新加模板文件开头为 `---` YAML frontmatter，不含 `## 背景` / `## 历史关联` / `## 用户原话` / `## 修订说明` 等对人解释段落，行数 ≤ 80 行；执行 `harness validate --contract llm-only-docs` exit 0 即通过（req-50（現有流程優化）/ chg-05（reviewer 加項 + llm-only-docs contract））
+- [ ] **llm-only-docs lint 已绿（高）**：`harness validate --contract llm-only-docs` exit 0（req-50（现有流程优化）/ chg-05（reviewer 加项 + llm-only-docs contract））
+
+### 新加 stage 自检
+
+- [ ] **新加 stage 必须问"是否能合并"（高）**：新建 stage 前确认可否合并到现有 stage；`ready_for_execution` 已于 req-50（现有流程优化）/ chg-01（5-stage sequence 落地）删除，禁止复活；新加 stage 须同步更新 `role-model-map.yaml` + `stages.md` + `index.md` 三处镜像（role-stage-continuity lint）
+
+### done 主动入池防回退
+
+- [ ] **done 阶段不主动入池（高）**：`done.md` 不含「自动提取改进建议」/ 「自动创建 suggest 文件」相关 SOP；若含此内容视为回退，驳回并要求删除（req-50（现有流程优化）/ chg-02（done 阶段去 sug 自动入池）落地验证）
+
+### 新加 contract 配套 fix-checklist
+
+- [ ] **新加 contract 配套 fix-checklist（高）**：每新增 `harness validate --contract X`，须在 `.workflow/context/checklists/` 创建 `fix-X.md` 修复清单，并在 validate_contract.py 通过 `raise_harness_block` 指向该 checklist（继承 req-48（harness-manager 统一异常捕获 + base-role 阻塞抛错协议 + fix-checklist 自动修复体系）经验二十一）
+
+---
+
 ## req-37 汇报合规三问（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-03）
 
 > 承接 base-role 硬门禁七（req-37 / chg-01）Ra/Rb/Rc 三条；lint 自动化成本过高时由本清单人工降级兜底（AC-6）。

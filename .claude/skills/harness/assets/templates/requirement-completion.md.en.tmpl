@@ -1,24 +1,28 @@
-# Requirement Completion
+---
+id: {{ID}}
+title: "{{TITLE}}"
+created_at: {{DATE}}
+operation_type: requirement
+stage: done
+---
 
-## 1. Requirement
+## Requirement
 
-- `{{TITLE}}`
+- {{ID}}: {{TITLE}}
 
-## 2. Mandatory Checks
+## Mandatory Checks
 
-- [ ] Every linked change has passed its own acceptance checks
-- [ ] The project starts successfully and startup validation passes
-- [ ] Evidence of successful startup is recorded here or in the linked change documents
+- [ ] All linked changes passed acceptance
+- [ ] Project starts successfully
+- [ ] Startup evidence recorded
 
-## 3. Startup Validation Record
+## Startup Record
 
-- Startup command:
+- Command:
 - Success signal:
 - Key output:
 
-## 4. Failure Handling
+## Conclusion
 
-- If the project does not start or startup validation fails, do not bypass workflow and close the work anyway
-- Start `harness regression "<issue>"`
-- If startup logs, command output, or stack traces are available locally, the AI should read and analyze them first
-- If user-provided configuration, data, accounts, or external dependency details are required, write the request template into the related change `regression/required-inputs.md` first and only then ask the human to fill it before continuing
+- [ ] Pass — requirement delivered
+- [ ] Fail — start `harness regression "<issue>"`

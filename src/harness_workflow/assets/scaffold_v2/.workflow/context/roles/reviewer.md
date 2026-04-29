@@ -114,3 +114,24 @@
 3. 审查结论是否使用了 `pass` / `reject` / `needs_rework` 之一？
 4. 非通过结论是否附带了明确的问题清单和修正建议？
 5. 执行 `harness validate --contract role-stage-continuity` 得绿（exit code = 0）。（bugfix-5（同角色跨 stage 自动续跑硬门禁））
+
+## req-50（现有流程优化）/ chg-05（reviewer 加项 + llm-only-docs contract）新增检查项
+
+### LLM-only 文档 lint
+
+- [ ] 新加文档模板必须 LLM-only（YAML frontmatter + 紧凑 markdown，无对人解释段落）：检查模板文件开头为 `---` YAML frontmatter，不含 `## 背景` / `## 历史关联` / `## 用户原话` / `## 修订说明` 等对人解释段落，行数不超过 80 行
+- [ ] 执行 `harness validate --contract llm-only-docs` exit 0（req-50（现有流程优化）/ chg-05（reviewer 加项 + llm-only-docs contract））
+
+### 新加 stage 自检
+
+- [ ] 新加 stage 必须问"是否能合并"（避免空 stage 复活如 `ready_for_execution`）：新建 stage 前确认是否可合并到现有 stage，`ready_for_execution` 已于 req-50（现有流程优化）/ chg-01（5-stage sequence 落地）删除，不得重新加入
+- [ ] 新加 stage 必须同步更新 `role-model-map.yaml` + `stages.md` + `index.md` 三处镜像（role-stage-continuity lint）
+
+### done 主动入池防回退
+
+- [ ] done 阶段不得主动提取改进建议入池（`done.md` 不含「自动提取改进建议」/ 「自动创建 suggest 文件」相关 SOP；req-50（现有流程优化）/ chg-02（done 阶段去 sug 自动入池）落地验证）
+- [ ] 若 done 阶段产出含 sug 入池相关内容，视为回退 → 驳回并要求删除
+
+### 新加 contract 配套 fix-checklist
+
+- [ ] 新加 contract 必须配套 fix-checklist（继承 req-48（harness-manager 统一异常捕获 + base-role 阻塞抛错协议 + fix-checklist 自动修复体系）经验）：每新增一个 `harness validate --contract X`，必须在 `.workflow/context/checklists/` 下创建对应 `fix-X.md` 修复清单，并在 validate_contract.py 中通过 `raise_harness_block` 指向该 checklist

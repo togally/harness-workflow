@@ -127,9 +127,7 @@ OPTIONAL_EMPTY_DIRS = [
 # 将原两个 sub-stage 合并为单一 planning，架构师在一次派发内产出 change.md + plan.md + 变更简报.md。
 # 历史兼容：归档 req-02..req-30 的 stage_timestamps 旧字段保留不迁移。
 WORKFLOW_SEQUENCE = [
-    "requirement_review",
-    "planning",
-    "ready_for_execution",
+    "analysis",
     "executing",
     "testing",
     "acceptance",
@@ -920,7 +918,7 @@ def command_specific_guidance(command_name: str, language: str) -> list[str]:
                 "",
                 "- 先解释当前 stage、current_task 和 next_action",
                 "- 再根据当前状态推进，不要假设下一步永远固定",
-                "- 如果已经到 `ready_for_execution`，不要直接实施，要提示是否执行或使用 `harness next --execute`",
+                "- 如果当前 stage 是 `analysis`，确认 change.md + plan.md 已产出后，再 `harness next` 推进到 executing",
                 "- 如果 workflow 状态不完整，停止并要求先修复状态",
             ],
             "harness-regression": [
@@ -968,7 +966,7 @@ def command_specific_guidance(command_name: str, language: str) -> list[str]:
                 "",
                 "- explain the current stage, current task, and next action first",
                 "- then advance according to the actual state instead of assuming a fixed sequence",
-                "- if the version is already `ready_for_execution`, do not start implementation automatically; ask for confirmation or use `harness next --execute`",
+                "- if the current stage is `analysis`, confirm change.md + plan.md are produced before running `harness next` to advance to executing",
                 "- if workflow state is incomplete, stop and require state repair first",
             ],
             "harness-enter": [
@@ -1110,44 +1108,16 @@ HOOK_TIMINGS = [
                 },
             },
             {
-                "path": "requirement-review/10-request-human-review-first.md",
-                "title": {"cn": "需求评审先等用户确认", "english": "Requirement Review Waits for Human Confirmation"},
+                "path": "analysis/10-request-human-review-first.md",
+                "title": {"cn": "分析阶段先等用户确认", "english": "Analysis Stage Waits for Human Confirmation"},
                 "body": {
                     "cn": [
-                        "如果当前 stage 是 `requirement_review`，回复应优先请求用户审核 requirement 文档。",
-                        "不要在用户尚未确认需求时主动推进到拆 change、写 plan 或实施。",
+                        "如果当前 stage 是 `analysis`，回复应优先请求用户审核 requirement 文档、change 列表与 plan 文档。",
+                        "analyst 在 analysis 阶段一次性产出 requirement.md + change.md + plan.md 后，停下等用户确认，不得自动推进到 executing。",
                     ],
                     "english": [
-                        "When the current stage is `requirement_review`, prioritize asking the human to review the requirement document.",
-                        "Do not proactively move into splitting changes, writing plans, or implementation before the human confirms the requirement.",
-                    ],
-                },
-            },
-            {
-                "path": "planning/10-request-planning-review-first.md",
-                "title": {"cn": "规划评审先等用户确认", "english": "Planning Waits for Human Confirmation"},
-                "body": {
-                    "cn": [
-                        "如果当前 stage 是 `planning`，回复应优先请求用户审核 change 列表、change 文档与 plan 文档。",
-                        "架构师在 planning 阶段一次性产出 change.md + plan.md + 变更简报.md 后，停下等用户确认，不得自动推进到 executing。",
-                    ],
-                    "english": [
-                        "When the current stage is `planning`, prioritize asking the human to review the change list, change documents, and plan documents.",
-                        "The architect produces change.md + plan.md + 变更简报.md in a single planning pass, then stops for human confirmation before advancing.",
-                    ],
-                },
-            },
-            {
-                "path": "ready-for-execution/10-request-execution-confirmation.md",
-                "title": {"cn": "执行前先等明确确认", "english": "Ready for Execution Waits for Explicit Confirmation"},
-                "body": {
-                    "cn": [
-                        "如果当前 stage 是 `ready_for_execution`，回复应优先请求用户确认是否开始实施。",
-                        "没有显式确认或 `harness next --execute` 时，不要开始实现。",
-                    ],
-                    "english": [
-                        "When the current stage is `ready_for_execution`, prioritize asking the human whether execution should begin.",
-                        "Do not start implementation without explicit confirmation or `harness next --execute`.",
+                        "When the current stage is `analysis`, prioritize asking the human to review the requirement document, change list, and plan documents.",
+                        "The analyst produces requirement.md + change.md + plan.md in a single analysis pass, then stops for human confirmation before advancing.",
                     ],
                 },
             },
@@ -1347,11 +1317,11 @@ HOOK_TIMINGS = [
                 "body": {
                     "cn": [
                         "创建或更新 plan 后，当前节点必须停在计划讨论与审核。",
-                        "只有用户明确确认 plan 无误后，才允许进入 `ready_for_execution`。",
+                        "只有用户明确确认 plan 无误后，才允许进入 `executing`。",
                     ],
                     "english": [
                         "After a plan is created or updated, this node must stay in plan discussion and review.",
-                        "Only after the human explicitly confirms the plan may the workflow move into `ready_for_execution`.",
+                        "Only after the human explicitly confirms the plan may the workflow move into `executing`.",
                     ],
                 },
             },
@@ -1594,30 +1564,18 @@ HOOK_TIMINGS = [
                 },
             },
             {
-                "path": "requirement-review/10-keep-requirement-context-only.md",
-                "title": {"cn": "需求评审只保留需求上下文", "english": "Requirement Review Keeps Requirement Context Only"},
+                "path": "analysis/10-keep-analysis-context-only.md",
+                "title": {"cn": "分析阶段只保留分析上下文", "english": "Analysis Stage Keeps Analysis Context Only"},
                 "body": {
                     "cn": [
-                        "在 `requirement_review` 阶段，只保留 requirement 文档、范围、验收边界、相关经验与必要项目事实。",
-                        "与后续实现有关的大段代码、技术细节或旧方案，如果暂时不影响需求判断，应 `/compact` 或 `/clear`。",
+                        "在 `analysis` 阶段，只保留 requirement 文档、范围、验收边界、change 列表、plan 文档、影响范围、风险与必要依赖。",
+                        "analyst 一次性产出 requirement.md + change.md + plan.md 后停下等用户确认。",
+                        "与后续实现有关的大段代码、旧方案、已不影响分析的讨论细节，可优先 `/compact` 或 `/clear`。",
                     ],
                     "english": [
-                        "During `requirement_review`, keep only the requirement document, scope, acceptance boundaries, relevant experience, and necessary project facts.",
-                        "Large implementation details, code, or old solution trails that are not needed for requirement decisions should be compacted or cleared.",
-                    ],
-                },
-            },
-            {
-                "path": "planning/10-keep-planning-context-only.md",
-                "title": {"cn": "规划阶段只保留规划上下文", "english": "Planning Keeps Planning Context Only"},
-                "body": {
-                    "cn": [
-                        "在 `planning` 阶段，只保留 requirement 结论、change 列表、focus change 的 plan 文档、影响范围、风险与必要依赖；架构师一次性产出 change.md + plan.md + 变更简报.md 后停下等用户确认。",
-                        "已经不影响 planning 的 requirement 讨论细节、其他 change 的实现历史，可优先 `/compact`。",
-                    ],
-                    "english": [
-                        "During `planning`, keep only the requirement outcome, change list, focus change plan document, impact scope, risks, and required dependencies; the architect produces change.md + plan.md + 变更简报.md in one pass and waits for confirmation.",
-                        "Requirement discussion details and implementation history for unrelated changes that no longer affect planning should be compacted.",
+                        "During `analysis`, keep only the requirement document, scope, acceptance boundaries, change list, plan documents, impact scope, risks, and required dependencies.",
+                        "The analyst produces requirement.md + change.md + plan.md in one pass and waits for human confirmation.",
+                        "Large implementation details, old solution trails, and discussion details that no longer affect analysis should be compacted or cleared.",
                     ],
                 },
             },
@@ -1736,58 +1694,44 @@ HOOK_TIMINGS = [
                 },
             },
             {
-                "path": "requirement-review/10-no-source-code.md",
-                "title": {"cn": "需求节点禁止改源码", "english": "No Source Changes in Requirement Review"},
+                "path": "analysis/10-no-source-code.md",
+                "title": {"cn": "分析节点禁止改源码", "english": "No Source Changes in Analysis Stage"},
                 "body": {
                     "cn": [
-                        "在 `requirement_review` 阶段，不允许写生产代码或改业务源码。",
-                        "允许补 requirement 文档、讨论范围和验收边界。",
+                        "在 `analysis` 阶段，不允许写生产代码或改业务源码。",
+                        "允许补 requirement 文档、讨论范围、验收边界、拆分 change 与制定 plan。",
                     ],
                     "english": [
-                        "During `requirement_review`, do not write production code or modify business source files.",
-                        "Requirement document updates, scope discussion, and acceptance clarification are allowed.",
+                        "During `analysis`, do not write production code or modify business source files.",
+                        "Requirement document updates, scope discussion, acceptance clarification, change splitting, and plan creation are allowed.",
                     ],
                 },
             },
             {
-                "path": "requirement-review/20-no-auto-stage-advance.md",
-                "title": {"cn": "需求评审中禁止自动推进阶段", "english": "No Automatic Stage Advance During Requirement Review"},
+                "path": "analysis/20-no-auto-stage-advance.md",
+                "title": {"cn": "分析阶段禁止自动推进", "english": "No Automatic Stage Advance During Analysis"},
                 "body": {
                     "cn": [
-                        "在 `requirement_review` 阶段，不要自动执行 `harness next`、自动拆 `change` 或自动生成 `plan`。",
+                        "在 `analysis` 阶段，不要自动执行 `harness next`、自动开始编码或自动进入执行阶段。",
                         "如果用户给的是实现细节，也只允许把它吸收进 requirement，随后等待用户确认。",
                     ],
                     "english": [
-                        "During `requirement_review`, do not automatically run `harness next`, split changes, or generate plans.",
+                        "During `analysis`, do not automatically run `harness next`, start coding, or enter execution.",
                         "If the human provides implementation details, absorb them into the requirement and then wait for confirmation.",
                     ],
                 },
             },
             {
-                "path": "planning/20-no-auto-stage-advance.md",
-                "title": {"cn": "规划阶段中禁止自动推进阶段", "english": "No Automatic Stage Advance During Planning"},
+                "path": "analysis/10-no-implementation-before-confirmation.md",
+                "title": {"cn": "分析阶段确认前禁止开始实现", "english": "No Implementation Before Analysis Confirmation"},
                 "body": {
                     "cn": [
-                        "在 `planning` 阶段，不要自动执行 `harness next`、自动开始编码或自动进入执行阶段。",
-                        "架构师产出 change.md + plan.md + 变更简报.md 后，等待用户确认，方可推进到 executing。",
+                        "在 `analysis` 阶段，不要读取源码做实现准备、不要写生产代码、不要启动实施任务。",
+                        "只有用户显式确认 plan 无误后运行 `harness next`，才允许进入 `executing`。",
                     ],
                     "english": [
-                        "During `planning`, do not automatically run `harness next`, start coding, or enter execution.",
-                        "After producing change.md + plan.md + 变更简报.md, wait for human confirmation before advancing to executing.",
-                    ],
-                },
-            },
-            {
-                "path": "ready-for-execution/10-no-implementation-before-confirmation.md",
-                "title": {"cn": "执行确认前禁止开始实现", "english": "No Implementation Before Execution Confirmation"},
-                "body": {
-                    "cn": [
-                        "在 `ready_for_execution` 阶段，不要读取源码做实现准备、不要写生产代码、不要启动实施任务。",
-                        "只有用户显式确认执行或运行 `harness next --execute` 后，才允许进入 `executing`。",
-                    ],
-                    "english": [
-                        "During `ready_for_execution`, do not read source code for implementation prep, write production code, or start execution tasks.",
-                        "Only after explicit human approval or `harness next --execute` may the workflow enter `executing`.",
+                        "During `analysis`, do not read source code for implementation prep, write production code, or start execution tasks.",
+                        "Only after the human confirms the plan and runs `harness next` may the workflow enter `executing`.",
                     ],
                 },
             },
@@ -2953,8 +2897,10 @@ def done_efficiency_aggregate(
 
     # Define stage ordering for sort
     _stage_order_list = [
-        "requirement_review", "planning", "ready_for_execution",
+        "analysis",
         "executing", "testing", "acceptance", "regression", "done",
+        # legacy aliases (req-id < 50, history archive read-only)
+        "requirement_review", "planning", "ready_for_execution",
     ]
 
     def _stage_sort_key(row: dict) -> tuple:
@@ -3002,7 +2948,9 @@ def done_efficiency_aggregate(
             continue
 
     stage_order = [
-        "requirement_review", "planning", "executing", "testing", "acceptance", "done"
+        "analysis", "executing", "testing", "acceptance", "done",
+        # legacy aliases (req-id < 50, history archive read-only)
+        "requirement_review", "planning",
     ]
 
     stage_rows: list[dict] = _NO_DATA  # type: ignore[assignment]
@@ -3109,20 +3057,54 @@ def apply_stage_transition(meta: dict[str, object], *, execute: bool = False, fa
     now_iso = datetime.now(timezone.utc).isoformat()
 
     if fast_forward:
+        # req-50/chg-01: ff advances directly to executing (no ready_for_execution in new 5-stage sequence)
         payload.update(
             {
-                "stage": "ready_for_execution",
-                "status": "review",
-                "current_task": "Confirm whether to start implementation",
-                "next_action": "Run `harness next --execute` after the final review.",
-                "suggested_skill": "",
-                "assistant_prompt": "Review the current requirement, changes, and plan documents. Do not start coding until the human confirms execution.",
-                "approval_required": True,
+                "stage": "executing",
+                "status": "executing",
+                "current_task": f"Execute approved work for {select_focus_change(payload) or 'the current version'}",
+                "next_action": "Implement the approved plan and keep version state updated.",
+                "suggested_skill": "executing-plans",
+                "assistant_prompt": "Use executing-plans or subagent-driven-development to implement the approved plan.",
+                "approval_required": False,
                 "stage_entered_at": now_iso,
             }
         )
         return payload
 
+    # req-50 / chg-01（stage 整合 + next 单入口）: new 5-stage sequence
+    if stage == "analysis":
+        if not focus_change:
+            raise SystemExit("No changes exist yet. Create at least one `harness change` before advancing from analysis.")
+        from harness_workflow.validate_contract import check_artifact_placement as _check_ap_a  # noqa: PLC0415
+        import pathlib as _pathlib_a  # noqa: PLC0415
+        _ap_root_a = _pathlib_a.Path(meta.get("_root", ".")) if "_root" in meta else None
+        if _ap_root_a is None:
+            print("WARN: artifact-placement lint 跳过（root 未传入 meta），请手工运行 `harness validate --contract artifact-placement`")
+        else:
+            _ap_result_a = _check_ap_a(_ap_root_a)
+            if _ap_result_a != 0:
+                raise SystemExit(
+                    "ABORT: artifact-placement lint FAIL — analysis → executing 流转被阻塞。"
+                    " 请先修复 artifacts/ 下机器型文件位置，再重试 `harness next`。"
+                )
+        payload.update(
+            {
+                "stage": "executing",
+                "status": "executing",
+                "current_task": f"Execute approved work for {focus_change or 'the current version'}",
+                "next_action": "Implement the approved plan and keep version state updated.",
+                "current_artifact_kind": "change" if focus_change else str(payload.get("current_artifact_kind", "")),
+                "current_artifact_id": focus_change or str(payload.get("current_artifact_id", "")),
+                "suggested_skill": "executing-plans",
+                "assistant_prompt": "Use executing-plans or subagent-driven-development to implement the approved plan.",
+                "approval_required": False,
+                "stage_entered_at": now_iso,
+            }
+        )
+        return payload
+
+    # ---- legacy stage handlers (req-id < 50, history archive read-only) ----
     if stage == "requirement_review":
         # req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）
         # analyst stage 退出门禁：requirement_review → planning 流转前跑 artifact-placement lint
@@ -4268,6 +4250,29 @@ def _use_flow_layout(req_id: str) -> bool:
     return int(m.group(1)) >= FLOW_LAYOUT_FROM_REQ_ID
 
 
+#: req-50（现有流程优化）/ chg-01（5-stage sequence 落地）：
+#: req-id >= 50 使用新 5-stage workflow（analysis / executing / testing / acceptance / done）；
+#: req-id < 50 保持历史兼容（requirement_review 起始）。
+_NEW_WORKFLOW_FROM_REQ_ID = 50
+
+
+def _use_new_workflow_sequence(req_id: str) -> bool:
+    """Return True if req_id should use the new 5-stage workflow sequence (req-50+).
+
+    req-50（现有流程优化：文档 LLM-only 重写 + stage 整合 + done 去 sug 入池 + next 单入口）/
+    chg-01（analysis stage 落地 + 5-stage WORKFLOW_SEQUENCE）:
+    - req-id >= 50 → True（新 5-stage：analysis / executing / testing / acceptance / done）
+    - req-id <= 49 → False（历史兼容：requirement_review 起始的旧流程）
+    - 非法 id（空串 / None / 非 req-\\d+ 形式）→ False
+    """
+    if not req_id:
+        return False
+    m = re.match(r"^req-(\d+)$", req_id.strip())
+    if not m:
+        return False
+    return int(m.group(1)) >= _NEW_WORKFLOW_FROM_REQ_ID
+
+
 def _next_regression_id(regressions_base: Path) -> str:
     """Return the next available `reg-NN` id under a regressions base directory.
 
@@ -4823,12 +4828,15 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     state_file = root / ".workflow" / "state" / "requirements" / f"{dir_name}.yaml"
     if not state_file.exists():
         today = date.today().isoformat()
+        # req-50/chg-01: req-id >= 50 使用新 5-stage sequence（analysis 起始）；
+        # req-id < 50 保持历史兼容（requirement_review 起始）。
+        _initial_stage = "analysis" if _use_new_workflow_sequence(req_num_id) else "requirement_review"
         save_simple_yaml(
             state_file,
             {
                 "id": req_num_id,
                 "title": requirement_title,
-                "stage": "requirement_review",
+                "stage": _initial_stage,
                 "status": "active",
                 "created_at": today,
                 "started_at": today,
@@ -4848,7 +4856,8 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
     runtime["current_requirement"] = req_num_id
     # req-30 / chg-01：写 id 时同步写 *_title（state yaml 已在前面写入，此处 resolve 必中）。
     runtime["current_requirement_title"] = _resolve_title_for_id(root, req_num_id)
-    runtime["stage"] = "requirement_review"
+    # req-50/chg-01: req-id >= 50 使用新 5-stage（analysis）；< 50 历史兼容（requirement_review）。
+    runtime["stage"] = "analysis" if _use_new_workflow_sequence(req_num_id) else "requirement_review"
     runtime["active_requirements"] = active_reqs
     save_requirement_runtime(root, runtime)
 
@@ -5821,21 +5830,25 @@ def _sync_stage_to_state_yaml(
 # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 2 白名单：
 # 仅对主流程 stage 写入时间戳，避免 apply / suggestion_review 等辅助 stage 触发 schema 漂移。
 _STAGE_TIMESTAMP_WHITELIST = frozenset({
-    "requirement_review",
-    "planning",
-    "ready_for_execution",
+    "analysis",        # req-50/chg-01: new 5-stage sequence
     "executing",
     "testing",
     "acceptance",
     "regression",
     "done",
     "archive",
+    # legacy (req-id < 50, history archive read-only)
+    "requirement_review",
+    "planning",
+    "ready_for_execution",
 })
 
 # req-43（交付总结完善）/ chg-02（补齐 stage 流转点时间戳）主流程 stage 顺序
+# req-50/chg-01: new 5-stage sequence; legacy stages kept for history archive read-only
 _STAGE_ORDER = [
+    "analysis", "executing", "testing", "acceptance", "regression", "done",
+    # legacy (req-id < 50)
     "requirement_review", "planning", "ready_for_execution",
-    "executing", "testing", "acceptance", "regression", "done",
 ]
 
 
@@ -7044,17 +7057,19 @@ def workflow_status_lint(root: Path) -> int:
 
 # req-31（批量建议合集（20条））/ chg-02（工作流推进 + ff 机制）/ Step 6（sug-09）
 _STAGE_TO_ROLE: dict[str, str] = {
-    "requirement_review": "requirement-review（需求分析师）",
-    "planning": "planning（架构师）",
-    "ready_for_execution": "executing（开发者）",
+    "analysis": "analyst（分析师）",  # req-50/chg-01: new 5-stage sequence
     "executing": "executing（开发者）",
     "testing": "testing（测试工程师）",
     "acceptance": "acceptance（验收官）",
     "regression": "regression（诊断师）",
     "done": "done（主 agent）",
+    # legacy (req-id < 50, history archive read-only)
+    "requirement_review": "requirement-review（需求分析师）",
+    "planning": "planning（架构师）",
+    "ready_for_execution": "executing（开发者）",
 }
 
-_NO_BRIEFING_STAGES = frozenset({"done", "archive", "completed", "ready_for_execution"})
+_NO_BRIEFING_STAGES = frozenset({"done", "archive", "completed", "ready_for_execution"})  # legacy ready_for_execution kept
 
 
 def _build_subagent_briefing(
@@ -7167,14 +7182,16 @@ def _stage_role_name(stage: str) -> str:
     此处只需要文件名基底（``executing``）。若 stage 无明确映射，直接返回 stage 字符串。
     """
     mapping = {
-        "requirement_review": "requirement-review",
-        "planning": "planning",
-        "ready_for_execution": "executing",
+        "analysis": "analyst",  # req-50/chg-01: new 5-stage sequence
         "executing": "executing",
         "testing": "testing",
         "acceptance": "acceptance",
         "regression": "regression",
         "done": "done",
+        # legacy (req-id < 50, history archive read-only)
+        "requirement_review": "requirement-review",
+        "planning": "planning",
+        "ready_for_execution": "executing",
     }
     return mapping.get(stage, stage)
 
@@ -7458,15 +7475,17 @@ def _render_key_details(details: dict) -> str:
 _ROLE_MODEL_MAP_PATH = Path(".workflow") / "context" / "role-model-map.yaml"
 
 # v1 兼容：按角色名猜测默认覆盖 stage（与角色同名的 stage），未命中给空数组。
+# req-50/chg-01: analyst now covers "analysis"; legacy stages kept for history archive read-only.
 _V1_LEGACY_DEFAULT_STAGES: dict[str, list[str]] = {
-    "analyst": ["requirement_review", "planning"],
-    "requirement-review": ["requirement_review"],
-    "planning": ["planning"],
+    "analyst": ["analysis"],
     "executing": ["executing"],
     "testing": ["testing"],
     "acceptance": ["acceptance"],
     "regression": ["regression"],
     "done": ["done"],
+    # legacy (req-id < 50, history archive read-only)
+    "requirement-review": ["requirement_review"],
+    "planning": ["planning"],
 }
 
 _ALL_VALID_STAGES = frozenset(
@@ -7612,8 +7631,9 @@ def _is_stage_work_done(
     if not req_id or not stage:
         return True
     _FALLBACK_STAGES = {
-        "done", "regression", "requirement_review", "ready_for_execution",
-        "planning", "suggestion", "apply",
+        "done", "regression", "analysis", "suggestion", "apply",
+        # legacy (req-id < 50, history archive read-only)
+        "requirement_review", "ready_for_execution", "planning",
     }
     if stage in _FALLBACK_STAGES:
         return True
@@ -7752,6 +7772,7 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         if current_stage not in sequence:
             raise SystemExit(f"Unknown stage: {current_stage}")
         idx = sequence.index(current_stage)
+        # legacy gate for old reqs (req-id < 50)
         if current_stage == "ready_for_execution" and not execute:
             raise SystemExit("Workflow is ready_for_execution. Run `harness next --execute` to confirm execution start.")
         next_stage = sequence[idx + 1] if idx + 1 < len(sequence) else current_stage
@@ -7799,10 +7820,9 @@ def workflow_next(root: Path, execute: bool = False) -> int:
         save_requirement_runtime(root, runtime)
         print(f"Workflow advanced to {to_s}")
 
-    # req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）
-    # analyst stage 退出门禁：requirement_review → planning / planning → ready_for_execution
-    # 流转前跑 artifact-placement lint；FAIL 则阻塞流转
-    _ANALYST_GATE_STAGES = {"requirement_review", "planning"}
+    # req-50/chg-01: analyst stage 退出门禁：analysis → executing 流转前跑 artifact-placement lint；FAIL 则阻塞流转
+    # req-46: legacy gates for old reqs (requirement_review → planning / planning → ready_for_execution)
+    _ANALYST_GATE_STAGES = {"analysis", "requirement_review", "planning"}
     if (
         routed_stage_from_reg is None
         and current_stage in _ANALYST_GATE_STAGES
@@ -7929,12 +7949,13 @@ def workflow_fast_forward(root: Path) -> int:
     operation_target = str(runtime.get("operation_target", "")).strip()
 
     # 根据 operation_type 确定目标 stage
+    # req-50/chg-01: ff 跳到 executing（新 5-stage 无 ready_for_execution）
     if operation_type == "bugfix":
         target_stage = "executing"
     elif operation_type == "suggestion":
         target_stage = "apply"
     else:
-        target_stage = "ready_for_execution"
+        target_stage = "executing"  # req-50/chg-01: was ready_for_execution
 
     runtime["stage"] = target_stage
     runtime["stage_entered_at"] = datetime.now(timezone.utc).isoformat()
