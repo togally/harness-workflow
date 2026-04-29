@@ -252,13 +252,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "schema-audit", "missing-document", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness"],
-        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. schema-audit: lint old-format dirs in state/requirements/ (req-48/chg-02). missing-document: lint planning stage changes/ empty (req-48/chg-02). test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）.",
+        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "schema-audit", "missing-document", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness", "llm-only-docs"],
+        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. schema-audit: lint old-format dirs in state/requirements/ (req-48/chg-02). missing-document: lint planning stage changes/ empty (req-48/chg-02). test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）. llm-only-docs: 扫机器型模板 frontmatter + 禁止对人解释段落 + 行数上限（req-50/chg-05）.",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
     next_parser.add_argument("--root", default=".", help="Repository root.")
-    next_parser.add_argument("--execute", action="store_true", help="Confirm execution when already ready_for_execution.")
 
     ff_parser = subparsers.add_parser("ff", help="Fast-forward workflow stages until execution confirmation.")
     ff_parser.add_argument("--root", default=".", help="Repository root.")
@@ -516,8 +515,6 @@ def main() -> int:
         return _run_tool_script("harness_validate.py", [], root)
     if args.command == "next":
         cmd_args = []
-        if args.execute:
-            cmd_args.append("--execute")
         return _run_tool_script("harness_next.py", cmd_args, root)
     if args.command == "ff":
         auto_flag = getattr(args, "auto", False)

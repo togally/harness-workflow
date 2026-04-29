@@ -1,19 +1,23 @@
-# 变更验收
+---
+id: {{ID}}
+title: "{{TITLE}}"
+created_at: {{DATE}}
+operation_type: change
+stage: acceptance
+---
 
-## 1. 验收对象
+## 验收对象
 
-说明本次验收覆盖的对象。
+- {{ID}}：{{TITLE}}
 
-## 2. 验收依据
+## 验收项
 
-- 在此补充证据与依据。
-- 必须包含一次 `mvn compile`
-- 记录编译命令、关键输出和结果
-- 如果 `mvn compile` 失败，不要绕过；先进入 `harness regression "<问题描述>"`
-- 如果编译日志或测试失败堆栈已经在本机可获取，先由 AI 自行读取，不要先让用户代看
-- 如果继续修复前需要用户补充配置、数据或账号信息，必须先填写 `regression/required-inputs.md`，再提示用户补充；不要跳过模板直接发问
+- [ ] 构建通过（`mvn compile` 或等效命令）
+- [ ] 核心功能符合 AC
+- [ ] 无回归缺陷
+- [ ] 关键输出已记录
 
-## 3. 验收结论
+## 结论
 
 - [ ] 通过
-- [ ] 需继续整改
+- [ ] 未通过 — 进入 `harness regression "<问题>"`

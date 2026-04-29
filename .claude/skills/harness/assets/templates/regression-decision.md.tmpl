@@ -1,25 +1,26 @@
 ---
-# bugfix-3：诊断师在此填写下一站 stage（planning / executing / testing / acceptance / done /
-# requirement_review / ready_for_execution）。harness next 会优先读取本字段；
-# 留空则按文本 marker（"路由：xxx" / "harness next → xxx"）解析；都没命中则走默认 sequence。
+id: {{ID}}
+title: "{{TITLE}}"
+created_at: {{DATE}}
+operation_type: bugfix
+stage: regression
 route_to: ""
 ---
 
-# 回归结论
+## 状态
 
-## 1. 结论状态
+- `analysis` / `confirmed` / `rejected` / `cancelled` / `converted`
 
-- `analysis`
-- `confirmed`
-- `rejected`
-- `cancelled`
-- `converted`
+## 说明
 
-## 2. 最终说明
+- （确认是问题或驳回的原因）
 
-- 记录为什么确认是问题，或者为什么判定不是问题。
+## 后续
 
-## 3. 后续流转
+- 确认：转入的 requirement / change 编号
+- 取消 / 驳回：关闭原因
 
-- 若确认是问题，写明转成了哪个 requirement 变更或 change。
-- 若取消或驳回，记录关闭原因。
+## 结论
+
+- [ ] 已流转
+- [ ] 已关闭

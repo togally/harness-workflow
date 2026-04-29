@@ -1,22 +1,31 @@
-# Test Plan
+---
+id: {{ID}}
+title: "{{TITLE}}"
+created_at: {{DATE}}
+operation_type: testing
+stage: testing
+---
 
-## 1. Scope
-- List what is being tested in this round.
+## 范围
 
-## 2. Test Strategy
-- Overall approach: manual / automated / mixed
+- 本轮测试覆盖的模块 / 接口 / 场景
 
-## 3. Environment
-- Test environment requirements.
+## 策略
 
-## 4. Schedule
-- Estimated start and end.
+- 方式：手工 / 自动 / 混合
+- 优先级：P0 冒烟 → P1 主干 → P2 边界
 
-## 5. Entry Criteria
-- Conditions that must be met before testing begins.
+## 环境
 
-## 6. Exit Criteria
-- Conditions that define testing as complete:
-  - All test cases executed
-  - Zero open bugs of severity >= medium
-  - Sign-off obtained
+- 运行环境：{{REPO_NAME}}
+- 前置条件：构建通过 + 依赖可达
+
+## 准入 / 准出
+
+- 准入：代码合并 + 构建绿灯
+- 准出：全用例执行 + 0 P0 缺陷
+
+## 结论
+
+- [ ] 通过
+- [ ] 未通过 — 原因：

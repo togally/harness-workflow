@@ -1,24 +1,28 @@
-# Self Test Record
+---
+id: {{ID}}
+title: "{{TITLE}}"
+created_at: {{DATE}}
+operation_type: bugfix
+stage: testing
+---
 
-## Change
-{{CHANGE_ID}}
+## 测试对象
 
-## Test Date
+- {{ID}}：{{TITLE}}
 
-## Test Summary
-Describe what was tested and how.
+## 执行结果
 
-## Results
+| 检查项 | 结果 | 备注 |
+|--------|------|------|
+| 编译 / 运行无报错 | pass / fail | |
+| 核心功能符合预期 | pass / fail | |
+| 边界场景已覆盖 | pass / fail | |
 
-| Check | Result | Notes |
-|-------|--------|-------|
-| Compiles / runs without error | pass / fail | |
-| Core functionality works as expected | pass / fail | |
-| Edge cases considered | pass / fail | |
+## 发现问题
 
-## Issues Found and Fixed
-List any issues discovered during self-test and how they were resolved.
+- （无问题则填"无"）
 
-## Conclusion
-- [ ] Pass — ready for integration testing
-- [ ] Fail — requires further work
+## 结论
+
+- [ ] 通过 — 可进入验收
+- [ ] 未通过 — 需继续修复

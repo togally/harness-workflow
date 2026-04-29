@@ -1199,8 +1199,114 @@ def check_build_cache_freshness(root: Path) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# req-50（现有流程优化）/ chg-05（reviewer 加项 + llm-only-docs contract）：
+# _lint_llm_only_docs：扫机器型模板，检测 frontmatter 完整性 + 禁止对人解释段 + 行数上限
+# ---------------------------------------------------------------------------
+
+#: LLM-only 文档 lint：禁止出现的"对人解释"段落标题（机器型模板不应含这些标题）
+_LLM_ONLY_FORBIDDEN_HEADINGS = (
+    "## 背景",
+    "## 历史关联",
+    "## 用户原话",
+    "## 修订说明",
+)
+
+#: 机器型模板行数上限（参考 chg-03/chg-04 LLM-only 重写目标：紧凑 markdown，不超 80 行）
+_LLM_ONLY_MAX_LINES = 80
+
+
+def _lint_llm_only_docs(root: Path, verbose: bool = True) -> list[str]:
+    """LLM-only 文档 lint：扫机器型模板，检测 frontmatter + 禁止段落 + 行数上限。
+
+    req-50（现有流程优化：文档 LLM-only 重写 + stage 整合 + done 去 sug 入池 + next 单入口）/
+    chg-05（reviewer 加项 + llm-only-docs contract）
+
+    扫描路径：
+    - src/harness_workflow/assets/skill/assets/templates/（开发仓库）
+    - .claude/skills/harness/assets/templates/（也扫 scaffold 同步产物，但仅在 dev 模式）
+
+    判断"机器型"的方式：frontmatter 中含 operation_type 字段（值不为空）。
+    如果文件连 frontmatter 都没有（不以 '---' 开头），则跳过（不是机器型模板）。
+
+    规则：
+    1. 必须以 '---' YAML frontmatter 开头
+    2. frontmatter 中必须含 operation_type 字段（且值非空占位符模式下可含 {{...}}）
+    3. 禁止含对人解释段落标题（_LLM_ONLY_FORBIDDEN_HEADINGS）
+    4. 行数不超过 _LLM_ONLY_MAX_LINES
+
+    Returns:
+        violations: 违规描述字符串列表；空列表 = 全通过。
+    """
+    violations: list[str] = []
+
+    # 扫描目录：先找 src 路径，再找 .claude 路径（dev 仓中两者都存在）
+    scan_dirs: list[Path] = []
+    src_templates = root / "src" / "harness_workflow" / "assets" / "skill" / "assets" / "templates"
+    if src_templates.exists():
+        scan_dirs.append(src_templates)
+    else:
+        # 用户项目（非 dev）只有 .claude 路径
+        claude_templates = root / ".claude" / "skills" / "harness" / "assets" / "templates"
+        if claude_templates.exists():
+            scan_dirs.append(claude_templates)
+
+    for tmpl_dir in scan_dirs:
+        for tmpl_file in sorted(tmpl_dir.glob("*.tmpl")):
+            try:
+                content = tmpl_file.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            lines = content.splitlines()
+
+            # 只检查机器型模板（以 '---' frontmatter 开头 + 含 operation_type）
+            if not content.startswith("---"):
+                continue  # 非 frontmatter 模板：不是机器型，跳过
+
+            # 解析 frontmatter 块（找到第二个 '---' 为止）
+            fm_end = -1
+            for i, line in enumerate(lines[1:], start=1):
+                if line.strip() == "---":
+                    fm_end = i
+                    break
+            if fm_end < 0:
+                # frontmatter 未闭合 → 视为缺 frontmatter 违规
+                violations.append(
+                    f"{tmpl_file.name}: frontmatter 未闭合（缺第二个 '---'）"
+                )
+                continue
+
+            fm_text = "\n".join(lines[1:fm_end])
+            if "operation_type" not in fm_text:
+                # 有 frontmatter 但无 operation_type → 非机器型，跳过
+                continue
+
+            # 规则 3：禁止对人解释段落标题
+            for forbidden in _LLM_ONLY_FORBIDDEN_HEADINGS:
+                if forbidden in content:
+                    violations.append(
+                        f"{tmpl_file.name}: 含禁止的对人解释段落「{forbidden}」"
+                    )
+
+            # 规则 4：行数上限
+            line_count = len(lines)
+            if line_count > _LLM_ONLY_MAX_LINES:
+                violations.append(
+                    f"{tmpl_file.name}: 行数 {line_count} 超过上限 {_LLM_ONLY_MAX_LINES}"
+                )
+
+    if verbose and not violations:
+        print("PASS: llm-only-docs lint — 所有机器型模板符合 LLM-only 规范")
+    elif verbose and violations:
+        print(f"FAIL: llm-only-docs lint — 发现 {len(violations)} 个违规：")
+        for v in violations:
+            print(f"  {v}")
+
+    return violations
+
+
 def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | None = None) -> int:
-    """CLI 入口：``harness validate --contract {all,7,regression,triggers,role-stage-continuity,artifact-placement,test-case-design-completeness,testing-no-destructive-git}``。
+    """CLI 入口：``harness validate --contract {all,7,regression,triggers,role-stage-continuity,artifact-placement,test-case-design-completeness,testing-no-destructive-git,llm-only-docs}``。
 
     Returns:
         0 = 合规；1 = 发现违规或缺字段；2 = 参数错误。
@@ -1308,5 +1414,11 @@ def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | N
         if rc == 0:
             print("PASS: build-cache-freshness")
         total_violations += rc
+
+    if contract in ("llm-only-docs",):
+        # req-50（现有流程优化）/ chg-05（reviewer 加项 + llm-only-docs contract）:
+        # 扫机器型模板，检测 frontmatter 完整性 + 禁止对人解释段 + 行数上限
+        violations = _lint_llm_only_docs(root, verbose=True)
+        total_violations += len(violations)
 
     return 0 if total_violations == 0 else 1

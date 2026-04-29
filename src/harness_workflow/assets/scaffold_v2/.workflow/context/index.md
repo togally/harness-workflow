@@ -18,9 +18,9 @@
 
 | 角色名称 | 职责 | 文件路径 | model | stages |
 |---------|------|---------|-------|--------|
-| **分析师**（yaml key: analyst） | 澄清用户意图 + 拆分变更 + 制定 plan.md；两 stage（requirement_review + planning）由同一角色执行 | `.workflow/context/roles/analyst.md` | opus | requirement_review, planning |
+| **分析师**（yaml key: analyst） | 澄清用户意图 + 拆分变更 + 制定 plan.md；analysis 单 stage 完成需求澄清、change 拆分与 plan 制定 | `.workflow/context/roles/analyst.md` | opus | analysis |
 
-> 原 requirement-review（需求分析师）+ planning（架构师）合并为 analyst，落地于 req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））。legacy role_key 仍在 role-model-map.yaml 保留作别名，兼容历史归档引用。
+> req-50/chg-01: 原 requirement_review + planning 两 stage 合并为单一 analysis stage。legacy role_key（requirement-review / planning）仍在 role-model-map.yaml 保留作别名，兼容 req-id < 50 历史归档引用。
 | **开发者**（yaml key: executing） | 严格按照 `plan.md` 执行变更，完成后进行内部测试 | `.workflow/context/roles/executing.md` | sonnet | executing |
 | **测试工程师**（yaml key: testing） | 独立设计并执行测试，客观评估实现是否达到需求要求 | `.workflow/context/roles/testing.md` | sonnet | testing |
 | **验收官**（yaml key: acceptance） | 对照需求文档和变更文档逐条核查，辅助人工做出最终验收判定 | `.workflow/context/roles/acceptance.md` | sonnet | acceptance |
@@ -65,11 +65,10 @@
 
 | Stage | exit_decision | 含义 |
 |-------|--------------|------|
-| requirement_review | auto | analyst 自决推进到 planning |
-| planning | user | 需用户对需求 + 拆分一次拍板 |
-| ready_for_execution | explicit | 需 harness next --execute 显式确认 |
+| analysis | user | 需用户对需求 + change + plan 一次拍板（analyst 停下等确认） |
 | executing | auto | 完成态自动转 testing |
 | testing | auto | 完成即转下一格 |
 | acceptance | verdict | PASS → done / FAIL → regression，路由由 verdict 已定 |
-| regression | verdict | diagnosis.md 路由已定下一 stage |
 | done | terminal | 终局 |
+
+> req-50/chg-01: 以上为新 5-stage sequence。legacy stages（requirement_review / planning / ready_for_execution）保留在 role-model-map.yaml 供 req-id < 50 历史归档只读查阅。

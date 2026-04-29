@@ -22,8 +22,8 @@ roles:
     stages: []          # 辅助角色，不覆盖 business stage
 
   analyst:
-    model: "opus"       # 需求澄清 + 变更拆分（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））角色物理合并）
-    stages: ["requirement_review", "planning"]  # req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））落地
+    model: "opus"       # 需求澄清 + 变更拆分（req-50/chg-01: 整合为单一 analysis stage）
+    stages: ["analysis"]  # req-50/chg-01: 新 5-stage sequence（原 requirement_review + planning 合并为 analysis）
 
   regression:
     model: "opus"       # 独立诊断 + 根因判断（开放型）
@@ -62,14 +62,14 @@ roles:
     model: "sonnet"     # 按 checklist 审查（断言型）
     stages: []          # 辅助角色
 
-  # ---- legacy alias（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））兼容历史归档）----
+  # ---- legacy alias（req-40 + req-50/chg-01: 兼容 req-id < 50 历史归档，read-only）----
   requirement-review:
-    model: "opus"       # 需求澄清 / 边界识别（开放型）legacy alias — route to analyst（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+    model: "opus"       # legacy alias — route to analyst（req-id < 50 history archive read-only）
     stages: ["requirement_review"]
     alias_of: "analyst"
 
   planning:
-    model: "opus"       # 变更拆分 + 计划制定（创意型）legacy alias — route to analyst（req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md）））
+    model: "opus"       # legacy alias — route to analyst（req-id < 50 history archive read-only）
     stages: ["planning"]
     alias_of: "analyst"
 
@@ -83,12 +83,9 @@ roles:
 #   terminal  —— 终局，无下游（done）
 # 缺字段时 _get_exit_decision 默认返回 "user"（保守降级，避免误自动跳）。
 stage_policies:
-  requirement_review:
-    exit_decision: auto      # analyst 自决推进到 planning
-  planning:
-    exit_decision: user      # 需用户对需求 + 拆分一次拍板
-  ready_for_execution:
-    exit_decision: explicit  # 需 harness next --execute 显式确认
+  # req-50/chg-01: 新 5-stage sequence
+  analysis:
+    exit_decision: user      # 需用户对需求 + change + plan 一次拍板（analyst 停下等用户确认）
   executing:
     exit_decision: auto      # executing 完成态自动转 testing（无显式 gate）
   testing:
@@ -99,3 +96,10 @@ stage_policies:
     exit_decision: verdict   # diagnosis.md 路由（confirm/reject）已定下一 stage
   done:
     exit_decision: terminal  # 终局
+  # legacy (req-id < 50, history archive read-only)
+  requirement_review:
+    exit_decision: auto      # legacy: analyst 自决推进到 planning
+  planning:
+    exit_decision: user      # legacy: 需用户对需求 + 拆分一次拍板
+  ready_for_execution:
+    exit_decision: explicit  # legacy: 需 harness next --execute 显式确认
