@@ -37,6 +37,9 @@ __all__ = [
     "check_contract_triggers",
     "check_role_stage_continuity",
     "check_stage_work_completion",
+    "check_artifact_placement",
+    "check_schema_audit",
+    "check_missing_document",
     "collect_lint_paths",
     "run_contract_cli",
 ]
@@ -514,7 +517,7 @@ _HUMAN_FACING_PATTERNS = (
 )
 
 
-def check_artifact_placement(root: Path) -> int:
+def check_artifact_placement(root: Path, verbose: bool = True) -> int:
     """artifact-placement lint.
 
     规则 0（新，req-46 / chg-01）：扫 ``artifacts/main/requirements/{req-id}-{slug}/`` 下
@@ -527,10 +530,15 @@ def check_artifact_placement(root: Path) -> int:
     规则 2：扫 ``.workflow/flow/**/*``，命中对人最终产物文件名模式 → FAIL（当前仓库仅 WARN，避免
            因 flow/ 下极少数边缘案例破坏整体流水线）。
 
-    Returns 0 = 全绿，1 = 发现违规。
+    Args:
+        root: 项目根目录
+        verbose: True = 打印 PASS/FAIL 详情；False = 静默（仅 harness next 内部 gate）
+
+    Returns 0 = 全绿，64 = 发现违规（via raise_harness_block）。
 
     bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑））/ A3
     req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）升级
+    bugfix-10（req-48 chg-02 实施缺陷：3 个 contract 未真正接入 raise_harness_block）/ 修复
     """
     artifacts_dir = root / "artifacts"
     violations: list[str] = []
@@ -600,14 +608,178 @@ def check_artifact_placement(root: Path) -> int:
                 violations.append(f"artifacts/ 下发现机器型文件：{rel}")
 
     if violations:
-        print("FAIL: artifact-placement lint — 以下违规文件需迁移到 .workflow/flow/：")
-        print("契约引用：.workflow/flow/repository-layout.md §1 / §3 / §4 禁止行为")
-        print("建议：运行 `harness migrate --bugfix-layout` 迁移历史 bugfix 机器型文档")
-        for v in violations:
-            print(f"  {v}")
-        return 1
+        detail = (
+            f"{len(violations)} violations — 机器型文件落 artifacts/ 区，应在 .workflow/flow/\n"
+            + "\n".join(f"  {v}" for v in violations)
+        )
+        if verbose:
+            print("FAIL: artifact-placement lint — 以下违规文件需迁移到 .workflow/flow/：")
+            print("契约引用：.workflow/flow/repository-layout.md §1 / §3 / §4 禁止行为")
+            for v in violations:
+                print(f"  {v}")
+        try:
+            from harness_workflow.workflow_helpers import raise_harness_block
+            return raise_harness_block(
+                error_type="artifact-placement",
+                fix_checklist_path=".workflow/context/checklists/fix-artifact-placement.md",
+                retry_context={"violations": violations[:5]},
+                severity="FAIL",
+                detected_by="executing",
+                root=root,
+            )
+        except ImportError:
+            return 1
 
-    print("PASS: artifact-placement lint — artifacts/ 下无机器型文件")
+    if verbose:
+        print("PASS: artifact-placement lint — artifacts/ 下无机器型文件")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# req-48（harness-manager 统一异常捕获 + base-role 阻塞抛错协议 + fix-checklist 自动修复体系）
+# / chg-02（fix-checklist 首批 3 个 + lint 输出加指针）
+# bugfix-10（req-48 chg-02 实施缺陷：3 个 contract 未真正接入 raise_harness_block）/ 修复
+# check_schema_audit：扫 .workflow/state/requirements/ 下旧格式目录（无 slug）→ HARNESS_BLOCK
+# ---------------------------------------------------------------------------
+
+
+def check_schema_audit(root: Path, verbose: bool = True) -> int:
+    """schema-audit lint：扫 .workflow/state/requirements/ 下旧格式目录（无 slug，仅 req-NN）→ HARNESS_BLOCK。
+
+    规则：``state/requirements/req-{N}``（纯数字，无 slug 后缀）是 pre-req-30 遗留格式，应归档或重命名。
+    符合格式的 yaml 文件（req-NN-slug.yaml）和 archive/ 子目录豁免。
+
+    Args:
+        root: 项目根目录
+        verbose: True = 打印详情；False = 静默
+
+    Returns 0 = 全绿，64 = 发现违规（via raise_harness_block）。
+    """
+    req_state = root / ".workflow" / "state" / "requirements"
+    violations: list[str] = []
+
+    if req_state.is_dir():
+        for entry in req_state.iterdir():
+            # 豁免：archive/ 子目录
+            if entry.name == "archive":
+                continue
+            # 豁免：正常命名的 yaml 文件（req-NN-slug.yaml）
+            if entry.is_file() and entry.suffix in (".yaml", ".yml"):
+                continue
+            # 检测：目录且名称符合 req-NN（无 slug）模式
+            if entry.is_dir() and re.match(r"^req-\d+$", entry.name):
+                violations.append(f"旧格式目录（无 slug）：{entry.relative_to(root)}/")
+
+    if violations:
+        if verbose:
+            print("FAIL: schema-audit lint — 以下旧格式目录需归档或重命名：")
+            for v in violations:
+                print(f"  {v}")
+            print("fix-checklist: .workflow/context/checklists/fix-schema-audit.md")
+        try:
+            from harness_workflow.workflow_helpers import raise_harness_block
+            return raise_harness_block(
+                error_type="schema-audit",
+                fix_checklist_path=".workflow/context/checklists/fix-schema-audit.md",
+                retry_context={"violations": [str(v) for v in violations[:5]]},
+                severity="FAIL",
+                detected_by="executing",
+                root=root,
+            )
+        except ImportError:
+            return 1
+
+    if verbose:
+        print("PASS: schema-audit lint — state/requirements/ 下无旧格式目录")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# req-48 / chg-02 + bugfix-10
+# check_missing_document：扫 planning 阶段 requirements/{req-id}/ 下 changes/ 为空 → HARNESS_BLOCK
+# ---------------------------------------------------------------------------
+
+
+def check_missing_document(root: Path, verbose: bool = True) -> int:
+    """missing-document lint：planning 阶段下 changes/ 为空（无 chg-XX 子目录）→ HARNESS_BLOCK。
+
+    仅在 runtime.yaml stage=planning 时执行；无 runtime.yaml 则直接 PASS（跳过）。
+    检测：.workflow/flow/requirements/{req-id-slug}/changes/ 存在但为空（无 chg-XX 子目录）→ FAIL。
+
+    Args:
+        root: 项目根目录
+        verbose: True = 打印详情；False = 静默
+
+    Returns 0 = 全绿或已跳过，64 = 发现违规（via raise_harness_block）。
+    """
+    runtime_path = root / ".workflow" / "state" / "runtime.yaml"
+    if not runtime_path.exists():
+        if verbose:
+            print("PASS: missing-document lint — 无 runtime.yaml，跳过检查")
+        return 0
+
+    try:
+        if _YAML_AVAILABLE:
+            runtime_data = _yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+        else:
+            # 极简 fallback：按行 key: value 解析
+            runtime_data = {}
+            for line in runtime_path.read_text(encoding="utf-8").splitlines():
+                if ":" in line:
+                    k, _, v = line.partition(":")
+                    runtime_data[k.strip()] = v.strip().strip('"')
+    except Exception:
+        if verbose:
+            print("PASS: missing-document lint — runtime.yaml 解析失败，跳过检查")
+        return 0
+
+    stage = runtime_data.get("stage", "")
+    current_req = runtime_data.get("current_requirement", "")
+
+    if stage != "planning" or not current_req:
+        if verbose:
+            print(f"PASS: missing-document lint — stage={stage!r}，非 planning，跳过检查")
+        return 0
+
+    # 扫 .workflow/flow/requirements/ 下匹配 current_req 的目录
+    flow_reqs = root / ".workflow" / "flow" / "requirements"
+    violations: list[str] = []
+    if flow_reqs.is_dir():
+        for req_dir in flow_reqs.iterdir():
+            if not req_dir.is_dir():
+                continue
+            # 匹配：目录名以 current_req 开头（req-99 或 req-99-slug）
+            if not req_dir.name.startswith(current_req):
+                continue
+            changes_dir = req_dir / "changes"
+            if changes_dir.is_dir():
+                # 检查是否有 chg-XX 子目录
+                chg_dirs = [c for c in changes_dir.iterdir()
+                            if c.is_dir() and c.name.startswith("chg-")]
+                if not chg_dirs:
+                    violations.append(f"planning 阶段 changes/ 为空：{changes_dir.relative_to(root)}/")
+
+    if violations:
+        if verbose:
+            print("FAIL: missing-document lint — planning 阶段 changes/ 缺 chg-XX 子目录：")
+            for v in violations:
+                print(f"  {v}")
+            print("fix-checklist: .workflow/context/checklists/fix-missing-document.md")
+        try:
+            from harness_workflow.workflow_helpers import raise_harness_block
+            return raise_harness_block(
+                error_type="missing-document",
+                fix_checklist_path=".workflow/context/checklists/fix-missing-document.md",
+                retry_context={"missing": [str(v) for v in violations[:5]]},
+                severity="FAIL",
+                detected_by="executing",
+                root=root,
+            )
+        except ImportError:
+            return 1
+
+    if verbose:
+        print("PASS: missing-document lint — planning 阶段 changes/ 结构完整")
     return 0
 
 
@@ -1077,8 +1249,16 @@ def run_contract_cli(root: Path, contract: str = "all", regression_dir: Path | N
 
     if contract in ("artifact-placement",):
         # 单契约调用：不聚合进 all（历史 bugfix-1~5 存量违规避免污染整体 all）
-        rc = check_artifact_placement(root)
-        total_violations += rc
+        # 直接 return propagate HARNESS_BLOCK exit code（64 / 0）
+        return check_artifact_placement(root, verbose=True)
+
+    if contract in ("schema-audit",):
+        # req-48 / chg-02 + bugfix-10：旧格式目录检测
+        return check_schema_audit(root, verbose=True)
+
+    if contract in ("missing-document",):
+        # req-48 / chg-02 + bugfix-10：planning 阶段 changes/ 为空检测
+        return check_missing_document(root, verbose=True)
 
     if contract in ("test-case-design-completeness",):
         # 单契约调用：仅在 planning / bugfix regression 退出时显式跑

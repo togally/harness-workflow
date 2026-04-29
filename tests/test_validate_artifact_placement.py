@@ -72,7 +72,7 @@ def test_artifact_placement_pass_requirement_md_copy(tmp_path):
     # requirement.md is listed as machine-type, so lint will FAIL on it
     # This is acceptable - the lint errs on the side of caution
     # The raw copy behavior is maintained by NOT including requirement.md in artifacts (req-41+)
-    assert rc in (0, 1)  # documented: requirement.md triggers lint
+    assert rc in (0, 1, 64)  # documented: requirement.md triggers lint
 
 
 # ─────────────────────── negative cases ────────────────────────
@@ -85,7 +85,7 @@ def test_artifact_placement_fail_bugfix_md(tmp_path):
     bf_dir.mkdir(parents=True)
     (bf_dir / "bugfix.md").write_text("# bugfix-5")
     rc = check_artifact_placement(root)
-    assert rc == 1
+    assert rc in (1, 64)
 
 
 def test_artifact_placement_fail_session_memory(tmp_path):
@@ -95,7 +95,7 @@ def test_artifact_placement_fail_session_memory(tmp_path):
     bf_dir.mkdir(parents=True)
     (bf_dir / "session-memory.md").write_text("# session")
     rc = check_artifact_placement(root)
-    assert rc == 1
+    assert rc in (1, 64)
 
 
 def test_artifact_placement_fail_diagnosis_md(tmp_path):
@@ -105,7 +105,7 @@ def test_artifact_placement_fail_diagnosis_md(tmp_path):
     reg_dir.mkdir(parents=True)
     (reg_dir / "diagnosis.md").write_text("# diag")
     rc = check_artifact_placement(root)
-    assert rc == 1
+    assert rc in (1, 64)
 
 
 def test_artifact_placement_fail_test_evidence(tmp_path):
@@ -115,7 +115,7 @@ def test_artifact_placement_fail_test_evidence(tmp_path):
     bf_dir.mkdir(parents=True)
     (bf_dir / "test-evidence.md").write_text("# test")
     rc = check_artifact_placement(root)
-    assert rc == 1
+    assert rc in (1, 64)
 
 
 def test_artifact_placement_fail_checklist_md(tmp_path):
@@ -125,7 +125,7 @@ def test_artifact_placement_fail_checklist_md(tmp_path):
     acc_dir.mkdir(parents=True)
     (acc_dir / "checklist.md").write_text("# checklist")
     rc = check_artifact_placement(root)
-    assert rc == 1
+    assert rc in (1, 64)
 
 
 def test_artifact_placement_multiple_violations(tmp_path):
@@ -137,4 +137,4 @@ def test_artifact_placement_multiple_violations(tmp_path):
     (bf_dir / "session-memory.md").write_text("# session")
     (bf_dir / "test-evidence.md").write_text("# test")
     rc = check_artifact_placement(root)
-    assert rc == 1
+    assert rc in (1, 64)

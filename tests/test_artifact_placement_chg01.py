@@ -151,7 +151,7 @@ class TestTC03_LintCatchesStageDirAndMachineType:
         stage_dir.mkdir(parents=True)
         (stage_dir / "session-memory.md").write_text("# machine type")
         rc = check_artifact_placement(root)
-        assert rc == 1, "Stage-name subdir should trigger FAIL"
+        assert rc in (1, 64), "Stage-name subdir should trigger FAIL"
 
     def test_all_stage_name_subdirs_in_set(self):
         expected = {
@@ -169,7 +169,7 @@ class TestTC03_LintCatchesStageDirAndMachineType:
         stage_dir.mkdir(parents=True)
         # stage-name 子目录本身存在即 FAIL（规则 0）
         rc = check_artifact_placement(root)
-        assert rc == 1
+        assert rc in (1, 64)
 
     def test_session_memory_in_stage_subdir_fails(self, tmp_path):
         root = tmp_path / "repo"
@@ -180,7 +180,7 @@ class TestTC03_LintCatchesStageDirAndMachineType:
         stage_dir.mkdir(parents=True)
         (stage_dir / "session-memory.md").write_text("# reg session")
         rc = check_artifact_placement(root)
-        assert rc == 1
+        assert rc in (1, 64)
 
 
 # ────────────────────────── TC-04 ──────────────────────────────────
@@ -213,7 +213,7 @@ class TestTC04_WhitelistRequirementMd:
         (stage_dir / "requirement.md").write_text("# should not be here")
         rc = check_artifact_placement(root)
         # Both: stage-name dir (rule 0) + requirement.md not at req-level (rule 1) → FAIL
-        assert rc == 1
+        assert rc in (1, 64)
 
 
 # ────────────────────────── TC-05 ──────────────────────────────────
@@ -234,7 +234,7 @@ class TestTC05_NewFilenamesCaughtByLint:
         req_dir.mkdir(parents=True)
         (req_dir / "sug-audit.md").write_text("# sug audit")
         rc = check_artifact_placement(root)
-        assert rc == 1
+        assert rc in (1, 64)
 
     def test_roadmap_in_artifacts_fails(self, tmp_path):
         root = tmp_path / "repo"
@@ -243,7 +243,7 @@ class TestTC05_NewFilenamesCaughtByLint:
         req_dir.mkdir(parents=True)
         (req_dir / "roadmap.md").write_text("# roadmap")
         rc = check_artifact_placement(root)
-        assert rc == 1
+        assert rc in (1, 64)
 
     def test_session_memory_remains_in_machine_type_set(self):
         assert "session-memory.md" in _MACHINE_TYPE_FILENAMES

@@ -312,3 +312,11 @@
 {"ts": "2026-04-28T08:40:02.007834+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
 {"ts": "2026-04-28T08:44:30.106872+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 268.098608}}
 {"ts": "2026-04-28T08:44:30.107191+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}
+{"ts": "2026-04-29T01:48:44.567639+00:00", "event": "stage_skip", "data": {"from_stage": "regression"}}
+{"ts": "2026-04-29T01:48:44.567941+00:00", "event": "ff", "data": {"from_stage": "regression"}}
+{"ts": "2026-04-29T02:06:24.280975+00:00", "event": "stage_duration", "data": {"stage": "executing", "duration_seconds": 1059.714223}}
+{"ts": "2026-04-29T02:06:24.281287+00:00", "event": "stage_advance", "data": {"from_stage": "executing", "to_stage": "testing"}}
+{"ts": "2026-04-29T02:12:48.894917+00:00", "event": "stage_duration", "data": {"stage": "testing", "duration_seconds": 384.613217}}
+{"ts": "2026-04-29T02:12:48.895304+00:00", "event": "stage_advance", "data": {"from_stage": "testing", "to_stage": "acceptance"}}
+{"ts": "2026-04-29T02:15:57.610642+00:00", "event": "stage_duration", "data": {"stage": "acceptance", "duration_seconds": 188.714901}}
+{"ts": "2026-04-29T02:15:57.610979+00:00", "event": "stage_advance", "data": {"from_stage": "acceptance", "to_stage": "done"}}

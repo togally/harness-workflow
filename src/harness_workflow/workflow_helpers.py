@@ -8374,3 +8374,89 @@ def _install_self_audit(root: Path) -> int:
             file=sys.stderr,
         )
     return drift_count
+
+
+# ---------------------------------------------------------------------------
+# req-48（harness-manager 统一异常捕获 + base-role 阻塞抛错协议 + fix-checklist 自动修复体系）
+# / chg-01（错误协议契约 + base-role 抛错门禁 + harness-manager 捕获路由）
+# HARNESS_BLOCK 错误协议 helper
+# ---------------------------------------------------------------------------
+
+def raise_harness_block(
+    error_type: str,
+    fix_checklist_path: str,
+    retry_context: dict,
+    severity: str = "FAIL",
+    detected_by: str = "executing",
+    root: Optional[Path] = None,
+) -> int:
+    """发出 HARNESS_BLOCK 协议信号，写 runtime-block.yaml，返回 exit code。
+
+    三层载体：
+    1. stderr：HARNESS_BLOCK: {error_type} + fix-checklist: ... + severity: ...
+    2. exit code：FAIL=64, ABORT=65, WARN=0
+    3. .workflow/state/runtime-block.yaml：结构化状态文件
+
+    Args:
+        error_type: 已知错误类型（artifact-placement / schema-audit / missing-document / ...）
+        fix_checklist_path: fix-checklist 文件路径（相对或绝对）
+        retry_context: 重试上下文字典（任意键值，存入 yaml）
+        severity: FAIL | ABORT | WARN
+        detected_by: 发现阶段（executing / testing / reviewing / ...）
+        root: 项目根目录（默认 Path('.')）
+
+    Returns:
+        int: 64（FAIL）/ 65（ABORT）/ 0（WARN）
+    """
+    _VALID_SEVERITIES = ("FAIL", "ABORT", "WARN")
+    if severity not in _VALID_SEVERITIES:
+        raise ValueError(f"severity must be FAIL/ABORT/WARN, got: {severity!r}")
+
+    if root is None:
+        root = Path(".")
+
+    # 1) stderr 输出 HARNESS_BLOCK 协议
+    print(f"HARNESS_BLOCK: {error_type}", file=sys.stderr)
+    print(f"  fix-checklist: {fix_checklist_path}", file=sys.stderr)
+    print(f"  severity: {severity}", file=sys.stderr)
+    print(f"  detected-by: {detected_by}", file=sys.stderr)
+
+    # 2) 写 runtime-block.yaml（recovery_attempts 累加）
+    block_path = root / ".workflow" / "state" / "runtime-block.yaml"
+    block_path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing: dict = {}
+    if block_path.exists():
+        try:
+            existing = yaml.safe_load(block_path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            existing = {}
+
+    # recovery_attempts 同 error_type 时累加，换 type 时重置
+    if existing.get("error_type") == error_type:
+        attempts = int(existing.get("recovery_attempts", 0)) + 1
+    else:
+        attempts = 1
+
+    block_data = {
+        "error_type": error_type,
+        "fix_checklist_path": fix_checklist_path,
+        "retry_context": retry_context,
+        "severity": severity,
+        "detected_by": detected_by,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "recovery_attempts": attempts,
+    }
+
+    block_path.write_text(
+        yaml.dump(block_data, allow_unicode=True, default_flow_style=False),
+        encoding="utf-8",
+    )
+
+    # 3) 返回 exit code
+    if severity == "ABORT":
+        return 65
+    elif severity == "WARN":
+        return 0
+    else:  # FAIL
+        return 64
