@@ -163,9 +163,12 @@ def init_playbook(
 
     playbook_dir = root / PLAYBOOK_ROOT_SUFFIX
 
-    # 已存在 → 跳过（幂等）
+    # 已存在 → 跳过（幂等），但检查 LLM 区段是否仍为 TODO 占位
     if playbook_dir.exists() and any(playbook_dir.iterdir()):
         print("playbook 已存在，跳过初始化")
+        # chg-B polish-1：路书已存在但 LLM 区段仍是 TODO 时，仍输出提示句
+        if _check_has_todo_placeholders(root):
+            _print_noop_fill_hint(root)
         return 0
 
     # 推断领域（透传 override_domains）
@@ -188,9 +191,10 @@ def init_playbook(
         print("playbook 已存在，跳过初始化")
 
     # LLM 填充阶段（chg-04：默认开启，--no-llm 或 CI=true 跳过）
+    llm_filled = False
     if not no_llm and os.getenv("CI", "").lower() != "true":
         try:
-            from harness_workflow.playbook.llm import auto_detect_provider
+            from harness_workflow.playbook.llm import auto_detect_provider, NoopProvider
             llm = auto_detect_provider()
             project_metadata = {
                 "project_name": root.name,
@@ -199,7 +203,68 @@ def init_playbook(
                 "matched_mode": matched_mode,
             }
             _fill_with_llm(root, domains, llm, project_metadata)
+            # 若不是 Noop 且调用成功，标记为已填充
+            if not isinstance(llm, NoopProvider):
+                llm_filled = True
         except Exception as e:
             print(f"[llm] WARN: LLM filling phase failed: {e}", file=sys.stderr)
 
+    # chg-A（req-55改进）：LLM 区段未填充时输出提示句（引导 agent 手动填写）
+    # 检测条件：no_llm=True 或使用 NoopProvider（LLM 区段仍为 TODO 占位）
+    _should_print_hint = no_llm or (not llm_filled)
+    if _should_print_hint and written > 0:
+        _print_noop_fill_hint(root)
+
     return 0
+
+
+def _check_has_todo_placeholders(root: Path) -> bool:
+    """检查路书文件中是否仍含 <!-- TODO: 占位（LLM 区段未填充）。"""
+    playbook_dir = root / PLAYBOOK_ROOT_SUFFIX
+    if not playbook_dir.exists():
+        return False
+    for md_file in playbook_dir.rglob("*.md"):
+        try:
+            if "<!-- TODO:" in md_file.read_text(encoding="utf-8"):
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _print_noop_fill_hint(root: Path) -> None:
+    """输出 LLM 区段未填充时的强指令式提示（让 Claude Code / Codex 当前会话立即接力）。"""
+    playbook_root_rel = PLAYBOOK_ROOT_SUFFIX
+    print(
+        f"\n[ASSISTANT INSTRUCTION — REQUIRED FOLLOW-UP, NOT OPTIONAL]\n"
+        f"\n"
+        f"The playbook skeleton was just created but all <!-- LLM:* --> sections\n"
+        f"still contain TODO placeholders (no LLM provider was available: NoopProvider / --no-llm).\n"
+        f"\n"
+        f"You MUST now complete this install by performing these steps **automatically**, without asking\n"
+        f"the user for further confirmation. This is part of `harness install`, not a separate task:\n"
+        f"\n"
+        f"  1. Read all playbook files:\n"
+        f"     - {playbook_root_rel}/overview.md\n"
+        f"     - {playbook_root_rel}/architecture.md\n"
+        f"     - {playbook_root_rel}/code-map.md\n"
+        f"     - {playbook_root_rel}/domains/*/README.md  (one per domain)\n"
+        f"\n"
+        f"  2. Read project context to understand the actual project (do NOT use generic descriptions):\n"
+        f"     - pom.xml / package.json / Cargo.toml / .csproj / pyproject.toml (whichever applies)\n"
+        f"     - sub-module pom.xml files (for nested maven multi-module projects)\n"
+        f"     - top-level README.md / README.zh.md\n"
+        f"     - Key source dirs (controller / service / main entry / domain models)\n"
+        f"\n"
+        f"  3. For every <!-- LLM:NAME --> ... <!-- /LLM:NAME --> section, replace the inner\n"
+        f"     <!-- TODO: ... --> with real, project-specific content. Stay within the marker pair.\n"
+        f"\n"
+        f"  4. Do NOT modify <!-- AUTO:NAME --> ... <!-- /AUTO:NAME --> sections — those are\n"
+        f"     refreshed by `harness playbook-refresh`, not by you.\n"
+        f"\n"
+        f"  5. After all LLM:* sections are filled, run `harness playbook-check --root .` to verify\n"
+        f"     and report completion to the user with a one-line summary (e.g. \"路书 36 domain LLM\n"
+        f"     区段已填好，playbook-check exit 0\").\n"
+        f"\n"
+        f"Begin step 1 immediately. Do not delegate this back to the user.\n"
+    )

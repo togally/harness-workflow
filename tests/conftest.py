@@ -12,15 +12,21 @@ autouse fixture：ensure_no_real_llm
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
-# Ensure src is importable
+# Ensure src is importable (in-process)
 _SRC = str(Path(__file__).resolve().parents[1] / "src")
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
+
+# Ensure subprocesses can also import harness_workflow (no install required)
+_existing_pp = os.environ.get("PYTHONPATH", "")
+if _SRC not in _existing_pp.split(os.pathsep):
+    os.environ["PYTHONPATH"] = _SRC + (os.pathsep + _existing_pp if _existing_pp else "")
 
 
 @pytest.fixture(autouse=True)

@@ -65,7 +65,7 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
     if not sys.stdin.isatty():
         if current_platforms:
             return current_platforms
-        return ["codex", "qoder", "cc", "kimi"]
+        return ["codex", "cc"]
 
     platforms = questionary.checkbox(
         "选择要支持的平台（空格选择，回车确认）:",
@@ -76,19 +76,9 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
                 "checked": current_platforms is None or "codex" in (current_platforms or [])
             },
             {
-                "name": "qoder (.qoder/skills/harness/SKILL.md)",
-                "value": "qoder",
-                "checked": current_platforms is None or "qoder" in (current_platforms or [])
-            },
-            {
                 "name": "cc (.claude/commands/)",
                 "value": "cc",
                 "checked": current_platforms is None or "cc" in (current_platforms or [])
-            },
-            {
-                "name": "kimi (.kimi/skills/harness/SKILL.md)",
-                "value": "kimi",
-                "checked": current_platforms is None or "kimi" in (current_platforms or []),
             },
         ]
     ).ask()
@@ -107,17 +97,15 @@ def prompt_agent_selection() -> str | None:
 
     # If not in an interactive terminal, return default
     if not sys.stdin.isatty():
-        return "kimi"
+        return "cc"
 
     agent = questionary.select(
         "选择目标 agent:",
         choices=[
-            Choice.build({"name": "kimi (.kimi/skills/)", "value": "kimi"}),
-            Choice.build({"name": "claude (.claude/skills/)", "value": "claude"}),
+            Choice.build({"name": "cc (.claude/skills/)", "value": "cc"}),
             Choice.build({"name": "codex (.codex/skills/)", "value": "codex"}),
-            Choice.build({"name": "qoder (.qoder/skills/)", "value": "qoder"}),
         ],
-        default="kimi",
+        default="cc",
     ).ask()
 
     return agent
@@ -166,7 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser = subparsers.add_parser("install", help="Install harness skill and initialize current repository.")
     install_parser.add_argument("--root", default=".", help="Repository root.")
     install_parser.add_argument("--force-skill", action="store_true", help="Overwrite existing local project skills.")
-    install_parser.add_argument("--agent", choices=["kimi", "claude", "codex", "qoder"], help="Install harness skill to specific agent directory.")
+    install_parser.add_argument("--agent", choices=["cc", "claude", "codex"], help="Install harness skill to specific agent directory.")
     # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 harness update --flag
     # 的 install_repo hack）：install 子命令加 --check / --force-managed / --all-platforms
     # 三 flag，透传给 install_repo（与原 update 子命令同名同 dest，行为对齐）。
@@ -271,7 +259,7 @@ def build_parser() -> argparse.ArgumentParser:
     # bugfix-3（新）问题 1：单 agent 作用域 + 全平台 escape hatch
     update_parser.add_argument(
         "--agent",
-        choices=["claude", "codex", "qoder", "kimi"],
+        choices=["claude", "codex", "cc"],
         help="Override active agent for this update only (does not persist).",
     )
     update_parser.add_argument(
@@ -332,6 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
     next_parser.add_argument("--root", default=".", help="Repository root.")
+    next_parser.add_argument("--execute", action="store_true", help="Confirm execution when stage=ready_for_execution.")
 
     ff_parser = subparsers.add_parser("ff", help="Fast-forward workflow stages until execution confirmation.")
     ff_parser.add_argument("--root", default=".", help="Repository root.")
@@ -348,6 +337,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="配合 --auto：low=仅 low 风险自动 ack，all=全部自动 ack，未传=每条决策点都交互。",
     )
 
+    trivial_parser = subparsers.add_parser("trivial", help="Create a trivial task (req-49: lightweight track for small changes).")
+    trivial_parser.add_argument("title", nargs="?", help="Trivial task title.")
+    trivial_parser.add_argument("--root", default=".", help="Repository root.")
+    trivial_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
+
     req_parser = subparsers.add_parser("requirement", help="Create a requirement inside the active version.")
     req_parser.add_argument("title", nargs="?", help="Requirement title.")
     req_parser.add_argument("--root", default=".", help="Repository root.")
@@ -359,6 +353,7 @@ def build_parser() -> argparse.ArgumentParser:
     bugfix_parser.add_argument("--root", default=".", help="Repository root.")
     bugfix_parser.add_argument("--id", help="Optional explicit bugfix id.")
     bugfix_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
+    bugfix_parser.add_argument("--force-full", action="store_true", dest="force_full", help="Force full workflow (suppress trivial-track hint).")
 
     change_parser = subparsers.add_parser("change", help="Create a change inside the active version.")
     change_parser.add_argument("title", nargs="?", help="Change title.")
@@ -626,6 +621,8 @@ def main() -> int:
         return _run_tool_script("harness_validate.py", [], root)
     if args.command == "next":
         cmd_args = []
+        if getattr(args, "execute", False):
+            cmd_args.append("--execute")
         return _run_tool_script("harness_next.py", cmd_args, root)
     if args.command == "ff":
         auto_flag = getattr(args, "auto", False)
@@ -637,6 +634,13 @@ def main() -> int:
             from harness_workflow.ff_auto import workflow_ff_auto
             return workflow_ff_auto(root, auto_accept=auto_accept)
         return _run_tool_script("harness_ff.py", [], root)
+    if args.command == "trivial":
+        from harness_workflow.workflow_helpers import create_trivial as _create_trivial
+        title_val = (getattr(args, "title", None) or getattr(args, "title_flag", None) or "").strip()
+        if not title_val:
+            print("A trivial task title is required.", file=sys.stderr)
+            return 1
+        return _create_trivial(root, title_val)
     if args.command == "requirement":
         cmd_args = []
         if args.title:

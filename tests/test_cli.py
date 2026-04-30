@@ -200,14 +200,12 @@ class HarnessCliTest(unittest.TestCase):
         self.assertTrue((self.repo / ".workflow" / "tools" / "catalog" / "agent.md").exists())
         self.assertTrue((self.repo / ".workflow" / "tools" / "stage-tools.md").exists())
 
-    def test_install_writes_three_platform_hard_gate_entrypoints(self) -> None:
+    def test_install_writes_two_platform_hard_gate_entrypoints(self) -> None:
         result = self.run_cli("install", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         entry_files = [
             self.repo / "AGENTS.md",
             self.repo / "CLAUDE.md",
-            self.repo / ".qoder" / "rules" / "harness-workflow.md",
-            self.repo / ".qoder" / "commands" / "harness.md",
             self.repo / ".claude" / "commands" / "harness.md",
             self.repo / ".codex" / "skills" / "harness" / "SKILL.md",
         ]
@@ -399,29 +397,24 @@ class HarnessCliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertEqual(self.read_runtime()["current_version"], "v1.0.0")
 
-    def test_update_check_and_apply_refresh_qoder_skill_and_rule(self) -> None:
+    def test_update_check_and_apply_refresh_cc_skill(self) -> None:
         self.run_cli("install", "--root", str(self.repo))
-        # Default install seeds only the codex skill; explicitly enable the qoder
-        # skill so this test can exercise update refresh behavior for qoder.
-        self.run_cli("install", "--root", str(self.repo), "--agent", "qoder")
-        qoder_skill = self.repo / ".qoder" / "skills" / "harness" / "SKILL.md"
-        qoder_command = self.repo / ".qoder" / "commands" / "harness-requirement.md"
-        claude_command = self.repo / ".claude" / "commands" / "harness-requirement.md"
+        # Explicitly enable the cc skill so this test can exercise update refresh behavior for cc.
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
+        cc_skill = self.repo / ".claude" / "skills" / "harness" / "SKILL.md"
+        cc_command = self.repo / ".claude" / "commands" / "harness-requirement.md"
         codex_wrapper = self.repo / ".codex" / "skills" / "harness-requirement" / "SKILL.md"
-        qoder_rule = self.repo / ".qoder" / "rules" / "harness-workflow.md"
         context_index = self.repo / ".workflow" / "context" / "index.md"
-        qoder_skill.write_text("tampered qoder skill\n", encoding="utf-8")
-        qoder_command.unlink()
-        claude_command.unlink()
+        cc_skill.write_text("tampered cc skill\n", encoding="utf-8")
+        cc_command.unlink()
         codex_wrapper.unlink()
-        qoder_rule.unlink()
         context_index.unlink()
 
         # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 update --flag hack）：
         # 刷新职责已迁到 `harness install --check / --all-platforms`，`harness update --flag`
         # 硬 fail，本用例改走 `harness install` 入口。
         check = self.run_cli(
-            "install", "--root", str(self.repo), "--agent", "qoder",
+            "install", "--root", str(self.repo), "--agent", "cc",
             "--check", "--all-platforms",
         )
         self.assertEqual(check.returncode, 0, msg=check.stderr or check.stdout)
@@ -429,15 +422,13 @@ class HarnessCliTest(unittest.TestCase):
 
         # 实际刷新通过 `harness install --all-platforms` 完成。
         apply = self.run_cli(
-            "install", "--root", str(self.repo), "--agent", "qoder", "--all-platforms"
+            "install", "--root", str(self.repo), "--agent", "cc", "--all-platforms"
         )
         self.assertEqual(apply.returncode, 0, msg=apply.stderr or apply.stdout)
-        self.assertTrue(qoder_command.exists())
-        self.assertTrue(claude_command.exists())
+        self.assertTrue(cc_command.exists())
         self.assertTrue(codex_wrapper.exists())
-        self.assertTrue(qoder_rule.exists())
         self.assertTrue(context_index.exists())
-        self.assertIn("# Harness", qoder_skill.read_text(encoding="utf-8"))
+        self.assertIn("# Harness", cc_skill.read_text(encoding="utf-8"))
 
     def test_update_bare_prints_role_contract_guidance(self) -> None:
         """bugfix-1 AC-4：裸 `harness update`（无任何刷新 flag）仍打印 req-33 / chg-02 引导三行 + rc=0。"""

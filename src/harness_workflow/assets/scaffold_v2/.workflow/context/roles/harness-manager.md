@@ -95,7 +95,7 @@ harness <verb> [noun] [--flags]
 为每类命令提取关键参数：
 
 **安装更新类**：
-- `install [--agent <kimi|claude|codex|qoder>]` — 安装到指定 agent
+- `install [--agent <cc|codex>]` — 安装到指定 agent
 - `update [--check|--force-managed|--scan]` — 更新项目
 - `language <english|cn>` — 设置语言
 
@@ -152,8 +152,6 @@ harness <verb> [noun] [--flags]
 | `.workflow/context/roles/` | 角色定义 |
 | `.codex/skills/harness/` | Codex agent skill |
 | `.claude/skills/harness/` | Claude agent skill |
-| `.kimi/skills/harness/` | Kimi agent skill |
-| `.qoder/skills/harness/` | Qoder agent skill |
 
 #### 2.3 工作流状态检查
 
@@ -607,7 +605,7 @@ grep -c "项目级加载链（硬门禁八，必读）" <subagent-briefing.md>
 5. 更新 bootstrap 指令
 
 **参数**:
-- `agent`: kimi | claude | codex | qoder
+- `agent`: cc | codex
 
 #### A.3 `harness update`（req-33 / chg-02 重定义 + bugfix-1 flag 路由修正）
 
@@ -628,7 +626,7 @@ grep -c "项目级加载链（硬门禁八，必读）" <subagent-briefing.md>
 3. 与 `harness update` CLI 无强绑定：用户不跑 CLI 也可直接在会话中说触发词；CLI 仅作引导提示入口。
 
 **不包含**（裸 update / 无 flag 时仍适用）:
-- 不再刷新 `.codex/skills/harness` / `.claude/skills/harness` / `.qoder/skills/harness`（请用 `harness install` 或 `harness update --force-managed`）
+- 不再刷新 `.codex/skills/harness` / `.claude/skills/harness`（请用 `harness install` 或 `harness update --force-managed`）
 - 不再同步 managed 文件 / 清理 legacy artifacts / 迁移 state / 刷新 experience index（请用 `harness install`）
 - 不再写盘 `.workflow/context/project-profile.md`（请用 `harness install`）
 
@@ -915,7 +913,6 @@ src/harness_workflow/
 │   └── harness/
 │       ├── SKILL.md              # 主 skill 模板
 │       ├── agent/                 # agent 差异化配置
-│       │   ├── kimi.md
 │       │   ├── claude.md
 │       │   └── codex.md
 │       └── commands/              # 命令特定模板

@@ -1145,7 +1145,7 @@ def check_user_write_protected_zones(root: Path) -> int:
     )
 
     # bugfix-9 / chg-02（skill/commands 目录移出扫描列表修复误报）：
-    # .{claude,codex,kimi,qoder}/skills/ 与 .{claude,codex,kimi,qoder}/commands/ 是
+    # .{claude,codex}/skills/ 与 .{claude,codex}/commands/ 是
     # install_local_skills() 的纯工具产出目录，不可能有用户自定义文件（install 时会全量覆盖）。
     # 误入保护列表导致 PetMall 等项目每次 install 后产生 269 个误报 violation。
     # 简单方案：直接将这些目录从 protected_zones 中移除，只保留 .workflow/。

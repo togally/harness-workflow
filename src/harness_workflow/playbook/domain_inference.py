@@ -112,9 +112,69 @@ class MavenMultiModuleDetector(DomainDetector):
 
     扫 {root}/pom.xml 中 <modules> 段提取子模块名。
     若无 <modules> 但根下有 >=2 个含 pom.xml 的子目录 → A3 fallback。
+
+    支持递归 nested pom（chg-A req-55改进）：
+    - 若子模块的 pom.xml 含 <packaging>pom</packaging>，视为聚合模块，递归展开它的 <modules>
+    - 聚合模块本身不出现在结果中，被其子模块替代
+    - max_depth=5 防无限递归
     """
     name = "maven_multi_module"
     priority = 10
+
+    _MAX_DEPTH = 5
+
+    def _extract_modules_from_pom(self, pom_path: Path) -> list[str]:
+        """从 pom.xml 中提取 <modules> 段的子模块名列表，无 <modules> 返回空列表。"""
+        try:
+            content = pom_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return []
+        modules_block = re.search(r'<modules>(.*?)</modules>', content, re.DOTALL)
+        if not modules_block:
+            return []
+        return re.findall(r'<module>\s*([^<\s]+)\s*</module>', modules_block.group(1))
+
+    def _is_aggregator_pom(self, pom_path: Path) -> bool:
+        """判断 pom.xml 是否为聚合模块（含 <packaging>pom</packaging>）。"""
+        try:
+            content = pom_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return False
+        return bool(re.search(r'<packaging>\s*pom\s*</packaging>', content))
+
+    def _resolve_modules(self, parent_dir: Path, module_names: list[str], depth: int) -> list[str]:
+        """递归展开模块列表：聚合模块 → 展开其子模块；叶子模块 → 保留。
+
+        Args:
+            parent_dir: 包含这些模块的目录（被解析 pom 所在目录）。
+            module_names: 当前层级的子模块名列表。
+            depth: 当前递归深度（初始调用传 1）。
+
+        Returns:
+            展开后的叶子模块名列表（聚合模块被替换，不出现在结果中）。
+        """
+        if depth > self._MAX_DEPTH:
+            # 超过最大深度，原样返回（防无限循环）
+            return list(module_names)
+
+        result = []
+        for mod in module_names:
+            sub_pom = parent_dir / mod / "pom.xml"
+            if sub_pom.exists() and self._is_aggregator_pom(sub_pom):
+                # 聚合模块：递归展开它的子模块
+                nested_names = self._extract_modules_from_pom(sub_pom)
+                if nested_names:
+                    expanded = self._resolve_modules(
+                        parent_dir / mod, nested_names, depth + 1
+                    )
+                    result.extend(expanded)
+                else:
+                    # 聚合模块但无 <modules> 内容，保留原模块（降级保守行为）
+                    result.append(mod)
+            else:
+                # 叶子模块（jar/war 或无 pom.xml）→ 保留
+                result.append(mod)
+        return result
 
     def detect(self, root: Path) -> Optional[tuple[str, list[str]]]:
         pom = root / "pom.xml"
@@ -128,7 +188,9 @@ class MavenMultiModuleDetector(DomainDetector):
         if modules_block:
             module_names = re.findall(r'<module>\s*([^<\s]+)\s*</module>', modules_block.group(1))
             if module_names:
-                return self.name, module_names
+                # 递归展开嵌套聚合模块（chg-A：nested pom 支持）
+                resolved = self._resolve_modules(root, module_names, depth=1)
+                return self.name, resolved
 
         # A3 fallback：根下 >=2 个含 pom.xml 的子目录
         subdirs_with_pom = sorted(

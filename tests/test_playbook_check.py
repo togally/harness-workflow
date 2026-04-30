@@ -275,7 +275,8 @@ def test_tc07_k01_keyword_coverage(tmp_path, capsys):
 
     rc = playbook_check(tmp_path)
     captured = capsys.readouterr()
-    assert rc == 1
+    # chg-B polish-2: K-01 降级为 warn 不阻断 (rc 0)，但 stdout 仍报命中
+    assert rc == 0
     assert "empty keywords" in captured.out.lower() or "k-01" in captured.out.lower()
 
 

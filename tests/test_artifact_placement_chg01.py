@@ -37,49 +37,36 @@ REQ46_SLUG = "req-46-建议池梳理验证-优先级-roadmap-分批落地"
 CHG01_SLUG = "chg-01-机器型工件路径修复-防再犯-lint"
 
 
+def _req46_flow_base() -> Path:
+    """Return req-46 flow directory (active or archive)."""
+    active = REPO_ROOT / ".workflow/flow/requirements" / REQ46_SLUG
+    if active.exists():
+        return active
+    archive = REPO_ROOT / ".workflow/flow/archive/main" / REQ46_SLUG
+    if archive.exists():
+        return archive
+    return active  # return active path for error messages
+
+
 # ────────────────────────── TC-01 ──────────────────────────────────
 
 class TestTC01_FileRegressionAndCleanup:
     """TC-01: 4 文件物理回归 + 2 空目录清理 + requirement.md 保留."""
 
     def test_req_review_session_memory_in_flow(self):
-        target = (
-            REPO_ROOT
-            / ".workflow/flow/requirements"
-            / REQ46_SLUG
-            / "requirement-review"
-            / "session-memory.md"
-        )
+        target = _req46_flow_base() / "requirement-review" / "session-memory.md"
         assert target.is_file(), f"Missing: {target}"
 
     def test_req_review_sug_audit_in_flow(self):
-        target = (
-            REPO_ROOT
-            / ".workflow/flow/requirements"
-            / REQ46_SLUG
-            / "requirement-review"
-            / "sug-audit.md"
-        )
+        target = _req46_flow_base() / "requirement-review" / "sug-audit.md"
         assert target.is_file(), f"Missing: {target}"
 
     def test_planning_session_memory_in_flow(self):
-        target = (
-            REPO_ROOT
-            / ".workflow/flow/requirements"
-            / REQ46_SLUG
-            / "planning"
-            / "session-memory.md"
-        )
+        target = _req46_flow_base() / "planning" / "session-memory.md"
         assert target.is_file(), f"Missing: {target}"
 
     def test_planning_roadmap_in_flow(self):
-        target = (
-            REPO_ROOT
-            / ".workflow/flow/requirements"
-            / REQ46_SLUG
-            / "planning"
-            / "roadmap.md"
-        )
+        target = _req46_flow_base() / "planning" / "roadmap.md"
         assert target.is_file(), f"Missing: {target}"
 
     def test_requirement_review_dir_gone_from_artifacts(self):
@@ -101,13 +88,12 @@ class TestTC01_FileRegressionAndCleanup:
         assert not bad_dir.exists(), f"Stage dir should be gone: {bad_dir}"
 
     def test_requirement_md_whitelist_raw_copy_preserved(self):
-        wl = (
-            REPO_ROOT
-            / "artifacts/main/requirements"
-            / REQ46_SLUG
-            / "requirement.md"
+        # req-46's requirement.md may be in artifacts (active) or in flow/archive (if archived)
+        wl_artifacts = REPO_ROOT / "artifacts/main/requirements" / REQ46_SLUG / "requirement.md"
+        wl_flow = _req46_flow_base() / "requirement.md"
+        assert wl_artifacts.is_file() or wl_flow.is_file(), (
+            f"requirement.md not found in artifacts ({wl_artifacts}) or flow ({wl_flow})"
         )
-        assert wl.is_file(), f"Whitelist raw copy should remain: {wl}"
 
 
 # ────────────────────────── TC-02 ──────────────────────────────────
@@ -300,10 +286,12 @@ class TestTC07_Sug35FrontmatterFlip:
 
     SUG_35_PATTERN = "sug-35-reviewer-checklist-artifact-placement-test-case-design-completeness-lint.md"
     SUGGESTIONS_DIR = REPO_ROOT / ".workflow/flow/suggestions"
+    # Note: archive may be at suggestions/archive/ (nested) or flow/archive/suggestions/ (flat)
     ARCHIVE_DIR = REPO_ROOT / ".workflow/flow/archive/suggestions"
+    ARCHIVE_DIR_NESTED = REPO_ROOT / ".workflow/flow/suggestions/archive"
 
     def _find_sug35(self) -> Path | None:
-        for search_dir in (self.SUGGESTIONS_DIR, self.ARCHIVE_DIR):
+        for search_dir in (self.SUGGESTIONS_DIR, self.ARCHIVE_DIR, self.ARCHIVE_DIR_NESTED):
             if search_dir.is_dir():
                 for f in search_dir.iterdir():
                     if f.name == self.SUG_35_PATTERN:
@@ -337,22 +325,19 @@ class TestTC07_Sug35FrontmatterFlip:
 class TestTC08_Dogfood:
     """TC-08: Dogfood — 本 chg 自身工件落 .workflow/flow/，非 artifacts/."""
 
-    CHG01_FLOW_DIR = (
-        REPO_ROOT
-        / ".workflow/flow/requirements"
-        / REQ46_SLUG
-        / "changes"
-        / CHG01_SLUG
-    )
+    @property
+    def CHG01_FLOW_DIR(self) -> Path:
+        """req-46/chg-01 flow directory (active or archive)."""
+        return _req46_flow_base() / "changes" / CHG01_SLUG
 
     def test_change_md_in_flow(self):
-        assert (self.CHG01_FLOW_DIR / "change.md").is_file()
+        assert (self.CHG01_FLOW_DIR / "change.md").is_file(), f"Missing: {self.CHG01_FLOW_DIR}/change.md"
 
     def test_plan_md_in_flow(self):
-        assert (self.CHG01_FLOW_DIR / "plan.md").is_file()
+        assert (self.CHG01_FLOW_DIR / "plan.md").is_file(), f"Missing: {self.CHG01_FLOW_DIR}/plan.md"
 
     def test_session_memory_in_flow(self):
-        assert (self.CHG01_FLOW_DIR / "session-memory.md").is_file()
+        assert (self.CHG01_FLOW_DIR / "session-memory.md").is_file(), f"Missing: {self.CHG01_FLOW_DIR}/session-memory.md"
 
     def test_no_machine_type_files_in_artifacts_req46(self):
         """chg-01 执行后，artifacts/main/requirements/req-46-.../ 下无机器型工件."""

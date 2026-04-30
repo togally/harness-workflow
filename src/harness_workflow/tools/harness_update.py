@@ -22,7 +22,7 @@ def main() -> int:
     # bugfix-3（新）问题 1：新增 --agent X 一次性覆盖 + --all-platforms escape hatch
     parser.add_argument(
         "--agent",
-        choices=["claude", "codex", "qoder", "kimi"],
+        choices=["claude", "codex", "cc"],
         help="Override active agent for this update only (does not persist).",
     )
     parser.add_argument(

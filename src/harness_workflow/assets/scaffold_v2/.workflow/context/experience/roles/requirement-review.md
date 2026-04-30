@@ -34,7 +34,7 @@ req-02 planning 阶段
 检查方法：
 ```bash
 # 检查项目内引用
-grep -rn "versions" .claude/ .codex/ .qoder/
+grep -rn "versions" .claude/ .codex/
 # 检查已安装包
 find ~/.local/pipx -name "*.py" | xargs grep -l "versions" 2>/dev/null
 ```

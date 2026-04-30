@@ -437,7 +437,13 @@ def test_get_role_skips_alias() -> None:
 
 
 def test_load_role_stage_map_v2() -> None:
-    """_load_role_stage_map 加载真实 v2 yaml 并返回正确格式。"""
+    """_load_role_stage_map 加载真实 v2 yaml 并返回正确格式。
+
+    upstream-fix: req-50/chg-01 合并 requirement_review + planning 为 analysis 单 stage，
+    analyst 角色 stages 仅含 ["analysis"]（新 5-stage 工作流）。
+    legacy stages (requirement_review / planning) 作为别名保留在 role-model-map.yaml，
+    但不再是 analyst canonical stages 列表的一部分。
+    """
     role_map = _load_role_stage_map(ROOT)
     assert isinstance(role_map, dict), "_load_role_stage_map should return dict"
     assert "analyst" in role_map
@@ -445,8 +451,8 @@ def test_load_role_stage_map_v2() -> None:
     assert isinstance(analyst, dict)
     assert "model" in analyst
     assert "stages" in analyst
-    assert "requirement_review" in analyst["stages"]
-    assert "planning" in analyst["stages"]
+    # req-50/chg-01: analysis replaces requirement_review + planning
+    assert "analysis" in analyst["stages"], f"analyst stages should contain 'analysis', got {analyst['stages']}"
 
 
 def test_role_model_map_version_is_2() -> None:

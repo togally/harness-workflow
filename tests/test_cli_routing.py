@@ -48,14 +48,14 @@ class CliRoutingTest(unittest.TestCase):
     # ----- install 路径 4 个用例 -----
 
     def test_install_with_agent_invokes_install_repo(self) -> None:
-        """harness install --agent kimi 必须调用 install_repo（stdout 含 "Update summary"）。
+        """harness install --agent cc 必须调用 install_repo（stdout 含 "Update summary"）。
 
         当前状态（chg-07 STEP-1 红）：cli.py:387 install 子命令只调 _run_tool_script
         ("harness_install.py", ["--agent", agent], root) → tools/harness_install.py
         只调 install_agent，不调 install_repo → 不输出 "Update summary"。
         STEP-2 绿：tools/harness_install.py main() 末尾追加 install_repo(root) 调用。
         """
-        result = self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        result = self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertIn(
             "Update summary",
@@ -66,7 +66,7 @@ class CliRoutingTest(unittest.TestCase):
     def test_install_check_passes_check_kwarg_to_install_repo(self) -> None:
         """harness install --check 必须透传 check=True（dry-run，不写文件 + 打印 "No files were changed."）。"""
         # 先做一次正常 install 让仓库进入 managed 态
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         # 篡改一个 mirror 文件让 dry-run 能看到 drift（context/index.md 是 mirror 内容）
         index_md = self.repo / ".workflow" / "context" / "index.md"
         if index_md.exists():
@@ -75,7 +75,7 @@ class CliRoutingTest(unittest.TestCase):
         try:
             # --check 必须以 check=True 调 install_repo（不写文件 + 输出 "No files were changed."）
             result = self.run_cli(
-                "install", "--root", str(self.repo), "--agent", "kimi", "--check"
+                "install", "--root", str(self.repo), "--agent", "cc", "--check"
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
             self.assertIn("Update summary", result.stdout)
@@ -98,13 +98,13 @@ class CliRoutingTest(unittest.TestCase):
     def test_install_force_managed_passes_kwarg_to_install_repo(self) -> None:
         """harness install --force-managed 必须透传 force_managed=True（覆盖用户篡改的 managed 文件）。"""
         # 先做一次正常 install
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         # 篡改 managed 文件 context/index.md
         index_md = self.repo / ".workflow" / "context" / "index.md"
         self.assertTrue(index_md.exists(), msg="预置失败：index.md 应存在")
         index_md.write_text("# tampered\n", encoding="utf-8")
         # 不带 --force-managed：should skip user-modified（不覆盖）
-        result_no_force = self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        result_no_force = self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         self.assertEqual(result_no_force.returncode, 0, msg=result_no_force.stderr or result_no_force.stdout)
         self.assertEqual(
             index_md.read_text(encoding="utf-8"),
@@ -113,7 +113,7 @@ class CliRoutingTest(unittest.TestCase):
         )
         # 带 --force-managed：should overwrite
         result_force = self.run_cli(
-            "install", "--root", str(self.repo), "--agent", "kimi", "--force-managed"
+            "install", "--root", str(self.repo), "--agent", "cc", "--force-managed"
         )
         self.assertEqual(result_force.returncode, 0, msg=result_force.stderr or result_force.stdout)
         self.assertNotEqual(
@@ -125,7 +125,7 @@ class CliRoutingTest(unittest.TestCase):
     def test_install_all_platforms_passes_kwarg_to_install_repo(self) -> None:
         """harness install --all-platforms 必须透传 force_all_platforms=True（不被 active_agent 收敛）。"""
         # 先 install kimi 和 claude，让两个 platform 都进入 managed
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         self.run_cli("install", "--root", str(self.repo), "--agent", "claude")
         # 篡改 claude 的 managed 文件
         claude_skill = self.repo / ".claude" / "skills" / "harness" / "SKILL.md"
@@ -133,7 +133,7 @@ class CliRoutingTest(unittest.TestCase):
         claude_skill.write_text("# tampered claude skill\n", encoding="utf-8")
         # active_agent 是 claude（最后 install 的），跑 --all-platforms 必须不被收敛
         result = self.run_cli(
-            "install", "--root", str(self.repo), "--agent", "kimi",
+            "install", "--root", str(self.repo), "--agent", "cc",
             "--all-platforms", "--force-managed"
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
@@ -148,7 +148,7 @@ class CliRoutingTest(unittest.TestCase):
 
     def test_update_with_check_flag_hard_fails_with_migration_hint(self) -> None:
         """harness update --check 必须硬 fail（exit 1）+ stderr 含迁移提示。"""
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         result = self.run_cli("update", "--root", str(self.repo), "--check")
         self.assertEqual(
             result.returncode, 1,
@@ -164,7 +164,7 @@ class CliRoutingTest(unittest.TestCase):
 
     def test_update_with_force_managed_flag_hard_fails_with_migration_hint(self) -> None:
         """harness update --force-managed 必须硬 fail（exit 1）+ stderr 含迁移提示。"""
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         result = self.run_cli("update", "--root", str(self.repo), "--force-managed")
         self.assertEqual(result.returncode, 1, msg=result.stderr or result.stdout)
         self.assertIn("harness install --force-managed", result.stderr)
@@ -172,16 +172,16 @@ class CliRoutingTest(unittest.TestCase):
 
     def test_update_with_all_platforms_flag_hard_fails_with_migration_hint(self) -> None:
         """harness update --all-platforms 必须硬 fail（exit 1）+ stderr 含迁移提示。"""
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         result = self.run_cli("update", "--root", str(self.repo), "--all-platforms")
         self.assertEqual(result.returncode, 1, msg=result.stderr or result.stdout)
         self.assertIn("harness install --all-platforms", result.stderr)
         self.assertNotIn("Update summary", result.stdout)
 
     def test_update_with_agent_flag_hard_fails_with_migration_hint(self) -> None:
-        """harness update --agent kimi 必须硬 fail（exit 1）+ stderr 含迁移提示。"""
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
-        result = self.run_cli("update", "--root", str(self.repo), "--agent", "kimi")
+        """harness update --agent cc 必须硬 fail（exit 1）+ stderr 含迁移提示。"""
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
+        result = self.run_cli("update", "--root", str(self.repo), "--agent", "cc")
         self.assertEqual(result.returncode, 1, msg=result.stderr or result.stdout)
         self.assertIn("harness install --agent", result.stderr)
         self.assertNotIn("Update summary", result.stdout)
@@ -190,7 +190,7 @@ class CliRoutingTest(unittest.TestCase):
 
     def test_update_bare_still_prints_role_contract_guidance(self) -> None:
         """裸 harness update（无任何 flag）仍打印 req-33 / chg-02 三行引导 + exit 0。"""
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         result = self.run_cli("update", "--root", str(self.repo))
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertIn("harness update 已重定义为角色契约触发", result.stdout)
@@ -199,7 +199,7 @@ class CliRoutingTest(unittest.TestCase):
 
     def test_update_scan_still_routes_to_scan_project(self) -> None:
         """harness update --scan 仍调 scan_project（保留分支，与 install_repo 无关）。"""
-        self.run_cli("install", "--root", str(self.repo), "--agent", "kimi")
+        self.run_cli("install", "--root", str(self.repo), "--agent", "cc")
         result = self.run_cli("update", "--root", str(self.repo), "--scan")
         self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
         self.assertIn("项目适配报告", result.stdout)

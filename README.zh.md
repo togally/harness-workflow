@@ -36,6 +36,13 @@ pipx reinstall harness-workflow
 pipx upgrade harness-workflow
 ```
 
+若通过 pip 安装，升级命令为：
+
+```bash
+pip install -U harness-workflow
+harness update           # 升级后刷新仓库受管文件（AC-10 下游刷新模板）
+```
+
 **开发者 / 本机要改源码** — 使用 editable 模式安装，源码改动即时生效：
 
 ```bash

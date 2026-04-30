@@ -51,6 +51,13 @@ If you need to overwrite existing skill files (e.g., after a breaking update):
 harness install --force  # force reinstall of all platform skills
 ```
 
+To refresh templates and skill files after upgrading harness-workflow:
+
+```bash
+pip install -U harness-workflow
+harness update           # refresh harness-managed files in the repository
+```
+
 ---
 
 ## Core Commands

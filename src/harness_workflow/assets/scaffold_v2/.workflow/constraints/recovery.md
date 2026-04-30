@@ -324,7 +324,7 @@ Step 1  停止调用失败的 skill
         - 不要重试相同的 `Skill(xxx)` 调用
 
 Step 2  检查可用 skills
-        - 查看当前环境中已安装的技能列表（如 `.claude/skills/`、`.qoder/skills/` 目录）
+        - 查看当前环境中已安装的技能列表（如 `.claude/skills/`、`.codex/skills/` 目录）
         - 或使用 `Bash` 命令搜索本地 skill 定义
 
 Step 3  搜索替代方案

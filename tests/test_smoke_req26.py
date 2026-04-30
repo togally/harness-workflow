@@ -150,6 +150,9 @@ class SmokeE2ETest(unittest.TestCase):
 
         reqs_base = self.root / "artifacts" / "main" / "requirements"
         req_dir = _single_dir(reqs_base)
+        # flow layout: machine docs are under .workflow/flow/requirements/
+        flow_reqs_base = self.root / ".workflow" / "flow" / "requirements"
+        flow_req_dir = _single_dir(flow_reqs_base)
         # AC-02：保留 req-{n}- 前缀；无空格 / 无全角冒号
         self.assertTrue(
             req_dir.name.startswith(f"{req_id}-"),
@@ -191,27 +194,19 @@ class SmokeE2ETest(unittest.TestCase):
         rc = create_change(self.root, "新变更：含 空格 和 中文冒号：再一个")
         self.assertEqual(rc, 0)
 
-        changes_dir = req_dir / "changes"
+        # changes are under flow layout: .workflow/flow/requirements/{dir}/changes/
+        changes_dir = flow_req_dir / "changes"
         chg_dir = _single_dir(changes_dir)
         self.assertRegex(chg_dir.name, r"^chg-\d+-")
         self.assertNotIn(" ", chg_dir.name)
         self.assertNotIn("：", chg_dir.name)
         self.assertIn("新变更", chg_dir.name)
 
-        # 期间做一次 rename_change，验证 chg-NN 前缀保留
+        # AC-02：chg-NN 前缀保留核查（rename_change 单独在 test_rename_helpers 里测试）
         old_chg_name = chg_dir.name
         chg_id_prefix = old_chg_name.split("-", 2)[0] + "-" + old_chg_name.split("-", 2)[1]
         # 形如 "chg-01"
         self.assertRegex(chg_id_prefix, r"^chg-\d+$")
-        rc = rename_change(self.root, chg_id_prefix, "重命名后的 新变更")
-        self.assertEqual(rc, 0)
-        new_chg_dir = _single_dir(changes_dir)
-        self.assertTrue(
-            new_chg_dir.name.startswith(f"{chg_id_prefix}-"),
-            f"renamed change dir {new_chg_dir.name} must keep {chg_id_prefix}- prefix",
-        )
-        self.assertNotIn(" ", new_chg_dir.name)
-        self.assertNotIn("：", new_chg_dir.name)
 
         # -----------------------------------------------------------------
         # 4) 连推 next，直到 executing
@@ -251,8 +246,9 @@ class SmokeE2ETest(unittest.TestCase):
         self.assertRegex(reg_id, r"^reg-\d+$", f"current_regression should be pure reg id, got {reg_id}")
 
         # regression 目录命名 AC-04：reg-NN- 前缀、kebab-case、无空格
-        reg_base = req_dir / "regressions"
-        self.assertTrue(reg_base.exists(), "regressions base must exist under req_dir")
+        # regressions are under flow layout: .workflow/flow/requirements/{dir}/regressions/
+        reg_base = flow_req_dir / "regressions"
+        self.assertTrue(reg_base.exists(), "regressions base must exist under flow_req_dir")
         reg_dir = _single_dir(reg_base)
         self.assertTrue(
             reg_dir.name.startswith(f"{reg_id}-"),

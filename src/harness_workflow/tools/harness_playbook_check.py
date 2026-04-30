@@ -660,12 +660,24 @@ def playbook_check(
         return 0
 
     # 有漂移：按类别分组打印
+    # K-01 折叠逻辑（chg-B polish-2）：≥ 3 个命中时折叠为一行
+    k01_issues = [issue for name, issue in total_issues if name == "K-01 关键词覆盖空"]
+    non_k01_issues = [(name, issue) for name, issue in total_issues if name != "K-01 关键词覆盖空"]
+
+    # 计算有效 fail 数（不含 K-01，K-01 是 warn 不阻断）
+    fail_count = len(non_k01_issues)
+    if k01_issues and not strict:
+        # K-01 在非 strict 模式下是 warn
+        pass
+    else:
+        fail_count += len(k01_issues)
+
     print(f"playbook-check FAIL: {len(total_issues)} drift detected")
     print()
 
-    # 分组
+    # 分组 non-K-01 issues
     by_check: dict[str, list[str]] = {}
-    for check_name, issue in total_issues:
+    for check_name, issue in non_k01_issues:
         by_check.setdefault(check_name, []).append(issue)
 
     for check_name, issues in by_check.items():
@@ -676,9 +688,42 @@ def playbook_check(
             print(f"  ... +{len(issues) - 10} more")
         print()
 
+    # K-01 折叠输出
+    if k01_issues:
+        if len(k01_issues) <= 2:
+            # 逐条列出（≤ 2 个保持现状）
+            print("[K-01 关键词覆盖空]")
+            for issue in k01_issues:
+                print(f"  - {issue}")
+            print()
+        else:
+            # ≥ 3 个：折叠为一行
+            domain_names = []
+            for issue in k01_issues:
+                # 提取 domain 名称（"empty keywords (K-01): {domain}/README.md ..."）
+                import re as _re
+                m = _re.match(r"empty keywords \(K-01\): ([^/]+)/", issue)
+                if m:
+                    domain_names.append(m.group(1))
+                else:
+                    domain_names.append(issue[:30])
+            preview = ", ".join(domain_names[:5])
+            extra = f" ..." if len(domain_names) > 5 else ""
+            print(
+                f"empty keywords (K-01): {len(k01_issues)} domains README ## 职责描述 仍是 TODO 占位"
+                f"（建议跑 install 不带 --no-llm 或 agent 接力填写 LLM 区段）。"
+                f"命中清单：{preview}{extra}"
+            )
+            print()
+
     print("建议：跑 `harness playbook-refresh` 刷新 AUTO 区段；手动修复引用失效 + 依赖链接。")
 
-    return 1
+    # K-01 不阻断 exit code（除非 --strict）
+    if non_k01_issues:
+        return 1
+    if strict and k01_issues:
+        return 1
+    return 0
 
 
 # ---------------------------------------------------------------------------

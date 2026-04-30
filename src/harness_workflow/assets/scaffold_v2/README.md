@@ -16,7 +16,7 @@ Most AI coding tools leave you with one big context window and hope. harness-wor
 - **Role separation** — each stage uses a dedicated agent role (analyst, architect, engineer, tester, auditor)
 - **Persistent state** — requirements and changes survive context window resets via YAML + Markdown files
 - **Experience accumulation** — lessons from each project are captured and reused in future sessions
-- **Multi-platform** — works on Claude Code, Codex, Qoder, and kimicli
+- **Multi-platform** — works on Claude Code and Codex
 
 ---
 
@@ -42,7 +42,7 @@ Then initialize a repository:
 
 ```bash
 cd your-project
-harness install          # installs skill files for Claude Code / Codex / Qoder / kimicli
+harness install          # installs skill files for Claude Code / Codex
 ```
 
 If you need to overwrite existing skill files (e.g., after a breaking update):
@@ -174,8 +174,6 @@ Each stage has a dedicated role file in `.workflow/context/roles/` that constrai
 |----------|-------------|
 | Claude Code | `CLAUDE.md`, `.claude/commands/harness-*.md`, `.claude/skills/harness/` |
 | Codex | `AGENTS.md`, `.codex/skills/harness/`, `.codex/skills/harness-*/` |
-| Qoder | `.qoder/skills/harness/`, `.qoder/commands/harness-*.md`, `.qoder/rules/harness-workflow.md` |
-| kimicli | `.kimi/skills/{command}/SKILL.md` (YAML frontmatter + Markdown) |
 
 ---
 

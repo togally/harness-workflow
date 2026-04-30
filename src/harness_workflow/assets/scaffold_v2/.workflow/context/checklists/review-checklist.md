@@ -184,6 +184,11 @@
 
 - [ ] **新加 contract 配套 fix-checklist（高）**：每新增 `harness validate --contract X`，须在 `.workflow/context/checklists/` 创建 `fix-X.md` 修复清单，并在 validate_contract.py 通过 `raise_harness_block` 指向该 checklist（继承 req-48（harness-manager 统一异常捕获 + base-role 阻塞抛错协议 + fix-checklist 自动修复体系）经验二十一）
 
+### 抛错协议配套检查（req-48（harness-manager 统一异常捕获 + base-role 阻塞抛错协议 + fix-checklist 自动修复体系）/ chg-03）
+
+- [ ] **抛错协议配套 fix-checklist（高）**：`raise_harness_block` 调用必须在 `fix_checklist` 参数指向对应 `.workflow/context/checklists/fix-*.md`；无 fix-checklist 指向的 block 不通过 reviewer（req-48 / chg-03 抛错协议配套）
+- [ ] **抛错协议配套 severity 合法（高）**：severity 仅允许 `FAIL`/`ABORT`/`WARN` 三值；ABORT 仅用于不可回滚破坏性操作（req-48 / chg-03 抛错协议配套）
+
 ---
 
 ## req-37 汇报合规三问（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-03）

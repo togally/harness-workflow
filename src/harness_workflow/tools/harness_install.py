@@ -166,7 +166,7 @@ def _print_venv_check() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install harness skill to target agent directory.")
     parser.add_argument("--root", default=".", help="Repository root.")
-    parser.add_argument("--agent", required=True, help="Target agent (kimi, claude, codex, qoder).")
+    parser.add_argument("--agent", required=True, help="Target agent (cc, claude, codex).")
     parser.add_argument(
         "--check",
         action="store_true",

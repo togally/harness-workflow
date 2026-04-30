@@ -272,7 +272,11 @@ class Sug25StatusTest(unittest.TestCase):
     """TC-08: sug-25 status = applied."""
 
     def test_sug25_applied(self) -> None:
-        sug_path = REPO_ROOT / ".workflow" / "flow" / "suggestions" / "sug-25-record-subagent-usage.md"
+        # sug-25 may be in active suggestions or in archive (both are valid applied states)
+        sug_active = REPO_ROOT / ".workflow" / "flow" / "suggestions" / "sug-25-record-subagent-usage.md"
+        sug_archive = REPO_ROOT / ".workflow" / "flow" / "suggestions" / "archive" / "sug-25-record-subagent-usage.md"
+        sug_path = sug_active if sug_active.exists() else sug_archive
+        self.assertTrue(sug_path.exists(), f"sug-25 not found in active or archive: {sug_active} | {sug_archive}")
         content = sug_path.read_text(encoding="utf-8")
         self.assertIn("status: applied", content, "sug-25 应已被标记为 applied")
 
