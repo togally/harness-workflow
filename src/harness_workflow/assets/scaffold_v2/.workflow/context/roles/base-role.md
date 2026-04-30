@@ -19,6 +19,7 @@
 - 硬门禁四：同阶段不打断原则（req-31 / chg-05）
 - 硬门禁六：对人汇报场景 ID 必带简短描述（req-35（base-role 加硬门禁：对人汇报 ID 必带简短描述（契约 7 扩展）） / chg-01）
 - 硬门禁七：周转汇报不列选项 + 必报本阶段已结束（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）
+- 硬门禁十：代码加载规则（req-55（项目路书Playbook体系）/ chg-02（baseRole代码加载规则与CLAUDE索引））
 
 ## 硬门禁一：工具优先
 
@@ -356,3 +357,25 @@ SOP 必须覆盖角色的完整生命周期：
 2. **执行**：完成本角色的核心业务任务
 3. **退出**：检查退出条件是否满足
 4. **交接**：保存关键决策到 `session-memory.md`，向主 agent 报告结果
+
+## 硬门禁十：代码加载规则（强制）
+
+> 溯源：req-55（项目路书Playbook体系——项目地图+代码导航）/ chg-02（baseRole 代码加载规则与 CLAUDE 索引）；与既有硬门禁一/二/三/四/六/七/九并列生效，不替代。
+
+### §1 何时读路书
+
+任务入场即读路书。凡涉及代码定位的任务，**必须**先读 `artifacts/project/playbooks/overview.md` 理解项目术语，再读 `artifacts/project/playbooks/code-map.md` 匹配领域，命中后进入 `artifacts/project/playbooks/domains/<领域>/README.md`，按 README 指引读 `code.md` 拿到具体文件清单，直接读这些文件。禁止上来就全局查找代码（grep / glob）。
+
+### §2 路径全部用 `artifacts/project/playbooks/`
+
+路书根目录统一为 `artifacts/project/playbooks/`（OQ-1=B 决策，沿用 req-51/52 项目级承载层规范，无 branch 维度，跟项目走）。所有路书文件引用均使用此前缀，禁止使用旧路径 `artifacts/playbooks/` 或任何带 branch 的变体。
+
+### §3 路书是只读引用
+
+不要修改 `artifacts/project/playbooks/` 下任何文件。路书是只读资源（OQ-5=A 软约束），由 `harness playbook-refresh` 脚本与人工负责更新；chg-05 漂移检测兜底校验路书健康状态。如路书未覆盖，走兜底全局查找后，用 `<!-- TODO: 待补入 code-map -->` 提示用户更新路书，不擅自改路书文件。
+
+### §4 如何理解 AUTO 区段
+
+路书文件中的 HTML 注释区段（`<!-- AUTO:STACK -->` ... `<!-- /AUTO:STACK -->` 等）是机器生成内容，由 `harness playbook-refresh` 自动刷新。人工只编辑 AUTO 区段之外的部分（业务术语、领域关键词、依赖关系描述等）；不要手动覆盖 AUTO 区段内容，否则下次刷新会被机器覆盖。
+
+> 来源：req-55 / chg-02 / OQ-1=B / OQ-2=A / OQ-5=A

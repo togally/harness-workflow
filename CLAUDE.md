@@ -29,3 +29,12 @@ If any of those files are missing, inconsistent, or unreadable, stop immediately
 - `harness regression "<issue>"`
 
 If runtime state is missing or inconsistent, repair `.workflow/state/runtime.yaml` instead of improvising a parallel workflow; if required files are missing, stop immediately.
+
+## 项目路书
+
+任务入场即读路书，AI 用作项目地图与代码导航，避免全局盲扫代码。项目知识与代码导航在 `artifacts/project/playbooks/`：
+
+- `artifacts/project/playbooks/overview.md`（项目概述：定位、术语、里程碑）
+- `artifacts/project/playbooks/architecture.md`（架构地图：技术栈、目录职责、数据流）
+- `artifacts/project/playbooks/runbook.md`（运行手册：启动/测试/构建命令、环境变量）
+- `artifacts/project/playbooks/code-map.md`（代码导航：关键词 → 领域索引，agent 入口）

@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from harness_workflow.workflow_helpers import install_agent, install_repo
+from harness_workflow.playbook.init import init_playbook
 
 
 def _print_venv_check() -> int:
@@ -181,9 +182,43 @@ def main() -> int:
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
     )
+    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）：
+    # --skip-playbook / --playbook-only 互斥（OQ-3=A 双 flag 逃生口）。
+    playbook_group = parser.add_mutually_exclusive_group()
+    playbook_group.add_argument(
+        "--skip-playbook",
+        action="store_true",
+        help="Skip playbook initialization stage.",
+    )
+    playbook_group.add_argument(
+        "--playbook-only",
+        action="store_true",
+        help="Only run playbook initialization; skip install_agent and install_repo.",
+    )
+    # req-56（路书引擎升级）/ chg-01（推断器多语言注册化）：
+    # --domains：逗号分隔的领域列表，跳过推断器直接用用户指定领域（last-resort escape hatch）。
+    parser.add_argument(
+        "--domains",
+        dest="domains",
+        default=None,
+        help="Comma-separated domain names, bypassing domain inference (e.g. --domains a,b,c).",
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
+
+    skip_playbook = getattr(args, "skip_playbook", False)
+    playbook_only = getattr(args, "playbook_only", False)
+    # 解析 --domains flag 为列表
+    override_domains = None
+    if getattr(args, "domains", None):
+        override_domains = [d.strip() for d in args.domains.split(",") if d.strip()]
+
+    # --playbook-only：仅跑路书初始化，跳过 install_agent / install_repo
+    if playbook_only:
+        print("skipped install_repo (--playbook-only); mirror not synced this run")
+        return init_playbook(root, skip=False, only=True, override_domains=override_domains)
+
     # 1) install_agent：写入 agent 配置 + skill 文件
     rc = install_agent(root, args.agent)
     if rc != 0:
@@ -200,7 +235,10 @@ def main() -> int:
     # 3) check 模式：追加 venv mtime 版本对比报告（sug-55 配套）
     if args.check:
         _print_venv_check()
-    return rc
+    if rc != 0:
+        return rc
+    # 4) init_playbook：追加路书初始化阶段（OQ-3=A 默认追加，透传 override_domains）
+    return init_playbook(root, skip=skip_playbook, only=False, override_domains=override_domains)
 
 
 if __name__ == "__main__":

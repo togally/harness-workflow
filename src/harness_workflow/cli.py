@@ -179,6 +179,59 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
     )
+    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）：
+    # 互斥组：--skip-playbook 和 --playbook-only 不能同时传（OQ-3=A 双 flag 逃生口）。
+    playbook_group = install_parser.add_mutually_exclusive_group()
+    playbook_group.add_argument(
+        "--skip-playbook",
+        action="store_true",
+        help="Skip playbook initialization stage (do not create artifacts/project/playbooks/).",
+    )
+    playbook_group.add_argument(
+        "--playbook-only",
+        action="store_true",
+        help="Only run playbook initialization; skip install_repo and install_agent.",
+    )
+    # req-56（路书引擎升级）/ chg-01（推断器多语言注册化）：
+    # --domains flag：逗号分隔的领域列表，跳过推断器直接用用户指定领域（last-resort escape hatch）。
+    # 与 --skip-playbook / --playbook-only 不互斥。
+    install_parser.add_argument(
+        "--domains",
+        dest="domains",
+        default=None,
+        help="Comma-separated domain names to use directly, bypassing domain inference (e.g. --domains platform-admin,platform-common).",
+    )
+
+    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-04（harness playbook-refresh 子命令）：
+    # 注册 playbook-refresh 子命令（紧接 install_parser 之后）。
+    playbook_refresh_parser = subparsers.add_parser(
+        "playbook-refresh",
+        help="刷新路书 AUTO 区段（artifacts/project/playbooks/ 内 5 类 <!-- AUTO:* --> 区段）。",
+    )
+    playbook_refresh_parser.add_argument("--root", default=".", help="仓库根目录")
+    playbook_refresh_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="打印将要写入的 diff，不落盘",
+    )
+
+    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-05（harness playbook-check 子命令）：
+    # 注册 playbook-check 子命令（紧接 playbook-refresh 之后）。
+    playbook_check_parser = subparsers.add_parser(
+        "playbook-check",
+        help="路书漂移检测（artifacts/project/playbooks/ 内 10 类 check：6 漂移 + 1 关键词 + 3 契约 + AUTO 哈希漂移）。",
+    )
+    playbook_check_parser.add_argument("--root", default=".", help="仓库根目录")
+    playbook_check_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="打印检测结果，不写盘（check 本身只读，保留接口兼容）",
+    )
+    playbook_check_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：任何 issue（含 K-01 警告）均 exit 1",
+    )
 
     init_parser = subparsers.add_parser("init", help="Initialize harness docs structure.")
     init_parser.add_argument("--root", default=".", help="Repository root.")
@@ -252,8 +305,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "schema-audit", "missing-document", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness", "llm-only-docs"],
-        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. schema-audit: lint old-format dirs in state/requirements/ (req-48/chg-02). missing-document: lint planning stage changes/ empty (req-48/chg-02). test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）. llm-only-docs: 扫机器型模板 frontmatter + 禁止对人解释段落 + 行数上限（req-50/chg-05）.",
+        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "schema-audit", "missing-document", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness", "llm-only-docs", "playbook-layout"],
+        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. schema-audit: lint old-format dirs in state/requirements/ (req-48/chg-02). missing-document: lint planning stage changes/ empty (req-48/chg-02). test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）. llm-only-docs: 扫机器型模板 frontmatter + 禁止对人解释段落 + 行数上限（req-50/chg-05）. playbook-layout: 路书结构契约校验（req-55/chg-05）：AUTO 区段配对 + path schema 锁定 + domains 互引一致性。",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
@@ -416,6 +469,13 @@ def main() -> int:
             extra_args.append("--force-managed")
         if getattr(args, "all_platforms", False):
             extra_args.append("--all-platforms")
+        if getattr(args, "skip_playbook", False):
+            extra_args.append("--skip-playbook")
+        if getattr(args, "playbook_only", False):
+            extra_args.append("--playbook-only")
+        # req-56 / chg-01：透传 --domains flag
+        if getattr(args, "domains", None):
+            extra_args.extend(["--domains", args.domains])
         if args.agent:
             return _run_tool_script(
                 "harness_install.py", ["--agent", args.agent, *extra_args], root
@@ -427,6 +487,17 @@ def main() -> int:
         return _run_tool_script(
             "harness_install.py", ["--agent", agent, *extra_args], root
         )
+    # req-55（项目路书Playbook体系）/ chg-04（harness playbook-refresh 子命令）
+    if args.command == "playbook-refresh":
+        from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+        dry_run = getattr(args, "dry_run", False)
+        return playbook_refresh(root, dry_run=dry_run)
+    # req-55（项目路书Playbook体系）/ chg-05（harness playbook-check 子命令）
+    if args.command == "playbook-check":
+        from harness_workflow.tools.harness_playbook_check import playbook_check
+        dry_run = getattr(args, "dry_run", False)
+        strict = getattr(args, "strict", False)
+        return playbook_check(root, dry_run=dry_run, strict=strict)
     if args.command == "init":
         cmd_args = []
         if args.write_agents:
@@ -510,6 +581,11 @@ def main() -> int:
         # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 2：
         # --contract {all,7,regression} 契约自动化校验（sug-10 / sug-15 / sug-25）。
         if getattr(args, "contract", None):
+            # req-55（项目路书Playbook体系）/ chg-05（harness playbook-check 子命令）：
+            # playbook-layout 契约直接调 playbook_check 契约子集（C-01/C-03/C-05）。
+            if args.contract == "playbook-layout":
+                from harness_workflow.tools.harness_playbook_check import playbook_check
+                return playbook_check(root, contract_only=True)
             from harness_workflow.validate_contract import run_contract_cli
             return run_contract_cli(root, contract=args.contract)
         return _run_tool_script("harness_validate.py", [], root)
