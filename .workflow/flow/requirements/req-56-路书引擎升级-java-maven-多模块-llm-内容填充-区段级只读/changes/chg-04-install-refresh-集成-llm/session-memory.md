@@ -39,3 +39,34 @@
 
 - analysis stage 退出 → 等用户拍板 → executing 实施
 - 等 chg-03（LLM provider 抽象层）落地后 executing；可能与 chg-05（区段级只读语义 + check 兼容）紧接
+
+---
+
+## 8. Executing Stage 实施记录（subagent-executing）
+
+### 修改文件清单
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `src/harness_workflow/tools/harness_playbook_refresh.py` | 改 | `replace_auto_section` 加 `prefix="AUTO"` 参数（默认保持向后兼容），`_refresh_llm_sections` 内所有 LLM 区段调用改为 `prefix="LLM"`，`playbook_refresh` 加 `no_llm=False` 参数 |
+| `src/harness_workflow/playbook/init.py` | 改 | `init_playbook` 加 `no_llm=False` 参数，`_fill_with_llm` helper 所有 `replace_auto_section` 调用改为 `prefix="LLM"` |
+| `src/harness_workflow/cli.py` | 改（前序 agent 已完成） | `_resolve_no_llm` helper + `--no-llm` flag |
+| `src/harness_workflow/playbook/skeleton.py` | 改（前序 agent 已完成） | 4 模板加 5 类 LLM 区段定界 |
+| `tests/conftest.py` | 新增 | `ensure_no_real_llm` autouse fixture |
+| `tests/test_install_refresh_llm_integration.py` | 新增 | 6 TC（TC-01~TC-06） |
+| `tests/test_petmall_fixture_dogfood.py` | 新增 | TC-Dogfood-01 |
+
+### 关键决策（bugfix）
+
+**Bug 发现**：前序 agent 实现的 `_fill_with_llm` 和 `_refresh_llm_sections` 在调用 `replace_auto_section` 时传入的 marker 名称（如 `"OVERVIEW_DESC"`）被拼接成 `<!-- AUTO:OVERVIEW_DESC -->` 标记，但 skeleton.py 中模板用的是 `<!-- LLM:OVERVIEW_DESC -->` 标记。两者不匹配导致 LLM 区段永远不被替换。
+
+**修复**：在 `replace_auto_section` 增加 `prefix: str = "AUTO"` 参数，所有 LLM 区段填充调用时传 `prefix="LLM"`，Auto 区段（5 类 AUTO:*）继续用默认 `prefix="AUTO"`。
+
+### pytest 真实数字
+
+- chg-04 新测试：**7 passed / 0 failed**（test_install_refresh_llm_integration.py 6 TC + test_petmall_fixture_dogfood.py 1 TC）
+- 回归测试：**105 passed / 0 failed**（test_playbook_baserole_contract / test_playbook_layout_contract / test_playbook_install / test_playbook_refresh / test_playbook_refresh_multi_lang / test_playbook_refresh_dogfood_multi_lang / test_playbook_check / test_playbook_llm / test_domain_inference_multi_lang / test_domain_inference_dogfood）
+
+## 完成态
+
+本 chg executing stage 完成 ✅

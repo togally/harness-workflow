@@ -239,3 +239,16 @@ AUTO 区段使用 HTML 注释配对定界：
   - 每个 `domains/{name}/` 子目录都必须在 `code-map.md` 中有对应记录
   - `code-map.md` 中每条 domain 记录都必须在 `domains/` 下有对应子目录
   - 任一方向缺失 = `DOMAIN_SUBDIR_MISMATCH` 漂移，`playbook-check` exit 1
+
+---
+
+## §6 区段级只读语义注释（req-56 / chg-05 OQ-4=D1 决策）
+
+> 引用：`.workflow/context/roles/base-role.md` 硬门禁十 §4（req-56 / chg-05 修订）
+
+路书文件中存在两类机器维护区段，**playbook-check 均纳入漂移检测**：
+
+- `<!-- AUTO:* -->...<!-- /AUTO:* -->`：由 `harness playbook-refresh` 脚本统一维护（§4 AUTO 区段表已列全部标记）
+- `<!-- LLM:* -->...<!-- /LLM:* -->`：由 `harness install` / `harness playbook-refresh` 调用 LLM 填充（req-56 / chg-04 引入）
+
+两类区段**语法相同、命名空间分离、check 行为相同**：`playbook-check` 的 `_AUTO_OPEN_RE` / `_AUTO_CLOSE_RE` 正则覆盖 `(AUTO|LLM)` 两个命名空间，配对检测（`SEGMENT_UNPAIRED`）与哈希漂移检测（`AUTO_SECTION_HASH_DRIFT`）均生效。区段外的 TODO 占位不受漂移检测影响（agent 默认不改，用户 explicit 指令后可改）。

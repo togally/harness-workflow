@@ -135,6 +135,18 @@ req-55 路书引擎在 Java/Maven 多模块项目（PetMallPlatform 类）实测
 
 ---
 
+## testing stage 完成态
+
+- req-56 自有测试: 77 passed / 0 failed
+- 跨 chg 回归（含 req-55 baseline）: 118 passed / 0 failed
+- upstream broken: 46（全部归因远程 main req-26~req-54 及 bugfix 系列，与 req-56 无关）
+- AC 覆盖: 13/13 全 PASS（AC-13 ~ AC-25）
+- verdict: PASS
+
+testing stage 完成 ✅
+
+---
+
 ## 9. 用户决策记录（2026-04-30）
 
 用户回应："按照你说的做没问题" → **5 OQ 全部按 default-pick 拍定**：
@@ -148,3 +160,33 @@ req-55 路书引擎在 Java/Maven 多模块项目（PetMallPlatform 类）实测
 | OQ-5（dogfood TC 范围） | **A**（worktree fixture） | tmpdir 模拟 PetMallPlatform 结构；真实 A/B ROI 测试由主 agent 在 done 后另起任务（步 2） |
 
 5 OQ 决策与 analyst 草案 default-pick **完全一致**，不触发批量同步任务（chg 文件不改），直接推 executing。
+
+---
+
+## acceptance stage 完成态
+
+- AC 覆盖: 13/13 全 PASS（AC-13 ~ AC-25）
+- 硬门禁合规: 五（mirror 同步）/ 九（subagent 产出独立核查）/ 十（代码加载规则 §1-§4）全 PASS
+- OQ 未决数: 0
+- verdict: PASS
+
+acceptance stage 完成 ✅
+
+---
+
+## done stage 完成态
+
+req-56（路书引擎升级——Java/Maven 多模块 + LLM 内容填充 + 区段级只读）全流程完成。
+
+**最终状态**：
+- 5 chg 全部 executing 完成（chg-01 推断器多语言注册化 / chg-02 SCRIPTS detector 注册化 / chg-03 LLM provider 抽象层 / chg-04 install/refresh 集成 LLM / chg-05 区段级只读语义 + check 兼容）
+- testing verdict: PASS（77/0 自有 + 118/0 跨 chg 回归）
+- acceptance verdict: PASS（AC 13/13、硬门禁五/九/十全合规、OQ 0 未决）
+
+**遗留事项**（不阻塞 req-56 done）：
+- upstream 远程 main 46 个测试失败（与 req-56 无关，待用户决策后独立处理）
+- 真实 PetMallPlatform A/B ROI 测试（OQ-5 决策中明确由主 agent 在 done 后另起任务执行）
+
+**archive 状态**：不 archive。本 worktree 在 feature/req-53-playbook 分支，待合并回 main 后由那时再决定 archive 时机。
+
+done stage 完成 ✅

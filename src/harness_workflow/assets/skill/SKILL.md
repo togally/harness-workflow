@@ -40,6 +40,12 @@ The harness-manager role is the unified entry point for all harness commands:
 - `harness update --scan` — Generate adaptation report
 - `harness language <english|cn>` — Set language
 
+### Playbook (路书引擎)
+- `harness playbook-refresh` — Refresh AUTO segments in the playbook
+- `harness playbook-check` — Check for playbook drift (10 checks, exit 0 = healthy)
+
+路书 AUTO / LLM 区段只读（脚本 / LLM 维护，agent 不动）；TODO 区域用户可改（agent 默认不改，用户 explicit 后可改）。
+
 ### Session Control (technical-director executes)
 - `harness enter [req-id]` — Enter workflow mode
 - `harness exit` — Exit workflow mode

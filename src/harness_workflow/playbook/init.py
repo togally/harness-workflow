@@ -1,21 +1,139 @@
 """init_playbook 主入口（req-56（路书引擎升级）/ chg-01（推断器多语言注册化）
 兼容 req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化））
 
-init_playbook(root, skip=False, only=False, override_domains=None) -> int
+init_playbook(root, skip=False, only=False, override_domains=None, no_llm=False) -> int
   skip=True → 立即返回（--skip-playbook）
   only=True → 仅渲染骨架，跳 install_repo / install_agent（--playbook-only 由 cli 层处理）
   override_domains 非 None → 跳过推断器，直接用指定领域列表（--domains flag 透传）
+  no_llm=True → 跳过 LLM 填充阶段（--no-llm flag 或 CI=true 时）
   检查 artifacts/project/playbooks/ 已存在 → 跳过 + stdout 提示
   不存在 → 调 infer_domains(root, override_domains) + render_skeleton(root, domains)
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from harness_workflow.playbook.domain_inference import infer_domains
 from harness_workflow.playbook.skeleton import PLAYBOOK_ROOT_SUFFIX, render_skeleton
+
+
+def _fill_with_llm(
+    root: Path,
+    domains: list,
+    llm: Any,
+    metadata: dict,
+) -> None:
+    """调 LLM provider 填充路书 LLM 区段（OVERVIEW_DESC / TECH_DECISIONS / DOMAIN_DESC / KEYWORDS / CODE_MAP_KEYWORDS）。
+
+    每次调用用 try-except 包裹，失败时 stderr WARN + 保留 TODO 占位（不抛异常）。
+    """
+    from harness_workflow.playbook.llm import PlaybookContext
+    from harness_workflow.tools.harness_playbook_refresh import replace_auto_section
+
+    playbook_root = root / PLAYBOOK_ROOT_SUFFIX
+
+    # 构建 LLM 上下文
+    context = PlaybookContext(
+        project_name=metadata.get("project_name", root.name),
+        stack=metadata.get("stack", []),
+        layout=metadata.get("layout", ""),
+        domains=domains,
+        matched_mode=metadata.get("matched_mode", "unknown"),
+    )
+
+    # 调 LLM generate（单次调用，获取全部内容）
+    content = None
+    try:
+        content = llm.generate(context)
+    except Exception as e:
+        print(
+            f"[llm] WARN: provider failed, falling back to Noop: {e}",
+            file=sys.stderr,
+        )
+        return
+
+    if content is None:
+        # Noop provider 或失败 → 保留 TODO 占位
+        return
+
+    # 填充 overview.md LLM:OVERVIEW_DESC 区段
+    overview_md = playbook_root / "overview.md"
+    if overview_md.exists():
+        try:
+            text = overview_md.read_text(encoding="utf-8")
+            updated, ok, warn = replace_auto_section(
+                text, "OVERVIEW_DESC", content.overview_description or "", prefix="LLM"
+            )
+            if ok:
+                overview_md.write_text(updated, encoding="utf-8")
+        except Exception as e:
+            print(f"[llm] WARN: failed to fill OVERVIEW_DESC: {e}", file=sys.stderr)
+
+    # 填充 overview.md LLM:TECH_DECISIONS 区段
+    if overview_md.exists():
+        try:
+            text = overview_md.read_text(encoding="utf-8")
+            decisions_text = "\n".join(
+                f"- {d}" for d in (content.tech_decisions or [])
+            )
+            updated, ok, warn = replace_auto_section(
+                text, "TECH_DECISIONS", decisions_text, prefix="LLM"
+            )
+            if ok:
+                overview_md.write_text(updated, encoding="utf-8")
+        except Exception as e:
+            print(f"[llm] WARN: failed to fill TECH_DECISIONS: {e}", file=sys.stderr)
+
+    # 填充各领域 README.md LLM:DOMAIN_DESC + LLM:KEYWORDS 区段
+    for domain in domains:
+        readme_path = playbook_root / "domains" / domain / "README.md"
+        if not readme_path.exists():
+            continue
+        # DOMAIN_DESC
+        try:
+            text = readme_path.read_text(encoding="utf-8")
+            desc = (content.domain_descriptions or {}).get(domain, "")
+            if desc:
+                updated, ok, warn = replace_auto_section(text, "DOMAIN_DESC", desc, prefix="LLM")
+                if ok:
+                    readme_path.write_text(updated, encoding="utf-8")
+                    text = updated
+        except Exception as e:
+            print(f"[llm] WARN: failed to fill DOMAIN_DESC for {domain}: {e}", file=sys.stderr)
+        # KEYWORDS
+        try:
+            text = readme_path.read_text(encoding="utf-8")
+            kws = (content.domain_keywords or {}).get(domain, [])
+            kw_text = ", ".join(kws) if kws else ""
+            if kw_text:
+                updated, ok, warn = replace_auto_section(text, "KEYWORDS", kw_text, prefix="LLM")
+                if ok:
+                    readme_path.write_text(updated, encoding="utf-8")
+        except Exception as e:
+            print(f"[llm] WARN: failed to fill KEYWORDS for {domain}: {e}", file=sys.stderr)
+
+    # 填充 code-map.md LLM:CODE_MAP_KEYWORDS 区段
+    code_map_md = playbook_root / "code-map.md"
+    if code_map_md.exists():
+        try:
+            text = code_map_md.read_text(encoding="utf-8")
+            # 汇总所有领域关键词
+            all_kws = []
+            for domain in domains:
+                kws = (content.domain_keywords or {}).get(domain, [])
+                all_kws.extend(kws)
+            kw_text = ", ".join(dict.fromkeys(all_kws))  # 去重保序
+            if kw_text:
+                updated, ok, warn = replace_auto_section(
+                    text, "CODE_MAP_KEYWORDS", kw_text, prefix="LLM"
+                )
+                if ok:
+                    code_map_md.write_text(updated, encoding="utf-8")
+        except Exception as e:
+            print(f"[llm] WARN: failed to fill CODE_MAP_KEYWORDS: {e}", file=sys.stderr)
 
 
 def init_playbook(
@@ -23,6 +141,7 @@ def init_playbook(
     skip: bool = False,
     only: bool = False,
     override_domains: Optional[list[str]] = None,
+    no_llm: bool = False,
 ) -> int:
     """初始化项目路书骨架。
 
@@ -31,6 +150,7 @@ def init_playbook(
         skip: True → 立即返回 0（--skip-playbook 语义）。
         only: True → 仅渲染骨架（不跑 install_repo / install_agent；CLI 层保证调用顺序）。
         override_domains: 非 None → 跳过推断器，直接用指定领域列表（--domains flag 透传）。
+        no_llm: True → 跳过 LLM 填充阶段（--no-llm flag 或 CI=true 时）。
 
     Returns:
         0 = 成功（包括跳过），1 = 失败。
@@ -66,5 +186,20 @@ def init_playbook(
         print(f"playbook initialized ({written} files created in {PLAYBOOK_ROOT_SUFFIX})")
     else:
         print("playbook 已存在，跳过初始化")
+
+    # LLM 填充阶段（chg-04：默认开启，--no-llm 或 CI=true 跳过）
+    if not no_llm and os.getenv("CI", "").lower() != "true":
+        try:
+            from harness_workflow.playbook.llm import auto_detect_provider
+            llm = auto_detect_provider()
+            project_metadata = {
+                "project_name": root.name,
+                "stack": [],
+                "layout": "",
+                "matched_mode": matched_mode,
+            }
+            _fill_with_llm(root, domains, llm, project_metadata)
+        except Exception as e:
+            print(f"[llm] WARN: LLM filling phase failed: {e}", file=sys.stderr)
 
     return 0

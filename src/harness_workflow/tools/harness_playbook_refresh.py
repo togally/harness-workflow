@@ -41,18 +41,25 @@ _NOISE_DIRS = {
 # 核心 helper：AUTO 区段替换
 # ---------------------------------------------------------------------------
 
-def replace_auto_section(content: str, marker: str, new_content: str) -> tuple[str, bool, str]:
-    """替换文本中的 AUTO:marker 区段内容。
+def replace_auto_section(
+    content: str,
+    marker: str,
+    new_content: str,
+    prefix: str = "AUTO",
+) -> tuple[str, bool, str]:
+    """替换文本中的 {prefix}:marker 区段内容。
 
     规则：
     1. 开/闭标记必须配对（C-04），不配对则返回 (content, False, warn_msg)。
     2. 仅替换区段内容（含包围标记行），区段外 byte-identical（C-01）。
     3. 替换时保留标记行原貌，只换标记之间的内容。
 
+    prefix 参数：默认 "AUTO"（保持 chg-01/02/03 向后兼容），传入 "LLM" 时处理 LLM 区段。
+
     返回 (new_content, success, warn_msg)。
     """
-    open_tag = f"<!-- AUTO:{marker} -->"
-    close_tag = f"<!-- /AUTO:{marker} -->"
+    open_tag = f"<!-- {prefix}:{marker} -->"
+    close_tag = f"<!-- /{prefix}:{marker} -->"
 
     open_present = open_tag in content
     close_present = close_tag in content
@@ -489,7 +496,129 @@ def _scan_domain_list(playbook_root: Path) -> str:
 # 主刷新函数
 # ---------------------------------------------------------------------------
 
-def playbook_refresh(root: str | Path, dry_run: bool = False) -> int:
+def _refresh_llm_sections(root: Path, playbook_root: Path) -> None:
+    """刷新已存在路书文件中的 LLM:* 区段（chg-04：仅对已存在区段刷新）。
+
+    只对有 LLM:* 标记的文件调 LLM 填充；失败时 stderr WARN，不破坏现有内容。
+    """
+    import os
+    import sys
+
+    if os.getenv("CI", "").lower() == "true":
+        return
+
+    try:
+        from harness_workflow.playbook.llm import (
+            NoopProvider,
+            PlaybookContext,
+            auto_detect_provider,
+        )
+        from harness_workflow.playbook.domain_inference import infer_domains
+
+        llm = auto_detect_provider()
+        if isinstance(llm, NoopProvider):
+            return
+
+        # 推断领域
+        _, domains = infer_domains(root)
+        if not domains:
+            return
+
+        context = PlaybookContext(
+            project_name=root.name,
+            stack=[],
+            layout="",
+            domains=domains,
+            matched_mode="unknown",
+        )
+
+        content = None
+        try:
+            content = llm.generate(context)
+        except Exception as e:
+            print(f"[llm] WARN: provider failed, falling back to Noop: {e}", file=sys.stderr)
+            return
+
+        if content is None:
+            return
+
+        # 刷新 overview.md LLM 区段
+        overview_md = playbook_root / "overview.md"
+        if overview_md.exists():
+            try:
+                text = overview_md.read_text(encoding="utf-8")
+                if "<!-- LLM:OVERVIEW_DESC -->" in text:
+                    updated, ok, _ = replace_auto_section(
+                        text, "OVERVIEW_DESC", content.overview_description or "", prefix="LLM"
+                    )
+                    if ok:
+                        text = updated
+                if "<!-- LLM:TECH_DECISIONS -->" in text:
+                    decisions_text = "\n".join(
+                        f"- {d}" for d in (content.tech_decisions or [])
+                    )
+                    updated, ok, _ = replace_auto_section(text, "TECH_DECISIONS", decisions_text, prefix="LLM")
+                    if ok:
+                        text = updated
+                overview_md.write_text(text, encoding="utf-8")
+            except Exception as e:
+                print(f"[llm] WARN: failed to refresh LLM sections in overview.md: {e}", file=sys.stderr)
+
+        # 刷新各领域 README.md LLM 区段
+        domains_dir = playbook_root / "domains"
+        if domains_dir.is_dir():
+            for domain in domains:
+                readme_path = domains_dir / domain / "README.md"
+                if not readme_path.exists():
+                    continue
+                try:
+                    text = readme_path.read_text(encoding="utf-8")
+                    changed = False
+                    if "<!-- LLM:DOMAIN_DESC -->" in text:
+                        desc = (content.domain_descriptions or {}).get(domain, "")
+                        if desc:
+                            updated, ok, _ = replace_auto_section(text, "DOMAIN_DESC", desc, prefix="LLM")
+                            if ok:
+                                text = updated
+                                changed = True
+                    if "<!-- LLM:KEYWORDS -->" in text:
+                        kws = (content.domain_keywords or {}).get(domain, [])
+                        kw_text = ", ".join(kws) if kws else ""
+                        if kw_text:
+                            updated, ok, _ = replace_auto_section(text, "KEYWORDS", kw_text, prefix="LLM")
+                            if ok:
+                                text = updated
+                                changed = True
+                    if changed:
+                        readme_path.write_text(text, encoding="utf-8")
+                except Exception as e:
+                    print(f"[llm] WARN: failed to refresh LLM sections for {domain}: {e}", file=sys.stderr)
+
+        # 刷新 code-map.md LLM:CODE_MAP_KEYWORDS 区段
+        code_map_md = playbook_root / "code-map.md"
+        if code_map_md.exists():
+            try:
+                text = code_map_md.read_text(encoding="utf-8")
+                if "<!-- LLM:CODE_MAP_KEYWORDS -->" in text:
+                    all_kws = []
+                    for domain in domains:
+                        kws = (content.domain_keywords or {}).get(domain, [])
+                        all_kws.extend(kws)
+                    kw_text = ", ".join(dict.fromkeys(all_kws))
+                    if kw_text:
+                        updated, ok, _ = replace_auto_section(
+                            text, "CODE_MAP_KEYWORDS", kw_text, prefix="LLM"
+                        )
+                        if ok:
+                            code_map_md.write_text(updated, encoding="utf-8")
+            except Exception as e:
+                print(f"[llm] WARN: failed to refresh LLM sections in code-map.md: {e}", file=sys.stderr)
+
+    except Exception as e:
+        print(f"[llm] WARN: LLM refresh phase failed: {e}", file=sys.stderr)
+
+
+def playbook_refresh(root: str | Path, dry_run: bool = False, no_llm: bool = False) -> int:
     """刷新路书 5 类 AUTO 区段。
 
     路径锁定：{root}/artifacts/project/playbooks/（OQ-1=B）
@@ -664,6 +793,12 @@ def playbook_refresh(root: str | Path, dry_run: bool = False) -> int:
         print(f"[playbook-refresh] 完成：刷新 {total_refreshed} 个 AUTO 区段")
     else:
         print("[playbook-refresh] 所有 AUTO 区段已是最新，无需刷新")
+
+    # -----------------------------------------------------------------------
+    # LLM 区段刷新阶段（chg-04：AUTO 区段刷新完成后，对已存在的 LLM 区段填充）
+    # -----------------------------------------------------------------------
+    if not no_llm:
+        _refresh_llm_sections(root, playbook_root)
 
     return 0
 

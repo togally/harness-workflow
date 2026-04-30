@@ -23,6 +23,12 @@ def _get_tools_dir() -> Path:
 _MAX_LOCATE_DEPTH = 20
 
 
+def _resolve_no_llm(args) -> bool:
+    """返回是否跳过 LLM 填充：args.no_llm=True 或环境变量 CI=true 时跳过。"""
+    import os
+    return getattr(args, "no_llm", False) or os.getenv("CI", "").lower() == "true"
+
+
 def _auto_locate_repo_root(start: Path) -> Path:
     """从 ``start`` 向上最多 ``_MAX_LOCATE_DEPTH`` 层查找 ``.workflow/`` 目录。
 
@@ -201,6 +207,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Comma-separated domain names to use directly, bypassing domain inference (e.g. --domains platform-admin,platform-common).",
     )
+    # req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）：
+    # --no-llm flag：跳过 LLM 填充阶段（_resolve_no_llm 还会检测 CI=true）。
+    install_parser.add_argument(
+        "--no-llm",
+        dest="no_llm",
+        action="store_true",
+        help="Skip LLM content filling stage (also auto-skipped when CI=true).",
+    )
 
     # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-04（harness playbook-refresh 子命令）：
     # 注册 playbook-refresh 子命令（紧接 install_parser 之后）。
@@ -213,6 +227,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="打印将要写入的 diff，不落盘",
+    )
+    # req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）：
+    playbook_refresh_parser.add_argument(
+        "--no-llm",
+        dest="no_llm",
+        action="store_true",
+        help="Skip LLM content filling stage (also auto-skipped when CI=true).",
     )
 
     # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-05（harness playbook-check 子命令）：
@@ -486,6 +507,9 @@ def main() -> int:
         # req-56 / chg-01：透传 --domains flag
         if getattr(args, "domains", None):
             extra_args.extend(["--domains", args.domains])
+        # req-56 / chg-04：透传 --no-llm flag（_resolve_no_llm 已处理 CI=true）
+        if _resolve_no_llm(args):
+            extra_args.append("--no-llm")
         if args.agent:
             return _run_tool_script(
                 "harness_install.py", ["--agent", args.agent, *extra_args], root
@@ -501,7 +525,8 @@ def main() -> int:
     if args.command == "playbook-refresh":
         from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
         dry_run = getattr(args, "dry_run", False)
-        return playbook_refresh(root, dry_run=dry_run)
+        no_llm = _resolve_no_llm(args)
+        return playbook_refresh(root, dry_run=dry_run, no_llm=no_llm)
     # req-55（项目路书Playbook体系）/ chg-05（harness playbook-check 子命令）
     if args.command == "playbook-check":
         from harness_workflow.tools.harness_playbook_check import playbook_check

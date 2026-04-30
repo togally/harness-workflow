@@ -27,11 +27,15 @@ _OVERVIEW_TEMPLATE = """\
 
 ## 用途描述
 
+<!-- LLM:OVERVIEW_DESC -->
 <!-- TODO: ≤ 3 句话描述项目用途和目标用户 -->
+<!-- /LLM:OVERVIEW_DESC -->
 
 ## 技术决策摘要
 
+<!-- LLM:TECH_DECISIONS -->
 <!-- TODO: 关键架构选型（语言 / 框架 / 存储），≤ 5 条 -->
+<!-- /LLM:TECH_DECISIONS -->
 
 ## 活跃领域列表
 
@@ -98,6 +102,12 @@ _CODE_MAP_TEMPLATE = """\
 <!-- AUTO:DOMAIN_FILES -->
 <!-- /AUTO:DOMAIN_FILES -->
 
+## 关键词索引
+
+<!-- LLM:CODE_MAP_KEYWORDS -->
+<!-- TODO: 项目级关键词（中英对照） -->
+<!-- /LLM:CODE_MAP_KEYWORDS -->
+
 ## 入口文件
 
 <!-- TODO: main / CLI 入口文件路径 + 一句话描述（human-authored）-->
@@ -123,7 +133,15 @@ def _domain_readme_template(domain_name: str) -> str:
 
 ## 职责描述
 
+<!-- LLM:DOMAIN_DESC -->
 <!-- TODO: ≤ 3 句描述该领域处理什么业务 -->
+<!-- /LLM:DOMAIN_DESC -->
+
+## 关键词
+
+<!-- LLM:KEYWORDS -->
+<!-- TODO: 领域关键词（中英对照） -->
+<!-- /LLM:KEYWORDS -->
 
 ## 关键文件
 

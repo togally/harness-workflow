@@ -286,6 +286,11 @@ class NoopProvider(LLMProvider):
 DEFAULT_PROVIDERS = [AnthropicProvider, OpenAIProvider, OllamaProvider, NoopProvider]
 
 
+def auto_detect_provider(providers=None) -> LLMProvider:
+    """Alias for auto_select_provider (chg-04 integration interface)."""
+    return auto_select_provider(providers)
+
+
 def auto_select_provider(providers=None) -> LLMProvider:
     """Iterate providers in priority order; return first one where is_available() is True.
 

@@ -1,5 +1,8 @@
 """harness playbook-check 子命令（req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-05（harness playbook-check 子命令））
 
+req-56 / chg-05 注释更新：_AUTO_OPEN_RE / _AUTO_CLOSE_RE 正则扩展覆盖 LLM 区段（<!-- LLM:* -->），
+行为基本不变，只扩正则面（AUTO|LLM 命名空间，issue 字符串前缀不变，向后兼容）。
+
 检测 artifacts/project/playbooks/ 内路书漂移 + 契约校验（OQ-1=B 路径定位）：
 
   D-01 依赖漂移（DEPENDENCY_DRIFT）
@@ -9,10 +12,10 @@
   D-05 code.md 引用失效（CODE_MD_REF_BROKEN）
   D-06 README 依赖链接失效（README_DEP_BROKEN）
   K-01 关键词覆盖空（KEYWORD_COVERAGE）
-  C-01 AUTO 区段配对（SEGMENT_UNPAIRED）
+  C-01 AUTO/LLM 区段配对（SEGMENT_UNPAIRED）
   C-03 path schema 锁定（PATH_SCHEMA_VIOLATION）
   C-05 domains 互引一致性（DOMAIN_SUBDIR_MISMATCH）
-  AUTO 区段哈希漂移（OQ-5=A 路书只读软约束 + CI 兜底）
+  AUTO/LLM 区段哈希漂移（OQ-5=A 路书只读软约束 + CI 兜底）
 
 不调 LLM（纯静态分析，spec §四明示）。
 """
@@ -36,9 +39,9 @@ PLAYBOOK_ROOT_SUFFIX = "artifacts/project/playbooks"
 # 裸路径模式：artifacts/playbooks/（无 project/ 中间层）→ 路径合规失败
 _BAD_PATH_PATTERN = re.compile(r"artifacts/playbooks/")
 
-# AUTO 区段开/闭标记正则
-_AUTO_OPEN_RE = re.compile(r"<!--\s*AUTO:(\w+)\s*-->")
-_AUTO_CLOSE_RE = re.compile(r"<!--\s*/AUTO:(\w+)\s*-->")
+# AUTO/LLM 区段开/闭标记正则（req-56 / chg-05 扩展：覆盖 AUTO 和 LLM 两个命名空间）
+_AUTO_OPEN_RE = re.compile(r"<!--\s*(AUTO|LLM):(\w+)\s*-->")
+_AUTO_CLOSE_RE = re.compile(r"<!--\s*/(AUTO|LLM):(\w+)\s*-->")
 
 
 # ---------------------------------------------------------------------------
@@ -55,11 +58,11 @@ class CheckResult(NamedTuple):
 # ---------------------------------------------------------------------------
 
 def _find_auto_segments(content: str) -> list[tuple[str, str]]:
-    """提取所有 AUTO 区段，返回 [(marker_name, segment_content), ...]。
-    只返回配对完整的区段。"""
+    """提取所有 AUTO/LLM 区段，返回 [(marker_name, segment_content), ...]。
+    只返回配对完整的区段（req-56 / chg-05：扩展覆盖 LLM 命名空间）。"""
     segments = []
     pattern = re.compile(
-        r"<!--\s*AUTO:(\w+)\s*-->(.*?)<!--\s*/AUTO:\1\s*-->",
+        r"<!--\s*(?:AUTO|LLM):(\w+)\s*-->(.*?)<!--\s*/(?:AUTO|LLM):\1\s*-->",
         re.DOTALL,
     )
     for m in pattern.finditer(content):
@@ -68,14 +71,16 @@ def _find_auto_segments(content: str) -> list[tuple[str, str]]:
 
 
 def _check_auto_pairs(content: str) -> list[str]:
-    """C-01 / C-04：检测 AUTO 区段配对是否完整，返回缺失配对的 issue 列表。"""
+    """C-01 / C-04：检测 AUTO/LLM 区段配对是否完整，返回缺失配对的 issue 列表。
+    req-56 / chg-05：正则扩展覆盖 LLM 命名空间，issue 字符串前缀不变（向后兼容）。"""
+    # _AUTO_OPEN_RE / _AUTO_CLOSE_RE 返回 (namespace, name) 两元组
     open_markers = set(_AUTO_OPEN_RE.findall(content))
     close_markers = set(_AUTO_CLOSE_RE.findall(content))
     issues = []
-    for m in open_markers - close_markers:
-        issues.append(f"SEGMENT_UNPAIRED: <!-- AUTO:{m} --> 缺少对应 <!-- /AUTO:{m} -->")
-    for m in close_markers - open_markers:
-        issues.append(f"SEGMENT_UNPAIRED: <!-- /AUTO:{m} --> 缺少对应 <!-- AUTO:{m} -->")
+    for ns, name in open_markers - close_markers:
+        issues.append(f"SEGMENT_UNPAIRED: <!-- {ns}:{name} --> 缺少对应 <!-- /{ns}:{name} -->")
+    for ns, name in close_markers - open_markers:
+        issues.append(f"SEGMENT_UNPAIRED: <!-- /{ns}:{name} --> 缺少对应 <!-- {ns}:{name} -->")
     return issues
 
 

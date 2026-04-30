@@ -203,12 +203,20 @@ def main() -> int:
         default=None,
         help="Comma-separated domain names, bypassing domain inference (e.g. --domains a,b,c).",
     )
+    # req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）：
+    parser.add_argument(
+        "--no-llm",
+        dest="no_llm",
+        action="store_true",
+        help="Skip LLM content filling stage (also auto-skipped when CI=true).",
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
 
     skip_playbook = getattr(args, "skip_playbook", False)
     playbook_only = getattr(args, "playbook_only", False)
+    no_llm = getattr(args, "no_llm", False)
     # 解析 --domains flag 为列表
     override_domains = None
     if getattr(args, "domains", None):
@@ -217,7 +225,7 @@ def main() -> int:
     # --playbook-only：仅跑路书初始化，跳过 install_agent / install_repo
     if playbook_only:
         print("skipped install_repo (--playbook-only); mirror not synced this run")
-        return init_playbook(root, skip=False, only=True, override_domains=override_domains)
+        return init_playbook(root, skip=False, only=True, override_domains=override_domains, no_llm=no_llm)
 
     # 1) install_agent：写入 agent 配置 + skill 文件
     rc = install_agent(root, args.agent)
@@ -238,7 +246,7 @@ def main() -> int:
     if rc != 0:
         return rc
     # 4) init_playbook：追加路书初始化阶段（OQ-3=A 默认追加，透传 override_domains）
-    return init_playbook(root, skip=skip_playbook, only=False, override_domains=override_domains)
+    return init_playbook(root, skip=skip_playbook, only=False, override_domains=override_domains, no_llm=no_llm)
 
 
 if __name__ == "__main__":
