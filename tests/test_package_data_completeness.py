@@ -216,10 +216,18 @@ def test_project_skeleton_all_files_covered_by_package_data() -> None:
     )
 
 
-def test_project_skeleton_has_minimum_10_files() -> None:
-    """bugfix-13 round-3：dev 仓的 project-skeleton/ 应有 ≥ 10 文件（README + 6 index.md + 3 .gitkeep）。"""
+def test_project_skeleton_has_minimum_8_files() -> None:
+    """bugfix-13 round-4：dev 仓的 project-skeleton/ 应有 ≥ 8 文件（README + 7 index.md，每目录用 index.md 占位）。
+
+    历史：round-3 用 .gitkeep 占位 ≥ 10；但 setuptools `**/*` glob 默认 ignore dot-prefix，
+    .gitkeep 没被打入 wheel → tools/ 目录在 user 仓不存在。round-4 改用 index.md 占位
+    + 删冗余 .gitkeep，每子目录都有 index.md 自然被 setuptools 打包，user 仓 install
+    后 tools/ 与 constraints / experience 一致存在。
+    """
     root = _project_skeleton_root()
     if not root.exists():
         pytest.skip("project-skeleton/ 不存在")
     files = [p for p in root.rglob("*") if p.is_file()]
-    assert len(files) >= 10, f"project-skeleton/ 只有 {len(files)} 文件（< 10）：{[p.name for p in files]}"
+    assert len(files) >= 8, f"project-skeleton/ 只有 {len(files)} 文件（< 8）：{[p.name for p in files]}"
+    # 防回归：tools/index.md 必须存在（round-4 修复点，防 tools/ 目录漏建）
+    assert (root / "tools" / "index.md").exists(), "tools/index.md 必须存在（round-4 修复点）"
