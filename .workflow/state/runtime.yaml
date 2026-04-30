@@ -1,9 +1,9 @@
-operation_type: "bugfix"
-operation_target: "bugfix-13"
-current_requirement: "bugfix-13"
-current_requirement_title: "install时自动创建artifacts-project骨架与索引模板"
-stage: "done"
-stage_entered_at: "2026-04-30T03:37:53.148793+00:00"
+operation_type: ""
+operation_target: ""
+current_requirement: ""
+current_requirement_title: ""
+stage: ""
+stage_entered_at: ""
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -12,9 +12,4 @@ current_regression: ""
 current_regression_title: ""
 ff_mode: false
 ff_stage_history: []
-active_requirements:
-  - bugfix-11
-  - req-51
-  - bugfix-12
-  - req-52
-  - bugfix-13
+active_requirements: []
