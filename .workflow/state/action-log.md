@@ -55,3 +55,11 @@
 - sug 入池: 0（同型病第 6 次复发不重复入池；建议把既有 sug-67 / sug-68 / sug-69 / sug-70 合并为专项 req 升级硬门禁九 "subagent 必须独立 paste lint stdout 全文 + 主 agent 必须独立 grep 实测 +1 / +0 比对" 成文化为契约硬门禁）。
 - archive 建议: bugfix-11 + req-51 + bugfix-12 + req-52 + bugfix-13 五件均已 done，建议**一起 archive**；done 阶段不动，等用户后续显式触发 `harness archive`。
 
+## 2026-04-30T11:16:37Z done(opus): req-54（硬门禁体系简化-砍4条降级-加1条项目级brief强约束）六层回顾完成
+- 六层回顾: Context / Tools / Flow / State / Evaluation / Constraints 全过；本 req 自身即"硬门禁体系简化"——硬门禁体系从 12+ 条（含跳号）减到 9 条有真威慑（保留 1/3 + base 三/四/五/六/七/八/九）；硬门禁九本周期触发 2 次（testing 抓 chg-02 executing §3.6.2 虚报 / 主 agent 抓 acceptance subagent 写错 checklist 路径）均独立核查兜底；契约 4 文件 mirror diff -q 全 silent；usage-log.yaml 缺失，效率与成本段按规约标 ⚠️ 无数据。
+- verdict: 不重审 acceptance verdict（PASS / 0 未达标项）；req-54 9 TC 全 PASS（test_req54_hard_gate_simplify.py）；全 suite acceptance 时刻 40 failed / 821 passed（≤ 上轮 round-2 55 failed，环境改善非回归；req-54 自身 0 new fail）；fresh repo install + validate --contract all exit 0 ✅；chg-02 executing 虚报 §3.6.2 由 testing 抓出 + 主 agent round-2 直接补写完成闭环（同型病第 7+ 次复发，与 sug-67/68/69/70 同源）。
+- 关键决策: OQ-3 砍法=降级文字 + 段标题改 + 保留段落（不删整段，便于历史追溯）；OQ-6 硬门禁八编号紧邻硬门禁九之前（7→8→9 连续）；OQ-7 dogfood 自证落点=done 交付总结一行（不新增独立工件）；硬门禁八与硬门禁九形成「事前 brief / 事后核查」配对闭环。
+- 产出: artifacts/main/requirements/req-54-硬门禁体系简化-砍4条降级-加1条项目级brief强约束/交付总结.md（新建）；analysis/session-memory.md 末尾追加 'Done Stage Six-Layer Review' 段。
+- sug 入池 0 条: chg-02 executing §3.6.2 虚报（同 sug-67/68/69 同型，第 7+ 次复发，不重复入池） / acceptance subagent 写错 checklist 路径（同型变种，不重复入池） / archive CLI bug runtime 异常切换（与 sug-65 同型第 2 次复发，不重复入池）。建议将 sug-67/68/69/70 + 本周期 2 次同型合并升级为专项 req（硬门禁九成文化）；建议将 sug-65 升级为 bugfix（archive CLI 多 active 推进异常清空 runtime）。
+- archive 建议: bugfix-11 + bugfix-12 + bugfix-13 + req-51 + req-52 + req-53 + req-54 七件均已 done，建议**一起 archive**；done 阶段不动，等用户后续显式触发 `harness archive`。
+

@@ -1,9 +1,9 @@
 operation_type: "requirement"
-operation_target: "req-53"
-current_requirement: "req-53"
-current_requirement_title: "新增-harness-命令-给项目添加规范-经验-工具-引导式"
+operation_target: "req-54"
+current_requirement: "req-54"
+current_requirement_title: "硬门禁体系简化-砍4条降级-加1条项目级brief强约束"
 stage: "done"
-stage_entered_at: "2026-04-30T08:47:39.936109+00:00"
+stage_entered_at: "2026-04-30T11:16:37.623997+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -13,4 +13,4 @@ current_regression_title: ""
 ff_mode: false
 ff_stage_history: []
 active_requirements:
-  - req-53
+  - req-54

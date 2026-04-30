@@ -203,8 +203,22 @@ harness <verb> [noun] [--flags]
 | `harness requirement` | 创建需求，加载 `analyst` 角色（原 requirement-review，req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））合并；如命中 requirement-review 派发语境，等同 analyst） |
 | `harness change` | 创建变更，加载 `analyst` 角色（原 planning，req-40（阶段合并与用户介入窄化（方向 C：角色合并 analyst.md））合并；如命中 planning 派发语境，等同 analyst） |
 | `harness bugfix` | 创建 bugfix，加载 `regression` 角色 |
+| `harness trivial` | 创建 trivial 任务（≤ 10 行改动 / ≤ 2 文件 / 无新增依赖），task_type=trivial，stage=trivial_define，派发 `executing` 角色（sonnet）自定义 + 自实现（req-49（工作流轻量级通道：trivial 任务（几行代码）走简化流程）/ chg-01） |
 | `harness archive` | 归档需求，执行归档操作 |
 | `harness rename` | 重命名工件，执行重命名操作 |
+
+#### 3.4.1 trivial 路由特殊段（req-49（工作流轻量级通道：trivial 任务）/ chg-01（trivial 通道命令骨架））
+
+`harness trivial "<title>"` 派发链：
+
+1. CLI 调 `create_trivial(title, root)` 写 task_type=trivial / stage=trivial_define 到 runtime.yaml；
+2. briefing 注入 `task_type=trivial` / `TRIVIAL_SEQUENCE=[trivial_define, executing, done]`；
+3. **直接派发 `executing` 角色（sonnet）**执行 trivial_define + executing 合并阶段（自定义 + 自实现）；
+4. 无 testing / acceptance / planning 派发——`TRIVIAL_SEQUENCE` 不含这三个 stage；
+5. done 阶段精简版：产 ≤ 200 字 `交付总结.md`，跳过六层回顾；
+6. trivial-guard 在 executing → done 流转点自动跑（行数 + pytest + import 基线），超标强制升级到 BUGFIX_SEQUENCE。
+
+`harness suggest --apply <sug-id> --trivial`：把 sug 池建议作为 trivial 任务执行入口（调 `apply_suggestion_as_trivial`，归档 sug，runtime task_type=trivial）。
 
 #### 3.5 辅助功能类 → 加载对应角色或直接执行
 
@@ -370,6 +384,56 @@ harness-manager 支持派发 subagent 执行任务，subagent 可以继续派发
 - **default-pick HM-1 = A**：requirement_review PASS 后，technical-director **默认让 analyst 在同一会话续跑 planning 任务**（不新开 subagent 会话），以保持上下文连贯；退化路径 B（两次派发 analyst）保留作 fallback，当上下文达到 70% 阈值需 /compact 时使用。
 - 派发说明 model 透出：`派发 analyst（Opus 4.7）执行需求澄清 + 变更拆分`（对人文案 Opus 大写，briefing / yaml 保持 lowercase）。
 - legacy role_key `requirement-review` / `planning` 仍兼容，如命中旧名派发语境，等同 analyst 派发，不报错。
+
+#### 3.6.2 按硬门禁八 brief 项目级加载链（req-54（硬门禁体系简化-砍4条降级-加1条项目级brief强约束））
+
+> 溯源：req-54 OQ-A（硬门禁八新增）；与 base-role.md `## 硬门禁八` 并列生效；与硬门禁九「subagent 产出独立核查」配对（事前 brief 完整 / 事后产出核查）。
+
+适用范围：派发任意 stage / 辅助 subagent 时（含 analyst / executing / testing / acceptance / regression / done / project-reporter / reviewer / tools-manager 等），主 agent 构造 briefing 必须显式包含「项目级加载链 boilerplate 段」。
+
+##### scope 枚举
+
+按 req-51 / req-52 / req-53 落地的项目级承载层路径：
+
+- `artifacts/project/constraints/{coding,architecture,api,database,security}/index.md` 及其 always-load 条目（rule 5 个 scope）
+- `artifacts/project/experience/{roles,stage,regression,risk,tool}/index.md` 及其 always-load 条目（experience 5 个 scope）
+- `artifacts/project/tools/index.md` 及其 always-load 条目（tools 不分 scope）
+
+##### boilerplate 段（briefing 模板复用）
+
+派发 briefing 必须含以下段落（字面复用，不可改字）：
+
+```markdown
+## 项目级加载链（硬门禁八，必读）
+
+按 role-loading-protocol.md Step 7.6 / 7.6.1 完整执行：
+
+1. 加载 `artifacts/project/constraints/{coding,architecture,api,database,security}/index.md` 及 always-load 条目（项目级规则覆盖全局）
+2. 加载 `artifacts/project/experience/{roles,stage,regression,risk,tool}/index.md` 及 always-load 条目（项目级经验覆盖全局）
+3. 加载 `artifacts/project/tools/index.md` 及 always-load 条目（项目级工具优先匹配）
+4. 通过 index.md 索引懒加载（`when_load: always` 立即加载；`on-stage:{stage}` / `on-keyword:{kw}` 按条件加载）
+5. 同名文件 → 项目级覆盖全局（OQ-2 = A）；不同名 → 两者并存
+```
+
+##### 违反判定 grep
+
+reviewer 阶段 checklist 跑：
+
+```bash
+grep -c "项目级加载链（硬门禁八，必读）" <subagent-briefing.md>
+# 期望 ≥ 1；缺失即违反硬门禁八
+```
+
+派发后留痕：主 agent 在自身 session-memory.md 「## 派发记录」段追加一行 `briefing 含项目级加载链段（硬门禁八）✓`。
+
+##### 与硬门禁九的闭环
+
+| 编号 | 时机 | 关注点 |
+|------|------|--------|
+| 八 | 派发**前** brief 写就时 | 上级必显式注入项目级加载链提示 |
+| 九 | subagent 产出**后** report 收回时 | 上级必独立核查 subagent 报告真实性 |
+
+两条配合：事前 brief 强约束 + 事后产出核查 → 完整闭环。任一缺失 = 串联虚报风险。
 
 3. **派发 subagent**：
    使用 Agent 工具，注入以下 prompt：
