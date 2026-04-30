@@ -42,6 +42,12 @@ harness_workflow = [
   "assets/skill/agents/openai.yaml",
   "assets/skill/assets/templates/*.tmpl",
   "assets/templates/*.md",
+  # bugfix-13 round-3（install 时自动创建 artifacts/project 骨架与索引模板）packaging 修复：
+  # project-skeleton/ 子目录递归全量打包；与 reg-02 / chg-08 scaffold_v2 同型病同 fix
+  "assets/templates/project-skeleton/**/*",
+  # req-53（新增-harness-命令-给项目添加规范-经验-工具-引导式）/ chg-02：
+  # project-add/ 下 3 份 .md.tmpl 模板（rule / experience / tool）必须打入 wheel
+  "assets/templates/project-add/**/*",
   "assets/skill/references/*.md",
   "assets/skill/scripts/*.py",
   "assets/skill/tests/*.py",

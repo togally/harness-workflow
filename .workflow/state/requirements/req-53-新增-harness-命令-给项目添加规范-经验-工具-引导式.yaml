@@ -1,0 +1,13 @@
+id: "req-53"
+title: "新增-harness-命令-给项目添加规范-经验-工具-引导式"
+stage: "done"
+status: "done"
+created_at: "2026-04-30"
+started_at: "2026-04-30"
+completed_at: "2026-04-30"
+stage_timestamps:
+  executing: "2026-04-30T07:37:33.485250+00:00"
+  testing: "2026-04-30T08:28:18.077617+00:00"
+  acceptance: "2026-04-30T08:37:14.515480+00:00"
+  done: "2026-04-30T08:47:39.939228+00:00"
+description: ""

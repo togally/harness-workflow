@@ -1,13 +1,13 @@
 """bugfix-13（install时自动创建artifacts-project骨架与索引模板）测试。
 
 覆盖范围（诊断 §测试用例设计 12 TC 中的 ≥ 6 TC）：
-- TC-01：fresh repo `harness install` → artifacts/project/ 全部 10 文件创建
+- TC-01：fresh repo `harness install` → artifacts/project/ 全部 8 文件创建
 - TC-02：二次 `harness install` → 幂等，skipped=10（0 新建）
 - TC-03：用户已有 my-rule.md → install → my-rule.md 保留 + 骨架文件新建
 - TC-04：用户改了 README.md → install → 用户改动保留（write_if_missing 不覆盖）
 - TC-05：`harness install --check` → dry-run 输出 "would create" + 实际不写盘
 - TC-06：bootstrap 写盘后 `_load_project_level_index` 能正常解析（链路联动）
-- TC-07：模板文件清单核查（10 文件齐全）
+- TC-07：模板文件清单核查（8 文件齐全）
 - TC-08：`_bootstrap_project_skeleton` helper 直调（单元测试）
 """
 from __future__ import annotations
@@ -32,18 +32,17 @@ _SKELETON_ROOT = (
     REPO_ROOT / "src" / "harness_workflow" / "assets" / "templates" / "project-skeleton"
 )
 
-# 期望的 10 个相对路径（相对 project-skeleton/）
+# 期望的 8 个相对路径（相对 project-skeleton/）
+# bugfix-13 round-4 已去掉 .gitkeep（用 index.md 占位 + setuptools dot-file ignore 修复）
 _EXPECTED_FILES = {
     "README.md",
-    "constraints/.gitkeep",
     "constraints/index.md",
-    "experience/.gitkeep",
     "experience/roles/index.md",
     "experience/tool/index.md",
     "experience/risk/index.md",
     "experience/regression/index.md",
     "experience/stage/index.md",
-    "tools/.gitkeep",
+    "tools/index.md",
 }
 
 
@@ -69,11 +68,11 @@ def _run_harness(cwd: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 # ─────────────────────────────────────────────
-# TC-07：模板文件清单核查（10 文件齐全）
+# TC-07：模板文件清单核查（8 文件齐全）
 # ─────────────────────────────────────────────
 
 def test_tc07_skeleton_template_files_complete() -> None:
-    """TC-07：assets/templates/project-skeleton/ 包含恰好 10 个文件，文件名与预期列表一致。"""
+    """TC-07：assets/templates/project-skeleton/ 包含恰好 8 个文件，文件名与预期列表一致。"""
     assert _SKELETON_ROOT.exists(), f"模板根目录不存在：{_SKELETON_ROOT}"
     actual = {
         f.relative_to(_SKELETON_ROOT).as_posix()
@@ -83,7 +82,7 @@ def test_tc07_skeleton_template_files_complete() -> None:
     assert actual == _EXPECTED_FILES, (
         f"模板文件列表不匹配。\n期望：{sorted(_EXPECTED_FILES)}\n实际：{sorted(actual)}"
     )
-    assert len(actual) == 10, f"期望 10 个文件，实际 {len(actual)} 个：{sorted(actual)}"
+    assert len(actual) == 8, f"期望 8 个文件，实际 {len(actual)} 个：{sorted(actual)}"
 
 
 # ─────────────────────────────────────────────
@@ -93,12 +92,12 @@ def test_tc07_skeleton_template_files_complete() -> None:
 def test_tc08_bootstrap_helper_fresh(tmp_path: Path) -> None:
     """TC-08a：fresh tmpdir 直调 _bootstrap_project_skeleton → 返回 10 条 created actions。"""
     actions = _bootstrap_project_skeleton(tmp_path, check=False)
-    # 应当 created 10 个文件
+    # 应当 created 8 个文件
     created_actions = [a for a in actions if a.startswith("created ")]
-    assert len(created_actions) == 10, (
+    assert len(created_actions) == 8, (
         f"期望 10 条 created actions，实际 {len(created_actions)}: {actions}"
     )
-    # 所有 10 个目标文件应存在
+    # 所有 8 个目标文件应存在
     for rel in _EXPECTED_FILES:
         target = tmp_path / "artifacts" / "project" / rel
         assert target.exists(), f"期望文件不存在：{target}"
@@ -114,7 +113,7 @@ def test_tc08b_bootstrap_helper_idempotent(tmp_path: Path) -> None:
 def test_tc08c_bootstrap_helper_check_mode(tmp_path: Path) -> None:
     """TC-08c：check=True → 返回 would-create actions + 不写盘。"""
     actions = _bootstrap_project_skeleton(tmp_path, check=True)
-    assert len(actions) == 10, f"check mode 应返回 10 条 would-create，实际 {len(actions)}: {actions}"
+    assert len(actions) == 8, f"check mode 应返回 10 条 would-create，实际 {len(actions)}: {actions}"
     for a in actions:
         assert a.startswith("would create "), f"check mode 动作应以 'would create ' 开头：{a!r}"
     # 不写盘：artifacts/project/ 不存在
@@ -124,32 +123,32 @@ def test_tc08c_bootstrap_helper_check_mode(tmp_path: Path) -> None:
 
 
 # ─────────────────────────────────────────────
-# TC-01：fresh repo `harness install` → 全部 10 文件创建
+# TC-01：fresh repo `harness install` → 全部 8 文件创建
 # ─────────────────────────────────────────────
 
 def test_tc01_fresh_repo_install_creates_skeleton(tmp_path: Path) -> None:
-    """TC-01：fresh repo `harness install` → artifacts/project/ 下 10 个骨架文件全部创建。
+    """TC-01：fresh repo `harness install` → artifacts/project/ 下 8 个骨架文件全部创建。
     AC-01（fresh repo bootstrap）。P0。
     """
     result = _run_harness(tmp_path, "install")
     assert result.returncode == 0, (
         f"harness install 失败。\nstdout={result.stdout}\nstderr={result.stderr}"
     )
-    # 断言 10 个文件存在
+    # 断言 8 个文件存在
     for rel in _EXPECTED_FILES:
         target = tmp_path / "artifacts" / "project" / rel
         assert target.exists(), (
             f"骨架文件不存在：{target}\nstdout={result.stdout}\nstderr={result.stderr}"
         )
-    # 断言 10 个文件（find -type f）
+    # 断言 8 个文件（find -type f）
     actual_files = list((tmp_path / "artifacts" / "project").rglob("*"))
     actual_files = [f for f in actual_files if f.is_file()]
-    assert len(actual_files) == 10, (
-        f"期望 10 个文件，实际 {len(actual_files)}: {[str(f.relative_to(tmp_path)) for f in actual_files]}"
+    assert len(actual_files) == 8, (
+        f"期望 8 个文件，实际 {len(actual_files)}: {[str(f.relative_to(tmp_path)) for f in actual_files]}"
     )
     # stderr 含 project skeleton 日志
-    assert "project skeleton: created 10 files" in result.stderr, (
-        f"stderr 应含 'project skeleton: created 10 files'，实际 stderr:\n{result.stderr}"
+    assert "project skeleton: created 8 files" in result.stderr, (
+        f"stderr 应含 'project skeleton: created 8 files'，实际 stderr:\n{result.stderr}"
     )
 
 
@@ -172,8 +171,8 @@ def test_tc02_idempotent_second_install(tmp_path: Path) -> None:
     result2 = _run_harness(tmp_path, "install")
     assert result2.returncode == 0, f"第二次 install 失败: {result2.stderr}"
     # stderr 含 created 0 + skipped 10
-    assert "project skeleton: created 0 files / skipped 10 files" in result2.stderr, (
-        f"二次 install 应含 'created 0 files / skipped 10 files'，实际 stderr:\n{result2.stderr}"
+    assert "project skeleton: created 0 files / skipped 8 files" in result2.stderr, (
+        f"二次 install 应含 'created 0 files / skipped 8 files'，实际 stderr:\n{result2.stderr}"
     )
     # 核心文件内容不变
     assert (tmp_path / "artifacts" / "project" / "README.md").read_text(encoding="utf-8") == readme_content

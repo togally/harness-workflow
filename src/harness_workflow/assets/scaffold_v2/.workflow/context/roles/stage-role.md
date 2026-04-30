@@ -48,8 +48,8 @@ subagent 不需要重复读取 `runtime.yaml`、`base-role.md` 或 `stage-role.m
 
 | 序号 | base-role 要求 | 子类必须执行的具体行为 | 检查位置 |
 |------|---------------|---------------------|---------|
-| 1 | **硬门禁一：工具优先** | 在执行业务步骤前，必须先**委派** toolsManager subagent，由其匹配并推荐适合当前任务的工具；收到推荐后，优先使用匹配工具执行操作 | SOP 的"执行"部分 |
-| 2 | **硬门禁二：操作说明与日志** | 每执行一个操作前说明"接下来我要执行 [操作名称]"；执行后说明"执行完成，结果是 [结果摘要]"；将摘要追加到 `.workflow/state/action-log.md` | SOP 的"执行"部分 |
+| 1 | ~~**硬门禁一：工具优先**~~ **工具委派指导原则**（原硬门禁一，req-54（硬门禁体系简化-砍4条降级-加1条项目级brief强约束）已降级） | 在执行业务步骤前，**新工具 / 跨 repo / API 集成必派** toolsManager subagent；常规 read / edit 不必委派（req-54 降级，非硬门禁） | SOP 的"执行"部分 |
+| 2 | ~~**硬门禁二：操作说明与日志**~~ **操作日志指导原则**（原硬门禁二，req-54（硬门禁体系简化-砍4条降级-加1条项目级brief强约束）已降级） | **stage 流转 / rollback / CLI 异常 / 派 subagent 必记** action-log；常规 read / edit 不记（req-54 降级，非硬门禁） | SOP 的"执行"部分 |
 | 2.5 | **路径自检（操作层）**（req-46（建议池梳理验证 + 优先级 roadmap + 分批落地）/ chg-01（机器型工件路径修复 + 防再犯 lint）） | subagent 在产出每件工件前，对照 `repository-layout.md` §3 路径表确认机器型 vs 对人型分类；机器型必落 `.workflow/flow/`（禁落 `artifacts/main/requirements/{req-id}-{slug}/{stage-name}/`）；对人型仅限 §2 白名单且必落 `artifacts/{branch}/` | SOP 的"执行"部分（每件工件产出前） |
 | 3 | **硬门禁三：角色自我介绍** | 按 base-role 硬门禁三的格式执行，不在子角色中重复声明。格式："我是 {role_name}（{role_key} / {model}），接下来我将 {task_intent}。"；`{role_key} / {model}` 字段取自 `.workflow/context/role-model-map.yaml`，未列出回落 `default`（当前 `sonnet`） | SOP 的"初始化"部分 |
 | 4 | **上下文维护规则：70% 评估阈值** | 任务执行过程中主动监控上下文；达到 70%（~71680 tokens）时必须评估是否使用 `/compact` 或 `/clear`；达到 85% 时必须立即执行维护 | "上下文维护职责" + SOP 的"执行"部分 |

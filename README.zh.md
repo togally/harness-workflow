@@ -152,3 +152,34 @@ harness regression --reject               # 误判，回到触发前的阶段
 ### 场景 D：多平台共存
 
 `harness install` 一次性写入四个平台的 skill 文件。CLI 升级后运行 `harness install --force` 保持 skill 文件最新。
+
+## harness pad — 项目级承载层维护
+
+往 `artifacts/project/` 加规则 / 经验 / 工具，命令封装"路径正确 + index 登记 + git stage"全套：
+
+```bash
+# 加规则（5 个 scope：coding / architecture / api / database / security）
+harness pad rule coding "禁止-API-硬编码"
+
+# 加经验（5 个 scope：roles / stage / regression / risk / tool）
+harness pad experience stage "executing-虚报教训"
+
+# 加工具（不分 scope）
+harness pad tool "petmall-deployer"
+
+# 列已有
+harness pad list
+
+# 无参数 → 交互引导
+harness pad
+```
+
+落位规则（固定枚举，user 不能发明）：
+
+| kind | 路径 |
+|------|------|
+| rule | `artifacts/project/constraints/{scope}/{slug}.md` |
+| experience | `artifacts/project/experience/{scope}/{slug}.md` |
+| tool | `artifacts/project/tools/{slug}.md` |
+
+命令成功后会自动 `git add`；user 仅需 `git commit -m "..."`（按 stdout 提示）。

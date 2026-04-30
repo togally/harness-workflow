@@ -426,6 +426,16 @@ def build_parser() -> argparse.ArgumentParser:
     feedback_parser.add_argument("--root", default=".", help="Repository root.")
     feedback_parser.add_argument("--reset", action="store_true", help="Clear the feedback log after export.")
 
+    # req-53（新增-harness-命令-给项目添加规范-经验-工具-引导式）/ chg-01：
+    pad_parser = subparsers.add_parser(
+        "pad",
+        help="Project-add：往 artifacts/project/ 加规则 / 经验 / 工具（kind ∈ rule/experience/tool）。",
+    )
+    pad_parser.add_argument("kind", nargs="?", default="", help="rule / experience / tool / list（list 子命令）。")
+    pad_parser.add_argument("scope", nargs="?", default="", help="rule/experience 时的 scope；tool 不需要。")
+    pad_parser.add_argument("title", nargs="?", default="", help="条目标题。")
+    pad_parser.add_argument("--root", default=".", help="Repository root.")
+
     return parser
 
 
@@ -777,6 +787,49 @@ def main() -> int:
         if result.stderr:
             print(result.stderr, end="", file=sys.stderr)
         return result.returncode
+    if args.command == "pad":
+        from harness_workflow.workflow_helpers import (
+            _pad_add, _pad_list, _pad_interactive,
+            _validate_pad_kind, _validate_pad_scope,
+        )
+        kind_raw = (args.kind or "").strip()
+        scope_raw = (args.scope or "").strip()
+        title_raw = (args.title or "").strip()
+
+        # list 子命令分流（kind 位置参数被复用为 list 关键字）
+        if kind_raw == "list":
+            return _pad_list(root)
+
+        # 裸跑（无任何参数）→ interactive
+        if not kind_raw:
+            return _pad_interactive(root)
+
+        # 非法 kind → ABORT
+        err = _validate_pad_kind(kind_raw)
+        if err:
+            print(f"[harness pad] ABORT: {err}", file=sys.stderr)
+            return 2
+
+        # 位置参数 normalize：tool 时 scope 位是 title（需在 scope 校验前 normalize）
+        if kind_raw == "tool":
+            # `harness pad tool <title>`：title 实际在 scope_raw 位
+            title_effective = scope_raw or title_raw
+            scope_effective = ""
+        else:
+            title_effective = title_raw
+            scope_effective = scope_raw
+
+        # 非法 scope → ABORT（tool normalize 后 scope_effective="" 不触发）
+        err = _validate_pad_scope(kind_raw, scope_effective)
+        if err:
+            print(f"[harness pad] ABORT: {err}", file=sys.stderr)
+            return 2
+
+        if not title_effective:
+            print("[harness pad] ABORT: title 必须提供（或裸跑进入 interactive）", file=sys.stderr)
+            return 2
+
+        return _pad_add(root, kind_raw, scope_effective, title_effective)
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

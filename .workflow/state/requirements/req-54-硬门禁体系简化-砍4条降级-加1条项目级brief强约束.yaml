@@ -1,0 +1,13 @@
+id: "req-54"
+title: "硬门禁体系简化-砍4条降级-加1条项目级brief强约束"
+stage: "done"
+status: "done"
+created_at: "'2026-04-30'"
+started_at: "'2026-04-30'"
+completed_at: "2026-04-30"
+stage_timestamps:
+  executing: "'2026-04-30T09:54:21.564624+00:00'"
+  testing: "'2026-04-30T10:20:15.072610+00:00'"
+  acceptance: "'2026-04-30T10:30:00.000000+00:00'"
+  done: "2026-04-30T11:16:37.627934+00:00"
+description: "''"
