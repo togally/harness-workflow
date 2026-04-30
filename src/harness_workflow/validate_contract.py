@@ -547,20 +547,35 @@ def check_artifact_placement(root: Path, verbose: bool = True) -> int:
     # - artifacts/{branch}/archive/：legacy 历史归档（req-02 ~ req-40 历史脏数据）
     # - artifacts/{branch}/regressions/：pre-flow-layout 时代的 reg 目录（req-02~req-40 遗留）
     # req-41+ 按本规则严格执行（artifact-placement lint 只扫 req-41+ 活跃目录）。
-    _ARCHIVE_EXEMPTION_DIRS = {
-        str(artifacts_dir / "main" / "archive"),
-        str(artifacts_dir / "main" / "regressions"),
-    }
+    # req-52 / chg-02：硬编码 main 改 branch-aware glob，覆盖任意 git branch 下的历史 archive / regressions 子目录。
+    _ARCHIVE_EXEMPTION_DIRS = set()
+    if artifacts_dir.exists():
+        for branch_dir in artifacts_dir.iterdir():
+            if not branch_dir.is_dir():
+                continue
+            archive_dir = branch_dir / "archive"
+            regressions_dir = branch_dir / "regressions"
+            if archive_dir.exists():
+                _ARCHIVE_EXEMPTION_DIRS.add(str(archive_dir))
+            if regressions_dir.exists():
+                _ARCHIVE_EXEMPTION_DIRS.add(str(regressions_dir))
 
     def _is_under_archive(path: Path) -> bool:
         path_str = str(path)
         return any(path_str.startswith(d) for d in _ARCHIVE_EXEMPTION_DIRS)
 
-    # 规则 0（req-46 / chg-01 新增）：artifacts/main/requirements/{req-id}-{slug}/ 下不能有 stage-name 子目录
-    # 注：仅扫 artifacts/main/requirements/（非 archive），豁免历史遗留
+    # 规则 0（req-46 / chg-01 新增）：artifacts/{branch}/requirements/{req-id}-{slug}/ 下不能有 stage-name 子目录
+    # 注：扫 artifacts/ 下所有 branch 子目录（req-52 / chg-02：硬编码 main 改 branch-aware），豁免历史遗留
     if artifacts_dir.exists():
-        req_base = artifacts_dir / "main" / "requirements"
-        if req_base.is_dir():
+        for branch_dir in artifacts_dir.iterdir():
+            if not branch_dir.is_dir():
+                continue
+            # 跳过 chg-01 新主路径 artifacts/project/（项目级承载层，无 requirements 子树）
+            if branch_dir.name == "project":
+                continue
+            req_base = branch_dir / "requirements"
+            if not req_base.is_dir():
+                continue
             for req_dir in req_base.iterdir():
                 if not req_dir.is_dir():
                     continue
@@ -1108,6 +1123,15 @@ def check_user_write_protected_zones(root: Path) -> int:
     """硬门禁：用户项目模式下扫描 .workflow/ + skill/commands 目录，识别野文件。
 
     返回：违规文件数（0 = PASS / >0 = ABORT）。
+
+    req-51（项目级规则-经验-工具支持从制品引入）/ chg-02（升级保护-mirror-protected-双豁免）注：
+    `protected_zones` 仅含 `.workflow`，天然不扫 `artifacts/`；req-51 OQ-4 = A 的"protected-zones
+    豁免"语义即"扫描范围本身不含 artifacts/{branch}/project/"。下游用户在 `artifacts/project/
+    {constraints,experience,tools}/`（req-52 主路径）或 legacy `artifacts/{branch}/project/`（双轨过渡兼容）
+    手写文件不命中本 helper；同时 `.workflow/context/roles/x.md`
+    等手写仍命中保护区（豁免精准，不放大保护面）。本注释存在的目的是防止后续 chg 回退性地把
+    `artifacts/` 加入 `protected_zones`，从而误伤项目级承载层。
+    （legacy `artifacts/{branch}/project/` 由 req-52 / chg-01 双轨过渡兼容）
     """
     # 1) dev mode 自动豁免
     if _is_dev_repo(root):

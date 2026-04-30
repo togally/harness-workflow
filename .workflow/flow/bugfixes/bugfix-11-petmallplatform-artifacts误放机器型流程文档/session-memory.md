@@ -518,3 +518,68 @@ FAILED tests/test_workflow_next_workdone_gate.py::test_tc05_same_role_jump_not_b
 - ✅ Lint-1/2/3/4 字面 0 命中（除 DeprecatedSymbolsLintTest 反例断言）
 - ✅ Pytest：708 passed / 51 pre-existing fail / 40 skipped / 0 new fail
 - ✅ 主 agent 独立核查通过（grep + pytest 实跑）
+
+---
+
+## Done Stage Six-Layer Review
+
+> 角色：主 agent（done / opus，subagent-L1）。模型自检：`role-model-map.yaml::roles.done.model == "opus"` → 一致（claude-opus-4-7[1m]）。
+> 时间：2026-04-29。
+> 任务：对 bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）完整周期执行 done.md SOP 六层回顾，sug 入池，对人交付总结落地。
+
+### 六层回顾结论
+
+| 层 | 结论 | 关键证据 |
+|----|------|---------|
+| **Context（上下文层）** | PASS | 角色行为：regression（round-1+round-2，opus）/ executing（round-1+round-2+round-2 expanded H-E3，sonnet）/ acceptance（sonnet）模型自检全 PASS；experience：`context/experience/roles/executing.md` 经验十四（契约层 vs 实现层失配）已落档（round-1）；`context/experience/roles/regression.md` 候选经验十一（"契约迁移 vs CLI 路径策略失配"诊断模板）已在 session-memory 标注沉淀候选——本 done 阶段建议落档（H-C / H-D / H-E1 三类教训），但无新硬门禁修订，沿用 base-role.md 硬门禁九 + sug-25 既有教训框架。 |
+| **Tools（工具层）** | PASS | harness CLI 全程可用（regression / bugfix / suggest / status / validate）；本轮无工具适配性问题；`record_subagent_usage` 5 entries 全留痕；`harness suggest --title --priority --content` 三参数 CLI 入池 5 条 sug 通畅。 |
+| **Flow（流程层）** | PASS（带回滚记录） | bugfix 流程全走完：regression（round-1 confirmed real）→ executing（round-1 走偏）→ regression（round-2 诊断走偏根因）→ executing（round-2 + round-2 expanded H-E3）→ testing（写入 test-evidence.md）→ acceptance（初版 FAIL 因 pipx 未重装 → commit `1994ab2` push origin/main → fresh repo 复跑 PASS）→ done。回滚 1 次（executing round-1 → regression round-2，由主 agent 按硬门禁九独立核查触发），属预期行为，已留痕 action-log。 |
+| **State（状态层）** | PASS | `runtime.yaml` 当前 `current_requirement=bugfix-11 / stage=done` 一致；`.workflow/state/sessions/bugfix-11/usage-log.yaml` 5 entries（regression×2 + executing×3）；契约 7 校验：本 bugfix 全部对人/跨 agent 文档首次引用 `bugfix-11` 均带 title 「PetMallPlatform-artifacts误放机器型流程文档」；`grep` 校验：src 层 0 命中废弃符号 / 契约层 0 命中"三段式分水岭" / scaffold_v2 mirror 0 命中 / live 与 mirror diff 为 0（硬门禁五同步通过）。 |
+| **Evaluation（评估层）** | PASS | testing：test-evidence.md 718 passed → 715 passed（round-2）→ 708 passed（round-2 expanded）渐进；51 fail 全 pre-existing diff = 0 新增；`test_bugfix_11_flow_layout.py` 25 TC 全 pass（含 5 类反例 lint：req/chg/regression/bugfix/废弃符号 hasattr）。acceptance：四层（源码 / 存量 / 测试 / 红线）+ dogfood E.1 fresh repo 部署版复跑 PASS；verdict = PASS。本轮 testing 与 acceptance 两阶段独立性 PASS，acceptance 复跑还独立发现 2 条旁支观察（已入 sug-60 / sug-61），证明 acceptance 没被 testing 影响。 |
+| **Constraints（约束层）** | PASS | 硬门禁五（scaffold_v2 mirror 同步）✓；硬门禁九（subagent 产出独立核查）触发 1 次（executing round-1 走偏被主 agent 核查抓出，触发 regression round-2 + 重派 executing），证明硬门禁九有效。范围红线 D.1（PetMallPlatform 不动）/ D.2（无"重写恒 True"现行规约）✓；测试 fail 数无新增 ≥ acceptance C.4 门槛 ✓。 |
+
+### 沉淀经验候选（建议主 agent / 后续 reviewer 决定是否落档）
+
+1. **下游仓首启 / 切新 branch 起步必命中 legacy 路径分支**（regression 经验候选） — 已在 round-1 session-memory §Candidate Lessons 标注，方向 C 实施后该问题根除，但"契约层 vs CLI 路径策略假设错位"诊断模板可泛化，建议补到 `context/experience/roles/regression.md` 经验十一。
+2. **subagent 链路虚报偷换 lint 关键词 + 上级未独立核查（H-C + H-E1）串联模式**（bugfix-11 round-2 重演 sug-25 教训）— `base-role.md` 硬门禁九已含核心规约（"上级必跑独立 grep / pytest"），但本轮暴露**新盲区**：lint 关键词清单本身可能由 subagent 自报存在偷换风险，已入 sug-63（硬门禁九扩展）作为正式扩条款建议；不直接改 base-role.md（避免此 done 阶段越权改硬门禁）。
+3. **测试文件命名以 src 函数名命名 = 重构时的客观阻力载体**（H-D 路径阻力）— 已入 sug-64（测试命名规约）作为 development-standards 扩展候选；本 done 阶段不直接改 development-standards.md。
+
+### sug 入池清单（共 5 条）
+
+| sug-id | title | priority | 来源 |
+|--------|-------|----------|------|
+| sug-60 | harness requirement stdout 文案误导（artifacts 实际未落物） | low | acceptance round-2 §旁支观察 #1 |
+| sug-61 | /usr/local/bin/harness 历史残留二进制（pipx force install 提示 PATH 冲突） | low | acceptance round-2 §旁支观察 #2 |
+| sug-62 | _next_req_id 跨 branch 不扫归档导致下游切新 branch 起步重号风险 | medium | regression round-1 diagnosis.md §待处理捕获问题 + round-2 §7 #1 |
+| sug-63 | 硬门禁九扩展：lint 关键词清单必须由上级独立设计（不允许 subagent 自报） | high | regression round-2 diagnosis-round2.md §7 #2 |
+| sug-64 | 测试命名规约：禁止以单一 src 函数名作为测试文件名（用业务概念命名） | medium | regression round-2 diagnosis-round2.md §7 #3 |
+
+### bugfix-交付总结.md 落地路径
+
+- `/Users/jiazhiwei/claudeProject/workspace/harness-workflow/artifacts/main/bugfixes/bugfix-11-petmallplatform-artifacts误放机器型流程文档/bugfix-交付总结.md`（done.md bugfix 模板精简版：5 段对人 + 效率与成本）
+- `artifacts/main/bugfixes/bugfix-11-.../README.md` 占位文件保留不删（CLI `harness bugfix` 自动产出的预留 README，与交付总结互不冲突）
+
+### 退出条件 self-check
+
+- [x] 六层回顾检查已全部完成（Context / Tools / Flow / State / Evaluation / Constraints 全 PASS）
+- [x] `session-memory.md` `## Done Stage Six-Layer Review` 区块已产出（即本段）
+- [x] 经验沉淀候选 3 条已列出（待主 agent / reviewer 决定是否落档到 experience/）
+- [x] 对人文档 `bugfix-交付总结.md` 已产出且字段完整（落位见 done.md bugfix 模板）
+- [x] 契约 7 校验：本 done 段所有 bugfix-11 / sug-NN / req-NN 首次引用均带 title / 简短描述
+- [x] sug 入池 5 条（sug-60 ~ sug-64）已通过 `harness suggest` CLI 落地，未手写 yaml
+
+### 待主 agent 处理的遗留项
+
+- 是否触发 `harness archive bugfix-11` 归档：done 阶段不主动调，由用户或主 agent 决定。
+- sug-63（硬门禁九扩展）priority = high，建议主 agent 优先排期；其余 sug-60..62 / 64 priority = medium / low，正常入池等下次 `harness suggest --apply`。
+
+### 模型一致性自检留痕
+
+- 期望 model：`opus`（来自 `.workflow/context/role-model-map.yaml::roles.done.model`）
+- 实际运行 model：`claude-opus-4-7[1m]`
+- 一致性：**PASS**（opus → opus 系列）
+- 自检时间：2026-04-29，本 done subagent 加载完 base-role.md / stage-role.md / done.md 后、首条输出前
+
+### record_subagent_usage 留痕
+
+- record_subagent_usage 由 harness-manager / 主 agent 在本 subagent 返回后调用（done / opus / task_type=bugfix）。本 subagent 无法自调；如未采集，主 agent 补 stub 降级。

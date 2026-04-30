@@ -22,7 +22,7 @@ migrated_from: ".workflow/flow/artifacts-layout.md（req-39（对人文档家族
 |------|------|---------|--------|--------|
 | `.workflow/state/` | Runtime 真·实时数据。只装工作流引擎的瞬态运行时状态；**不**承载 req/chg/bugfix/regression 周期工件（req-41+ 起）。 | `runtime.yaml` / `feedback/feedback.jsonl` / `action-log.md` / `experience/index.md` | harness CLI / 主 agent | 主 agent / harness CLI |
 | `.workflow/flow/` | 权威工作流工件。包含本文件（布局契约）/ 流程定义文件（`stages.md` 等）/ **任意任务类型机器型文档**（req-41+ 落位，见 §3；bugfix-6+ 落位，见 §3.2）/ 归档（`archive/{branch}/`）。 | `repository-layout.md` / `stages.md` / `requirements/{req-id}-{slug}/` 子树 / `bugfixes/{bugfix-id}-{slug}/` 子树 / `archive/` | harness CLI / subagent | harness CLI / subagent / 主 agent |
-| `artifacts/{branch}/` | 对人可读签字执行产物。只装人可直接阅读、执行或签字的产物；**不**出现机器型文档。**任意任务类型**（req / bugfix / sug 等）均遵守此约束（bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） A4）。 | raw `requirement.md` 副本 / `交付总结.md` / `决策汇总.md` / SQL / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 / 对人产物占位 README | subagent（done / analyst） | 业务方 / PM / 运维 / 外部审阅者 |
+| `artifacts/{branch}/` | 对人可读签字执行产物。只装人可直接阅读、执行或签字的产物；**不**出现机器型文档。**任意任务类型**（req / bugfix / sug 等）均遵守此约束（bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） A4）。**注**：`artifacts/project/{constraints,experience,tools}/`（req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified 主路径，无 branch 维度，跟项目走）及 legacy `artifacts/{branch}/project/{constraints,experience,tools}/`（req-51 OQ-1 = B-modified 原路径，fallback 兼容）三类项目级机器型文档由 req-51（项目级规则-经验-工具支持从制品引入）显式豁免本表"不出现机器型文档"原则；详见 §2 白名单新增段与 §3 顶部豁免说明段。豁免范围**仅限**这三类，其他机器型文档（requirement.md / change.md / plan.md / session-memory.md / yaml / 报告类等）严禁入 artifacts/ 不变。legacy 路径 `artifacts/{branch}/project/` 作为加载链 fallback 兼容存量，详见 §2.1 双轨过渡段；后续 req 收口退役。 | raw `requirement.md` 副本 / `交付总结.md` / `决策汇总.md` / SQL / 部署文档 / 接入配置说明 / runbook / 手册 / 合同附件 / 对人产物占位 README | subagent（done / analyst） | 业务方 / PM / 运维 / 外部审阅者 |
 
 ### `.workflow/flow/requirements/` 子树结构（req-41+ 新位）
 
@@ -90,6 +90,31 @@ artifacts/
 | sug 交付总结 | `交付总结.md`（sug 轻量版） | sug 级 | 主 agent（sug 直接处理后） | req-43（交付总结完善）/ chg-05（sug 直接处理路径产出 3 段轻量交付总结 + State 校验扩三类任务）：sug 直接处理（--apply 不转 req / --archive / --reject）后产出，3 段轻量：建议是什么 / 处理结果 / 后续 |
 | 其他对人产物 | 任意 `.md` / `.pdf` / `.docx` 等 | 按需 | 任意 | 兜底：其他需人执行或阅读的产物，由 planning 阶段声明并加入白名单 |
 
+### 2.1 项目级机器型豁免段（req-51（项目级规则-经验-工具支持从制品引入）OQ-1 = B-modified + req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified）
+
+`artifacts/project/{constraints,experience,tools}/`（req-52 主路径，无 branch 维度，跟项目走）是项目级承载层，**仅限**以下三类文档存入：
+
+| 子树 | 语义 | 产出者 | 消费者 |
+|------|------|--------|--------|
+| `artifacts/project/constraints/` | 项目独有规则 / 边界约束 | 下游用户（项目团队） | 全部 stage 角色（按 §3 加载链项目级覆盖全局） |
+| `artifacts/project/experience/` | 项目独有经验沉淀（roles / tool / risk / regression / stage 五分类同 `.workflow/context/experience/` schema） | 下游用户 + done 阶段沉淀 | stage 角色按经验加载规则匹配 |
+| `artifacts/project/tools/` | 项目独有工具 catalog / index / protocols / keywords | 下游用户 | tools-manager（按项目级覆盖全局规则匹配） |
+
+#### 双轨过渡 fallback（req-52 / chg-01）
+
+> req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ OQ-A = D-modified：主路径迁移 + legacy 兼容。
+
+- **主路径**：`artifacts/project/{constraints,experience,tools}/`（**无 branch 维度，跟项目走**）；新建一律入此；
+- **legacy fallback**：`artifacts/{branch}/project/{constraints,experience,tools}/`（req-51 OQ-1 = B-modified 原路径）作为加载链 fallback 兼容存量；当主路径不存在但 legacy 存在时，加载链命中 legacy 并 stderr 记录 `(fallback=...)`；
+- **`harness install` / `update` 主流程行为**：两条路径**均**不被 mirror 覆盖（`_SCAFFOLD_V2_MIRROR_WHITELIST` 含 `artifacts/project/` + `/project/` 双条目，详见 chg-02（src硬编码main全面去除-branch-aware））；
+- **退役计划**：legacy 路径在后续 req（一次大版本归档）统一退役为只读，不在 req-52 内删除。
+
+**与全局 §1 "artifacts 不出现机器型文档"原则的关系**：本豁免**仅限**上列三类项目级机器型文档；其他机器型文档（如 requirement.md / change.md / plan.md / session-memory.md / yaml / 报告类）继续严禁入 artifacts/。豁免不放大保护面，不破坏 bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C）） 已立的底座。
+
+**与 OQ-2 = A 项目级覆盖全局策略的关系**：项目级三类目录在加载链中**优先于** `.workflow/context/{constraints,experience}/` 与 `.workflow/tools/`（详见 chg-03（加载层覆盖-tools-项目级合并））；`harness validate --contract user-write-protected-zones` 对本目录自动豁免（详见 chg-02（升级保护-mirror-protected-双豁免））。
+
+**与 mirror 同步契约（硬门禁五）的关系**：本路径**不**纳入 `src/harness_workflow/assets/scaffold_v2/` mirror 同步；`harness install` / `harness install --force-managed` / `harness update` 全流程跳过本路径（详见 chg-02）。
+
 **注意**：
 - 四类 brief（req 级摘要 / chg 级对人简报 / chg 级对人说明 / regression 级对人简报）已由 req-41（机器型工件回 flow/requirements + 关注点分离 + 废四类 brief（方向 C））废止（req-id ≥ 41 不再产出），**不在白名单内**。独立用量报告文件同步废止，效率数据并入 `交付总结.md §效率与成本段`（chg-05（done.md 交付总结模板扩 §效率与成本）落地）。
 - `测试结论.md` / `验收摘要.md` 已由 req-31（角色功能优化整合与交互精简（合并 sub-stage / 汇报瘦身 / testing-acceptance 精简 / 对人文档缩减 / 决策批量化到阶段边界））/ chg-04（S-D 对人文档缩减）废止，**不在白名单内**；对应数据写入 `test-report.md` / `acceptance-report.md`（机器型）。
@@ -99,6 +124,15 @@ artifacts/
 ---
 
 ## 3. 机器型文档权威落位（`.workflow/flow/requirements/{req-id}-{slug}/`）
+
+> **req-51（项目级规则-经验-工具支持从制品引入）OQ-1 = B-modified + req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified 豁免说明**：以下三类项目级机器型文档由 §2.1 显式开放、由本节豁免：
+> - `artifacts/project/constraints/`（req-52 主路径，无 branch 维度）
+> - `artifacts/project/experience/`（req-52 主路径，无 branch 维度）
+> - `artifacts/project/tools/`（req-52 主路径，无 branch 维度）
+>
+> legacy 路径 `artifacts/{branch}/project/{constraints,experience,tools}/` 由 §2.1 双轨过渡 fallback 描述兼容；本节落位表以主路径 `artifacts/project/` 为权威。
+>
+> 其他机器型文档（req / chg / regression / bugfix 级 requirement.md / change.md / plan.md / session-memory.md / yaml / 报告类等）继续按本节落 `.workflow/flow/requirements/` 子树，不豁免。
 
 **机器型文档**定义：由 CLI / agent 写入、主要供工作流引擎 / agent 读取的结构化文档；人一般不直接操作。
 
@@ -137,6 +171,8 @@ artifacts/
 ---
 
 ## 3.2 bugfix 机器型文档权威落位（bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑）） A4）
+
+> 注：req-51 三类项目级豁免（§2.1 / §3 顶部）**不**适用于 bugfix 子树；bugfix 机器型文档继续落 `.workflow/flow/bugfixes/` 子树。（req-52 / chg-01 路径迁移到 `artifacts/project/` 后，本豁免范围语义不变。）
 
 bugfix-6+ 所有机器型工件统一落 `.workflow/flow/bugfixes/{bugfix-id}-{slug}/` 子树。
 

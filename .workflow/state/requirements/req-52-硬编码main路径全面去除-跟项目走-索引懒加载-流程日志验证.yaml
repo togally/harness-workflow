@@ -1,0 +1,13 @@
+id: "req-52"
+title: "硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证"
+stage: "done"
+status: "done"
+created_at: "2026-04-30"
+started_at: "2026-04-30"
+completed_at: "2026-04-30"
+stage_timestamps:
+  executing: "2026-04-30T01:12:02.854049+00:00"
+  testing: "2026-04-30T02:06:01.392120+00:00"
+  acceptance: "2026-04-30T02:17:47.098539+00:00"
+  done: "2026-04-30T02:24:58.830150+00:00"
+description: ""

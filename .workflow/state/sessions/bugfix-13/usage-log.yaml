@@ -1,0 +1,70 @@
+- ts: 2026-04-30T03:01:41.834491+00:00
+  task_type: bugfix
+  stage: regression
+  role: regression
+  model: opus
+  usage:
+    input_tokens: 0
+    output_tokens: 0
+    cache_read_input_tokens: 0
+    cache_creation_input_tokens: 0
+    total_tokens: 127329
+    tool_uses: 68
+    duration_ms: 524742
+
+- ts: 2026-04-30T03:21:05.025243+00:00
+  task_type: bugfix
+  stage: executing
+  role: executing
+  model: sonnet
+  usage:
+    input_tokens: 0
+    output_tokens: 0
+    cache_read_input_tokens: 0
+    cache_creation_input_tokens: 0
+    total_tokens: 105124
+    tool_uses: 82
+    duration_ms: 1094856
+
+- ts: 2026-04-30T03:29:51.307576+00:00
+  task_type: bugfix
+  stage: executing
+  role: executing
+  model: sonnet
+  usage:
+    input_tokens: 0
+    output_tokens: 0
+    cache_read_input_tokens: 0
+    cache_creation_input_tokens: 0
+    total_tokens: 32363
+    tool_uses: 31
+    duration_ms: 310537
+
+- ts: 2026-04-30T03:37:52.591826+00:00
+  task_type: bugfix
+  stage: acceptance
+  role: acceptance
+  model: sonnet
+  usage:
+    input_tokens: 0
+    output_tokens: 0
+    cache_read_input_tokens: 0
+    cache_creation_input_tokens: 0
+    total_tokens: 52149
+    tool_uses: 54
+    duration_ms: 450825
+
+- ts: 2026-04-30T03:44:38.549725+00:00
+  task_type: bugfix
+  stage: done
+  role: done
+  model: opus
+  usage:
+    input_tokens: 0
+    output_tokens: 0
+    cache_read_input_tokens: 0
+    cache_creation_input_tokens: 0
+    total_tokens: 83793
+    tool_uses: 42
+    duration_ms: 374484
+

@@ -1,0 +1,13 @@
+id: "bugfix-12"
+title: "runtime-block.yaml-误判用户野文件-白名单漏配"
+stage: "done"
+status: "done"
+created_at: "2026-04-30"
+started_at: "2026-04-30"
+completed_at: "2026-04-30"
+stage_timestamps:
+  executing: "2026-04-29T19:23:52.203711+00:00"
+  testing: "2026-04-29T19:30:31.942848+00:00"
+  acceptance: "2026-04-29T19:30:31.944421+00:00"
+  done: "2026-04-29T19:36:49.805436+00:00"
+description: ""

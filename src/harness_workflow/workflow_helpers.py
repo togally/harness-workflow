@@ -176,6 +176,7 @@ _SCAFFOLD_V2_MIRROR_WHITELIST: tuple[str, ...] = (
     "state/bugfixes",
     "state/feedback",
     "state/runtime.yaml",
+    "state/runtime-block.yaml",  # bugfix-12（runtime-block.yaml-误判用户野文件-白名单漏配）：raise_harness_block 写运行时阻塞状态，需豁免
     "state/action-log.md",
     "flow/archive",
     "flow/requirements",
@@ -193,6 +194,17 @@ _SCAFFOLD_V2_MIRROR_WHITELIST: tuple[str, ...] = (
     "flow/bugfixes",                 # bugfix 流程产出区（harness bugfix 运行时写入）
     "context/experience/regression", # regression 经验沉淀区（harness done 阶段写入）
     "context/experience/risk",       # known-risks 经验沉淀区（harness done 阶段写入）
+    # req-51（项目级规则-经验-工具支持从制品引入）/ chg-02（升级保护-mirror-protected-双豁免）+
+    # req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-02（src硬编码main全面去除-branch-aware）：
+    # 项目级三类机器型文档承载层（constraints / experience / tools）。chg-01（契约底座-artifacts-project-豁免）
+    # 已落 §2.1 / §3 豁免段；req-52 / chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified
+    # 主路径迁移到 artifacts/project/（无 branch），legacy artifacts/{branch}/project/ 双轨过渡兼容。
+    # 白名单匹配语义为 substring（any(white in relative for white in WHITELIST)），下两条覆盖：
+    #   - "artifacts/project/" 主路径（无 branch，跟项目走）
+    #   - "/project/" substring 兜底捕获 artifacts/<任意 branch>/project/... legacy 路径
+    # 共同保证：harness install / update / force-managed 全流程跳过项目级承载层。
+    "artifacts/project/",
+    "/project/",
 )
 
 
@@ -3415,6 +3427,13 @@ def _sync_scaffold_v2_mirror_to_live(
       `current == mirror[relative]`，本 helper 直接 no-op；仅对 drift 残留 / 用户手改 / 未登记文件做
       defense-in-depth 处理。
 
+    req-51（项目级规则-经验-工具支持从制品引入）/ chg-02（升级保护-mirror-protected-双豁免）注：
+    本 helper 反向清理 stale_keys 分支（约第 3506-3531 行）已通过 `if not relative.startswith(".workflow/"):
+    continue` 天然过滤 artifacts/ 路径；scaffold_v2 mirror 本身不含 `artifacts/project/` 文件
+    （chg-01（契约底座-artifacts-project-豁免）已自证），故不会进入 stale_keys 集合；
+    `_SCAFFOLD_V2_MIRROR_WHITELIST` 含 "artifacts/project/" + "/project/" 双条目作 defense-in-depth 兜底。
+    （req-52 / chg-02：原注释的旧路径已迁移为 artifacts/project/ 主路径，legacy artifacts/{branch}/project/ 由 /project/ substring 兜底）
+
     写入策略（六分支）：
       1. 命中白名单 → continue（不动）。
       2. live 不存在 → ``_write_with_hash_guard`` 写入 + 登记 hash + actions ``created (mirror) {rel}``。
@@ -3723,6 +3742,44 @@ def _migrate_workflow_dir(root: Path) -> bool:
     return False
 
 
+def _bootstrap_project_skeleton(root: Path, check: bool = False) -> list[str]:
+    """install/update 时把 assets/templates/project-skeleton/ 拷到用户仓 artifacts/project/。
+
+    幂等：已存在的文件 skip（用 write_if_missing），不覆盖用户改动。
+    check=True：dry-run，返回会写的 actions 列表，不真写。
+
+    bugfix-13（install 时自动创建 artifacts/project 骨架与索引模板）落地。
+    """
+    actions: list[str] = []
+    skeleton_root = PACKAGE_FS_ROOT / "assets" / "templates" / "project-skeleton"
+    if not skeleton_root.exists():
+        return actions  # 防御：模板缺失 silent skip
+    target_root = root / "artifacts" / "project"
+    created: list[str] = []
+    skipped: list[str] = []
+    for src_file in sorted(skeleton_root.rglob("*")):
+        if not src_file.is_file():
+            continue
+        rel = src_file.relative_to(skeleton_root)
+        target = target_root / rel
+        if target.exists():
+            skipped.append(str(rel))
+            continue
+        if check:
+            actions.append(f"would create artifacts/project/{rel.as_posix()}")
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(src_file.read_bytes())
+            created.append(str(rel))
+            actions.append(f"created artifacts/project/{rel.as_posix()}")
+    if not check:
+        print(
+            f"[install_repo] project skeleton: created {len(created)} files / skipped {len(skipped)} files",
+            file=sys.stderr,
+        )
+    return actions
+
+
 def install_repo(
     root: Path,
     force_skill: bool = False,
@@ -3754,6 +3811,42 @@ def install_repo(
     if _migrate_workflow_dir(root):
         actions.append("migrated .workflow/ → .workflow/")
     _ensure_workflow_dir_gitignore(root)
+
+    # ---- bugfix-13（install 时自动创建 artifacts/project 骨架与索引模板）：拷模板到 artifacts/project/ ----
+    _bootstrap_actions = _bootstrap_project_skeleton(root, check=check)
+    for _action in _bootstrap_actions:
+        print(f"- {_action}")
+
+    # ---- req-52 / chg-04（接入主流程-stderr日志-端到端CLI验证）：项目级合并行为预热 + 日志输出 ----
+    # 三个 scope 大类（constraints / experience / tools）各跑一次 _merge_project_level_files，
+    # 触发主路径 / branch-path 兼容路径探测 + stderr 日志（OQ-C = A）。
+    # check=True（dry-run）模式下也输出日志，方便 e2e pytest 用 --check 观测。
+    for _proj_scope in ("constraints", "experience", "tools"):
+        # 主路径（chg-01 OQ-A 无 branch 主路径）
+        _main_project = root / "artifacts" / "project" / _proj_scope
+        # branch-path 兼容路径（chg-01 双轨过渡）
+        _branch = _get_git_branch(root) or "main"
+        _legacy_project = root / "artifacts" / _branch / "project" / _proj_scope
+
+        _global_dir_map = {
+            "constraints": root / ".workflow" / "context" / "constraints",
+            "experience": root / ".workflow" / "context" / "experience",
+            "tools": root / ".workflow" / "tools",
+        }
+        _global_dir = _global_dir_map[_proj_scope]
+
+        # 优先主路径，fallback legacy
+        if _main_project.exists():
+            _merge_project_level_files(_global_dir, _main_project)
+            _project_hits = sum(1 for f in _main_project.rglob("*") if f.is_file())
+            _log_project_level_load(root, _proj_scope, _project_hits, fallback_used=False)
+        elif _legacy_project.exists():
+            _merge_project_level_files(_global_dir, _legacy_project)
+            _project_hits = sum(1 for f in _legacy_project.rglob("*") if f.is_file())
+            _log_project_level_load(root, _proj_scope, _project_hits, fallback_used=True)
+        else:
+            # 两条路径均不存在：日志记录 0 文件
+            _log_project_level_load(root, _proj_scope, hits=0, fallback_used=False)
 
     # ---- 吸收 update_repo：feedback.jsonl 一次性迁移（原 L3303-L3327）----
     if not check:
@@ -4126,20 +4219,25 @@ def _next_req_id(root: Path) -> str:
       - ``.workflow/flow/requirements``（legacy 路径）
       - ``resolve_requirement_root(root)``（当前 requirement 根，新/过渡路径）
       - ``artifacts/{branch}/archive/requirements``（归档，primary 形态）
-      - ``.workflow/flow/archive/main``（归档，legacy 扁平形态）
+      - ``.workflow/flow/archive/{branch}/``（归档，branch-aware glob 形态，req-52 / chg-02 改）
 
     req-31（批量建议合集（20条））/ chg-03（CLI / helper 剩余修复）/ Step 4（sug-19）：
     扩展扫描归档树，避免新建 req id 与已归档 id 冲突。
     """
     max_num = 0
     branch = _get_git_branch(root) or "main"
+    # req-52 / chg-02：硬编码 main 改 glob，覆盖任意历史 branch 归档子目录。
     scan_dirs = [
         root / ".workflow" / "state" / "requirements",
         root / ".workflow" / "flow" / "requirements",
         resolve_requirement_root(root),
         root / "artifacts" / branch / "archive" / "requirements",
-        root / ".workflow" / "flow" / "archive" / "main",
     ]
+    flow_archive = root / ".workflow" / "flow" / "archive"
+    if flow_archive.exists():
+        for branch_dir in flow_archive.iterdir():
+            if branch_dir.is_dir():
+                scan_dirs.append(branch_dir)
     seen: set[Path] = set()
     for d in scan_dirs:
         try:
@@ -4165,15 +4263,22 @@ def _next_bugfix_id(root: Path) -> str:
     扩展扫描归档树，避免新建 bugfix id 与已归档 id 冲突。
     """
     max_num = 0
+    # req-52 / chg-02：硬编码 main 改 glob。
     branch = _get_git_branch(root) or "main"
-    for d in [
+    static_dirs = [
         root / "artifacts" / "bugfixes",
         root / "artifacts" / branch / "bugfixes",
         root / ".workflow" / "state" / "bugfixes",
         root / ".workflow" / "flow" / "bugfixes",
         root / "artifacts" / branch / "archive" / "bugfixes",
-        root / ".workflow" / "flow" / "archive" / "main",
-    ]:
+    ]
+    flow_archive = root / ".workflow" / "flow" / "archive"
+    dynamic_dirs: list[Path] = []
+    if flow_archive.exists():
+        for branch_dir in flow_archive.iterdir():
+            if branch_dir.is_dir():
+                dynamic_dirs.append(branch_dir)
+    for d in static_dirs + dynamic_dirs:
         if not d.exists():
             continue
         for item in d.iterdir():
@@ -8122,6 +8227,13 @@ def _install_self_audit(root: Path) -> int:
     锚点）；chg-06 删除 pyproject 锚点段，触发面默认全开（任何 install 都跑），仅保留
     ``HARNESS_DEV_REPO_ROOT`` env 作开发期 escape hatch（env 设置 + 路径不匹配时跳过）。
 
+    req-51（项目级规则-经验-工具支持从制品引入）/ chg-02（升级保护-mirror-protected-双豁免）注：
+    本 helper "反向：live 多出 mirror 没有的非白名单文件" 分支（约第 8152 行）只扫 `.workflow/`，
+    天然不扫 `artifacts/`；项目级三类目录在 artifacts/ 下，故无需在本 helper 内单独豁免。
+    `_SCAFFOLD_V2_MIRROR_WHITELIST` 含 "artifacts/project/" + "/project/" 双条目（req-52 / chg-02 改），
+    用于 `_sync_scaffold_v2_mirror_to_live` 的反向清理 stale_keys 分支兜底。
+    （req-52 / chg-02：原注释的旧路径已迁移为 artifacts/project/ 主路径，legacy 由 /project/ 兜底）
+
     返回：drift 计数。命中差异时 stderr 逐条 + 末尾 WARNING；零差异时静默 return 0。
     """
     # 1) 触发面判定（仅保留 env-based escape hatch；pyproject 锚点已由 chg-06 删除）
@@ -8256,3 +8368,156 @@ def raise_harness_block(
         return 0
     else:  # FAIL
         return 64
+
+
+def _merge_project_level_files(
+    global_dir: Path,
+    project_dir: Path,
+) -> dict[str, Path]:
+    """req-51（项目级规则-经验-工具支持从制品引入）/ chg-03（加载层覆盖-tools-项目级合并）+
+    req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-04（接入主流程-stderr日志-端到端CLI验证）：
+    把全局子树与项目级子树按 basename 合并，同名时项目级覆盖全局。
+
+    返回：dict[basename, Path]，basename 为相对 global_dir / project_dir 的路径字符串。
+
+    fallback：
+    - global_dir 不存在 → 仅返回 project_dir 内容（如有）；
+    - project_dir 不存在 → 仅返回 global_dir 内容（向后兼容）；
+    - 两者都不存在 → 返回 {}。
+
+    集成（chg-04 落地）：
+    - 由 install_repo / update_repo 入口段调用（line ~3791 区域），对三个 scope 大类
+      （constraints / experience / tools）逐个触发探测；结果通过 _log_project_level_load 输出 stderr。
+    - 加载链消费：role-loading-protocol Step 7.6 / 7.6.1（chg-03 索引懒加载）+ tools-manager Step 2.0。
+    """
+    merged: dict[str, Path] = {}
+    if global_dir.exists():
+        for f in global_dir.rglob("*"):
+            if f.is_file():
+                rel = f.relative_to(global_dir).as_posix()
+                merged[rel] = f
+    if project_dir.exists():
+        for f in project_dir.rglob("*"):
+            if f.is_file():
+                rel = f.relative_to(project_dir).as_posix()
+                merged[rel] = f  # 同名覆盖全局
+    return merged
+
+
+def _log_project_level_load(
+    root: Path,
+    scope: str,
+    hits: int,
+    fallback_used: bool,
+) -> None:
+    """req-52 / chg-04：项目级加载链 stderr 日志输出 helper。
+
+    格式：[harness] project-level loaded: {N} files from {path}（fallback={legacy_path or "n/a"}）
+
+    入参：
+    - root: 项目根目录
+    - scope: ∈ {"constraints", "experience", "tools"}
+    - hits: 命中文件数
+    - fallback_used: 是否走了 legacy 路径（artifacts/{branch}/project/）
+
+    行为：仅写 stderr，不写盘；e2e pytest 断言依赖此格式（OQ-C = A）。
+    """
+    # 主路径（chg-01 OQ-A 主路径）
+    main_path = f"artifacts/project/{scope}/"
+    if fallback_used:
+        branch = _get_git_branch(root) or "main"
+        legacy_path = f"artifacts/{branch}/project/{scope}/"
+        msg = (
+            f"[harness] project-level loaded: {hits} files from {legacy_path}"
+            f"（fallback=主路径 {main_path} 不存在）"
+        )
+    else:
+        msg = (
+            f"[harness] project-level loaded: {hits} files from {main_path}"
+            f"（fallback=n/a）"
+        )
+    print(msg, file=sys.stderr)
+
+
+def _load_project_level_index(
+    root: Path,
+    scope: str,
+) -> list[dict]:
+    """req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-03（索引懒加载-index-md与加载链改造）：
+    解析项目级子目录 index.md，返回清单（不读取条目内容，由 agent 按 when_load 决定是否加载）。
+
+    入参：
+    - root: 项目根目录
+    - scope: ∈ {"constraints", "experience-roles", "experience-tool", "experience-risk",
+                "experience-regression", "experience-stage"}
+
+    行为：
+    1. 主路径 = artifacts/project/{scope_subpath}/index.md（chg-01 主路径，无 branch）
+    2. branch-path 兼容路径 = artifacts/{branch}/project/{scope_subpath}/index.md（chg-01 双轨过渡）
+    3. 解析 markdown 表格，提取 (path, title, scope, when_load) 四字段；
+    4. 主路径 + legacy 均不存在 → 返回 []（agent fallback 到全量 rglob）。
+
+    返回：list[dict]，每项含 {"path", "title", "scope", "when_load", "source"}（source ∈ "main" | "legacy"）。
+    """
+    # scope → 子目录映射
+    scope_map = {
+        "constraints": Path("constraints"),
+        "experience-roles": Path("experience") / "roles",
+        "experience-tool": Path("experience") / "tool",
+        "experience-risk": Path("experience") / "risk",
+        "experience-regression": Path("experience") / "regression",
+        "experience-stage": Path("experience") / "stage",
+    }
+    if scope not in scope_map:
+        return []
+    sub = scope_map[scope]
+
+    # 主路径优先（chg-01 OQ-A 主路径，无 branch）
+    main_idx = root / "artifacts" / "project" / sub / "index.md"
+    if main_idx.is_file():
+        return _parse_index_md(main_idx, source="main")
+
+    # branch-path 兼容路径（chg-01 双轨过渡）
+    branch = _get_git_branch(root) or "main"
+    legacy_idx = root / "artifacts" / branch / "project" / sub / "index.md"
+    if legacy_idx.is_file():
+        return _parse_index_md(legacy_idx, source="legacy")
+
+    return []
+
+
+def _parse_index_md(idx_path: Path, source: str) -> list[dict]:
+    """解析 index.md markdown 表格，返回 list[dict]。仅取 (path, title, scope, when_load) 4 字段。"""
+    try:
+        text = idx_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    rows: list[dict] = []
+    in_table = False
+    for line in text.splitlines():
+        s = line.strip()
+        # 表头识别
+        if s.startswith("| path") and "title" in s and "scope" in s:
+            in_table = True
+            continue
+        if in_table and s.startswith("|---"):
+            continue  # 分隔行
+        if in_table:
+            if not s.startswith("|"):
+                in_table = False  # 表格结束
+                continue
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            if len(cells) < 4:
+                continue
+            path_cell, title_cell, scope_cell, when_load_cell = cells[0], cells[1], cells[2], cells[3]
+            # 跳过示例占位行（含 HTML 注释）
+            if "<!--" in path_cell or not path_cell:
+                continue
+            rows.append({
+                "path": path_cell,
+                "title": title_cell,
+                "scope": scope_cell,
+                "when_load": when_load_cell,
+                "source": source,
+            })
+    return rows

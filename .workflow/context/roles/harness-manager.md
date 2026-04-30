@@ -45,6 +45,8 @@
 - `.workflow/state/{runtime.yaml,action-log.md,sessions,requirements,bugfixes,feedback}/`（运行时状态）
 - `.workflow/context/backup/`（迁移备份区）
 - `.workflow/archive/`（归档需求容器）
+- `artifacts/project/`（req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified；项目级机器型文档承载层主路径，跟项目走不跟 branch；硬门禁五配套豁免详见 chg-02（src硬编码main全面去除-branch-aware））
+- `artifacts/{branch}/project/`（legacy fallback，req-51（项目级规则-经验-工具支持从制品引入）OQ-1 = B-modified 原路径，由 req-52 OQ-A 双轨过渡兼容；后续 req 收口退役）
 
 **与 req-30（角色 model 对用户透出（自我介绍 + 派发说明补 model 字段））已有 scaffold_v2 契约的关系**：本条硬门禁**扩展** req-30 原契约——req-30 仅覆盖 `base-role.md` / `stage-role.md` 两个具体文件的**修改**场景；本条把保护面扩展到全部五大子树下的全部四种动作（新增/修改/删除/重命名）。req-30 原契约同时仍然生效，两者并集执行。
 

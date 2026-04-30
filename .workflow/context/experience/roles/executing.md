@@ -349,19 +349,19 @@ bugfix-6（工作流契约统一加固（对人机器分离 + 测试契约重塑
 
 ## 经验十四：契约层 vs 实现层失配——路径策略常量废弃时测试套件同步更新
 
-### 场景
+### 场景（历史记录，已废弃的根因 + 已修复）
 
-bugfix-11：`workflow_helpers.py` 中 `create_requirement` / `create_change` / `create_regression` 使用三段式分水岭（`FLAT_LAYOUT_FROM_REQ_ID = 39` / `FLOW_LAYOUT_FROM_REQ_ID = 41`）决定机器型文档落位。契约文档（`repository-layout.md`）已更新为"req-41+ 全走 flow layout"，但 CLI 实现层仍按 harness-workflow 自身仓历史 timeline 的数字阈值判断，导致下游用户仓任何 fresh repo / 切新 branch 起步场景（req-01~NN 均 < 39）100% 命中 legacy 路径。
+bugfix-11（已修复）：旧实现中 `workflow_helpers.py` 使用三段式分水岭（已废弃常量，现已删除）决定机器型文档落位，导致下游用户仓任何 fresh repo / 切新 branch 起步场景 100% 命中 legacy 路径误放 artifacts/。
 
-废弃三段式分水岭（方向 C）后，测试套件中有 14 个文件覆盖旧三路分支行为，直接产生 32 条新增 fail，必须同步更新。
+方向 C（废弃三段式分水岭）已落地：所有 req 一律走 `.workflow/flow/requirements/{req-id}-{slug}/` flow layout，无 legacy/flat fallback 分支。废弃后测试套件中 14 个文件覆盖旧三路分支行为，须同步更新。
 
 ### 经验内容
 
-1. **常量/函数废弃前先 grep 测试覆盖面**：用 `grep -rl "FLAT_LAYOUT_FROM_REQ_ID\|_use_flat_layout\|use_flow_layout" tests/` 列出受影响测试文件，建 fix 清单，不要边改源码边被突发 fail 打断。
+1. **常量/函数废弃前先 grep 测试覆盖面**：列出受影响测试文件，建 fix 清单，不要边改源码边被突发 fail 打断。
 2. **fixture 路径同步是主要工作量**：大多数测试失败不是"逻辑错"，而是 fixture 只建了 `artifacts/main/requirements/{dir_name}/`，废弃 legacy 分支后 `create_change` / `create_regression` / `archive_requirement` 转而查找 `.workflow/flow/requirements/{dir_name}/`，找不到就 raise。fix 模式：在 `setUp` / `_init_*` helper 里**同时建** artifacts 目录（对人产物）和 flow 目录（机器型文档）。
 3. **测试语义倒转的文件要完整重写**：原来验证"req-38 走 artifacts/changes/"的测试，方向 C 后语义变为"req-38 也走 flow/requirements/req-38-*/changes/"；与其逐行 patch，不如整文件重写，逻辑更清晰，reviewer 可一眼看到新期望。
 4. **standalone regression 路径要同步确认**：`create_regression` 在 `current_requirement` 为空时走 standalone 路径——废弃 legacy 后，standalone path 从 `artifacts/main/regressions/` 变为 `.workflow/flow/regressions/`；`test_regression_helpers.py` 等文件的 `regressions_base` 必须同步。
-5. **废弃常量的 lint 测试要加进 TC**：`DeprecatedConstantsLintTest`（grep src 中常量赋值 = 0 命中）是方向 C 的 VC-03 核心断言，应在测试重写时一并加入 `test_use_flow_layout.py`，确保源码回退时测试立刻红灯。
+5. **废弃常量的 lint 测试要加进 TC**：`DeprecatedSymbolsLintTest`（grep src 中已废弃符号赋值 = 0 命中）是方向 C 的 VC-03 核心断言，应在测试重写时一并加入（`test_bugfix_11_flow_layout.py`），确保源码回退时测试立刻红灯。
 6. **pre-existing fail diff = 0 是硬标准**：废弃操作往往导致隐藏失败浮出，必须 `git stash` → 基线计数 → `git stash pop` → 修复后再计数，确认 diff = 0 新增 fail。不要用肉眼判断"应该是 pre-existing"——基线对比才可信。
 
 ### 反例
@@ -373,3 +373,29 @@ bugfix-11：`workflow_helpers.py` 中 `create_requirement` / `create_change` / `
 ### 来源
 
 bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）— executing 阶段废弃三段式分水岭（方向 C）+ 14 个测试文件同步更新
+
+---
+
+## 经验十五：新增 harness 自写运行时文件必须同步登记 `_SCAFFOLD_V2_MIRROR_WHITELIST`（同型病兜底清单方法论）
+
+### 场景
+
+bugfix-12（runtime-block.yaml-误判用户野文件-白名单漏配）：req-48 / chg-01 落地 `raise_harness_block` 时新写运行时态文件 `.workflow/state/runtime-block.yaml`，但漏改 `_SCAFFOLD_V2_MIRROR_WHITELIST`（workflow_helpers.py:172-201）；触发 `check_user_write_protected_zones` 三级豁免（mirror / managed / WHITELIST）全 miss → 非 dev_repo 用户仓 ABORT。本仓 `_is_dev_repo` Layer 1 命中故本地不复现，问题面在用户侧（PetMallPlatform）。
+
+### 经验内容
+
+1. **新增 harness 自写文件 PR / chg 强制清单一项**："是否在 `.workflow/state/...` 下新写文件？是否需要进 mirror（跨项目同步）？是否需要登记 WHITELIST（运行时态、跨项目独立）？" — 三选一必有一个 yes，否则三级豁免链 miss 必然误报。
+2. **同型病扫描方法论**（regression 阶段反向适用）：列出仓库 `.workflow/state/...` 全部 harness 自写文件 → 对照 mirror keys + WHITELIST substring 子串扫描，确保每条至少命中一级豁免，无遗漏；本 bugfix-12 regression stage 实际跑了 10 类对照表，仅 1 条漏配。
+3. **WHITELIST 子串语义**：白名单条目按 substring 匹配（`any(w in relative for w in WHITELIST)`），所以"父目录子串"（如 `state/sessions`）可批量兜底子目录下所有文件；新增"独立文件"（如 `runtime-block.yaml`）时倾向加完整路径条目（`state/runtime-block.yaml`），避免误命中无关路径。
+4. **dev_repo 短路是双刃剑**：`_is_dev_repo` 让本仓跑 contract 直接 return 0，对 harness 开发体验有利但对 user-write-protected-zones 类硬门禁是盲区——本地 contract 自检永远绿，问题只在用户仓爆。**对策**：新增运行时文件后必须用 tmpdir / `monkeypatch.delenv` 模拟非 dev_repo 写一条反例 TC，否则 dev 短路盲区永久存在。
+5. **"纯加 1 行字符串"修复优先于改主体逻辑**：白名单语义本就是兜底"运行时态、跨项目独立"文件，runtime-block.yaml 完全符合该语义但被遗忘登记 → 修法是补全清单，**不**碰 `_is_dev_repo` 三层探测、**不**碰 `check_user_write_protected_zones` 三级豁免主体；范围红线让修复成本极低（白名单 +1 / TC +4 / 51 baseline 不增）。
+
+### 反例
+
+- 新增运行时文件不查 mirror / WHITELIST → 用户仓爆 ABORT 才发现，问题面已扩散；
+- 修白名单时改顺序 / 删既有条目 → 影响其它已豁免文件，连锁回归；
+- 不写 dev_repo 反例 TC（只在本仓跑通就交付） → bugfix-12 同型病可能再次发生，testing/acceptance 全绿但用户仓不通。
+
+### 来源
+
+bugfix-12（runtime-block.yaml-误判用户野文件-白名单漏配）— regression 阶段 10 类同型病对照表 + executing 白名单 +1 行 + 4 TC dogfood 反例覆盖

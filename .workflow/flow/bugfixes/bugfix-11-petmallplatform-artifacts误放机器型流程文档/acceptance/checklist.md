@@ -2,7 +2,7 @@
 id: bugfix-11
 title: "PetMallPlatform-artifacts误放机器型流程文档"
 stage: acceptance
-verdict: FAIL
+verdict: PASS
 created_at: 2026-04-29
 ---
 
@@ -179,10 +179,68 @@ created_at: 2026-04-29
 
   **E.1 FAIL：pipx 未重装 → 部署版与源码严重分叉 → 真实运行时 bug 仍存在。**
 
-## §结论
+## §结论（初版 - 已被复跑覆盖）
 
-- **verdict**: FAIL
-- **总评**: bugfix-11 的源码层修复（方向 C 废弃三段式）已在 `src/` 层落地并通过 lint + unit test，但**从未执行 `pipx install --force` 重新部署**，导致已安装的 harness CLI（0.2.0）仍运行旧逻辑，下游用户仓库（含 PetMallPlatform）的真实复现路径依然 100% 存在，bugfix **未真正治愈**。
-- **未达标项**:
-  - **[/] E.1 dogfood fresh repo**：`harness requirement "ac-test"` 在全新仓库下仍落 `artifacts/main/requirements/req-01-ac-test`（应落 `.workflow/flow/requirements/`）。直接原因：pipx 安装版仍为 0.2.0 旧版，executing 阶段未执行重装步骤。`diff src/...workflow_helpers.py ~/.local/pipx/.../workflow_helpers.py` 显示源码与部署严重分叉（FLOW_LAYOUT_FROM_REQ_ID 等常量在部署版仍存在）。
-- **路由建议**: FAIL → regression（回 round-3）；执行方向：在 executing 阶段末尾补充 `pipx install --force /Users/jiazhiwei/claudeProject/workspace/harness-workflow` + 验证 fresh repo dogfood 通过，再重走 testing / acceptance。
+> **Superseded**：本节为初次 acceptance 跑出的 FAIL（仅 E.1 dogfood 因 pipx 部署版未重装而 FAIL，源码 / 测试 / 契约 / 红线均 PASS）。
+> 修复路径：commit `1994ab2` push origin/main，用户从 GitHub `pipx install --force` 重装 → fresh repo 复跑 dogfood 通过 → verdict 改 PASS。
+> 最终 verdict 见下方「E.1 复跑」+「§最终结论」段。
+
+---
+
+## E.1 复跑（用户在 fresh repo 跑部署版，2026-04-29 22:46~22:50 UTC+8）
+
+### Step 2 废弃符号 import 自检
+
+```
+$PYBIN -c "from harness_workflow.workflow_helpers import _use_flow_layout"
+→ ImportError: cannot import name '_use_flow_layout' from 'harness_workflow.workflow_helpers' (...workflow_helpers.py)
+
+$PYBIN -c "from harness_workflow.workflow_helpers import _use_flow_layout_for_bugfix"
+→ ImportError: cannot import name '_use_flow_layout_for_bugfix' ...
+
+$PYBIN -c "from harness_workflow.workflow_helpers import _use_flat_layout"
+→ ImportError: cannot import name '_use_flat_layout' ...
+
+$PYBIN -c "from harness_workflow.workflow_helpers import FLAT_LAYOUT_FROM_REQ_ID"
+→ ImportError: cannot import name 'FLAT_LAYOUT_FROM_REQ_ID' ...
+
+$PYBIN -c "from harness_workflow.workflow_helpers import FLOW_LAYOUT_FROM_REQ_ID"
+→ ImportError: cannot import name 'FLOW_LAYOUT_FROM_REQ_ID' ...
+
+$PYBIN -c "from harness_workflow.workflow_helpers import BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID"
+→ ImportError: cannot import name 'BUGFIX_FLOW_LAYOUT_FROM_BUGFIX_ID' ...
+```
+
+6/6 ImportError ✓ 部署版的 4 维度三段式分水岭符号全部不存在。
+
+### Step 4 dogfood fresh repo
+
+```
+TMPDIR=/var/folders/6m/.../T/harness-deploy-XXXX.J8ualMXbjO
+harness install --force-managed → OK（agent=claude）
+harness requirement "deploy-verify-bugfix-11"
+  → created .workflow/flow/requirements/req-01-deploy-verify-bugfix-11/requirement.md ✓
+  → created .workflow/state/requirements/req-01-deploy-verify-bugfix-11.yaml
+ls .workflow/flow/requirements/ → req-01-deploy-verify-bugfix-11/
+find artifacts/ -type f → (empty)  ✓
+find artifacts/ -type d -name "changes" → (empty)  ✓
+harness bugfix "deploy-verify-bugfix-dim"
+  → Bugfix workspace: .workflow/flow/bugfixes/bugfix-1-deploy-verify-bugfix-dim ✓
+  → created artifacts/main/bugfixes/bugfix-1-deploy-verify-bugfix-dim/README.md  （白名单对人占位）
+  → created .workflow/flow/bugfixes/bugfix-1-deploy-verify-bugfix-dim/{bugfix.md, session-memory.md, regression/diagnosis.md, regression/required-inputs.md, test-evidence.md}  ✓
+ls .workflow/flow/bugfixes/ → bugfix-1-deploy-verify-bugfix-dim/
+```
+
+req 维度 + bugfix 维度均落 `.workflow/flow/`，artifacts/ 仅占位 README，**E.1 PASS**。
+
+## §最终结论
+
+- **verdict**: PASS
+- **总评**: bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）方向 C 在源码 / 测试 / 契约 / 部署四层全部落地，下游用户仓的 fresh-install 场景不再误落 artifacts/，PetMallPlatform 类型问题根除。
+- **未达标项**: 无。
+- **路由建议**: PASS → done。
+
+## 旁支观察（不阻塞，建议入 sug 池）
+
+1. `harness requirement` stdout 第一行 `Requirement workspace: .../artifacts/main/requirements/...` 文案误导（artifacts/ 实际未落物，文案应印 `.workflow/flow/requirements/...`）。
+2. 用户机器上 `/usr/local/bin/harness` 还有一个非 pipx 安装的 harness 二进制，pipx force install 时提示 PATH 冲突，建议清理或确认。

@@ -13,6 +13,40 @@
 
 ### Step 2: 读取本地工具索引
 
+#### 2.0 项目级合并（req-51（项目级规则-经验-工具支持从制品引入）/ chg-03（加载层覆盖-tools-项目级合并））
+
+> 溯源：req-51 OQ-2 = A（项目级覆盖全局）/ OQ-3 = A（tools 在三类项目级化范围内）。
+
+读取全局 `.workflow/tools/index/keywords.yaml` 前，**先**检测项目级路径：
+
+```
+project_keywords  = artifacts/project/tools/index/keywords.yaml
+project_ratings   = artifacts/project/tools/ratings.yaml
+project_catalog   = artifacts/project/tools/catalog/
+project_protocols = artifacts/project/tools/protocols/
+```
+
+（req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified：主路径无 branch 维度，跟项目走）
+
+合并语义（主路径优先，legacy fallback `artifacts/{branch}/project/tools/` 兼容存量）：
+
+| 资源 | 全局路径 | 项目级路径（主路径无 branch） | 合并策略 |
+|------|---------|---------------------------|---------|
+| `keywords.yaml` | `.workflow/tools/index/keywords.yaml` | `artifacts/project/tools/index/keywords.yaml` | 项目级 dict 覆盖全局 dict（同 `tool_id` key 项目级胜出） |
+| `ratings.yaml` | `.workflow/tools/ratings.yaml` | `artifacts/project/tools/ratings.yaml` | 同上 |
+| `catalog/{tool_id}.md` | `.workflow/tools/catalog/` | `artifacts/project/tools/catalog/` | 优先项目级，未命中 fallback 全局 |
+| `protocols/{name}.md` | `.workflow/tools/protocols/` | `artifacts/project/tools/protocols/` | 优先项目级，未命中 fallback 全局 |
+
+fallback：
+
+- 项目级主路径 `artifacts/project/tools/` 不存在 → 尝试 legacy `artifacts/{branch}/project/tools/`（req-52 OQ-A 双轨过渡兼容）；
+- 项目级 `keywords.yaml` / `ratings.yaml` / `catalog/` / `protocols/` 任一缺失 → 静默跳过该资源，不影响其他资源加载；
+- 全部缺失（`artifacts/project/tools/` 整目录不存在）→ 退化为 Step 2 现有"仅读全局"行为（向后兼容）。
+
+输出（`Step 4 格式化输出` 的 `**toolsManager 查询结果**`）若推荐的工具来自项目级，必须在 `**catalog**` 字段标注项目级路径（`artifacts/project/tools/catalog/{tool_id}.md`），便于主 agent 识别工具来源。
+
+#### 2.1 全局加载（保持不变）
+
 - 读取 `.workflow/tools/index/keywords.yaml`
 - 读取 `.workflow/tools/ratings.yaml`
 - 按以下规则匹配，返回**最匹配的一个**工具：

@@ -1,0 +1,13 @@
+id: "bugfix-13"
+title: "install时自动创建artifacts-project骨架与索引模板"
+stage: "done"
+status: "done"
+created_at: "2026-04-30"
+started_at: "2026-04-30"
+completed_at: "2026-04-30"
+stage_timestamps:
+  executing: "2026-04-30T03:01:42.409116+00:00"
+  testing: "2026-04-30T03:29:51.833299+00:00"
+  acceptance: "2026-04-30T03:29:51.835968+00:00"
+  done: "2026-04-30T03:37:53.150001+00:00"
+description: ""
