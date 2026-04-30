@@ -207,6 +207,16 @@ _SCAFFOLD_V2_MIRROR_WHITELIST: tuple[str, ...] = (
     "/project/",
 )
 
+# req-53（新增-harness-命令-给项目添加规范-经验-工具-引导式）/ chg-01：
+# harness pad 子命令的 kind / scope 固定枚举（user 不能发明）。
+# rule scope 5 类（OQ-Verdicts），experience scope 5 类（沿用 req-51/52 既有），
+# tool 不分 scope（直接落 artifacts/project/tools/{slug}.md）。
+PAD_KINDS: dict[str, list[str]] = {
+    "rule": ["coding", "architecture", "api", "database", "security"],
+    "experience": ["roles", "stage", "regression", "risk", "tool"],
+    "tool": [],  # 不分 scope
+}
+
 
 ITEM_META_ORDER = [
     "id",
@@ -8521,3 +8531,404 @@ def _parse_index_md(idx_path: Path, source: str) -> list[dict]:
                 "source": source,
             })
     return rows
+
+
+# ============================================================
+# req-53（新增-harness-命令-给项目添加规范-经验-工具-引导式）
+# chg-01: CLI 入口 + 反非法 lint helpers（stub → chg-02/03/04 替换）
+# chg-02: _pad_add 真实落位 + _resolve_pad_target
+# chg-03: index.md 登记 + git auto-stage + 加载链活证
+# chg-04: _pad_list / _pad_interactive 真实实现 + _parse_tool_list_section
+# ============================================================
+
+def _validate_pad_kind(kind: str) -> str | None:
+    """非法 kind → 返回错误信息字符串；合法 → 返回 None。"""
+    if kind not in PAD_KINDS:
+        return "kind 必须是 rule/experience/tool 之一"
+    return None
+
+
+def _validate_pad_scope(kind: str, scope: str) -> str | None:
+    """非法 scope → 返回错误信息字符串；合法 → 返回 None。
+    tool 不分 scope，传任何 scope 都报错（除非空字符串）。
+    rule / experience：scope 必须在白名单内。
+
+    错误信息模板（按 kind 分类，保证 grep 可测）：
+    - rule:       "rule scope 必须是 coding/architecture/api/database/security 之一"
+    - experience: "experience scope 必须是 roles/stage/regression/risk/tool 之一"
+    """
+    if kind == "tool":
+        if scope:
+            return "tool 不分 scope，请直接 `harness pad tool <title>`"
+        return None
+    allowed = PAD_KINDS.get(kind, [])
+    if scope not in allowed:
+        allowed_str = "/".join(allowed)
+        # 错误信息含 `{kind} scope 必须是 ...` 字面串，供 lint grep 校验
+        # rule scope 必须是 coding/architecture/api/database/security 之一
+        # experience scope 必须是 roles/stage/regression/risk/tool 之一
+        return f"{kind} scope 必须是 {allowed_str} 之一"
+    return None
+
+
+def _resolve_pad_target(root: Path, kind: str, scope: str, slug: str) -> "Path | None":
+    """req-53 / chg-02：按 kind + scope + slug 算 artifacts/project/ 下的目标文件路径。
+
+    - kind=rule → artifacts/project/constraints/{scope}/{slug}.md
+    - kind=experience → artifacts/project/experience/{scope}/{slug}.md
+    - kind=tool → artifacts/project/tools/{slug}.md
+    """
+    base = root / "artifacts" / "project"
+    if kind == "rule":
+        if not scope:
+            return None
+        return base / "constraints" / scope / f"{slug}.md"
+    if kind == "experience":
+        if not scope:
+            return None
+        return base / "experience" / scope / f"{slug}.md"
+    if kind == "tool":
+        return base / "tools" / f"{slug}.md"
+    return None
+
+
+def _append_table_row(idx_path: Path, new_row: str) -> "Path | None":
+    """往 markdown 表格 index.md 末尾追加一行；若表头不存在自动补齐。
+
+    幂等：如果 new_row 已存在则不再追加。
+    """
+    if not idx_path.parent.exists():
+        idx_path.parent.mkdir(parents=True, exist_ok=True)
+    if not idx_path.exists():
+        # 创建带表头的 index.md
+        idx_path.write_text(
+            f"| path | title | scope | when_load | 备注 |\n"
+            f"|------|-------|-------|-----------|------|\n"
+            f"{new_row}\n",
+            encoding="utf-8",
+        )
+        return idx_path
+    text = idx_path.read_text(encoding="utf-8")
+    # 幂等：若 new_row 已存在 skip
+    if new_row.strip() in text:
+        return idx_path
+    lines = text.splitlines()
+    # 找表头位置
+    header_idx = -1
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if s.startswith("| path") and "title" in s and "scope" in s:
+            header_idx = i
+            break
+    if header_idx == -1:
+        # 表头缺失 → 在文件末尾补全表
+        lines.append("")
+        lines.append("| path | title | scope | when_load | 备注 |")
+        lines.append("|------|-------|-------|-----------|------|")
+        lines.append(new_row)
+    else:
+        # 找表格末尾（第一个不以 | 开头的行）
+        end_idx = len(lines)
+        for j in range(header_idx + 2, len(lines)):  # +2 跳过表头 + 分隔行
+            if not lines[j].strip().startswith("|"):
+                end_idx = j
+                break
+        lines.insert(end_idx, new_row)
+    idx_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return idx_path
+
+
+def _append_tool_list_item(idx_path: Path, new_line: str) -> "Path | None":
+    """往 tools/index.md「## 项目级工具清单」段末追加列表项；段不存在则创建。
+
+    幂等：如果 new_line 已存在则不再追加。
+    """
+    if not idx_path.parent.exists():
+        idx_path.parent.mkdir(parents=True, exist_ok=True)
+    if not idx_path.exists():
+        idx_path.write_text(
+            f"# Project-level Tools Index\n\n## 项目级工具清单\n\n{new_line}\n",
+            encoding="utf-8",
+        )
+        return idx_path
+    text = idx_path.read_text(encoding="utf-8")
+    if new_line.strip() in text:
+        return idx_path
+    if "## 项目级工具清单" not in text:
+        # 段不存在 → 文件末尾追加段
+        if not text.endswith("\n"):
+            text += "\n"
+        text += f"\n## 项目级工具清单\n\n{new_line}\n"
+    else:
+        lines = text.splitlines()
+        section_idx = -1
+        for i, line in enumerate(lines):
+            if line.strip() == "## 项目级工具清单":
+                section_idx = i
+                break
+        # 找段末尾（下一个 ## 标题或文件末尾）
+        end_idx = len(lines)
+        for j in range(section_idx + 1, len(lines)):
+            if lines[j].startswith("## "):
+                end_idx = j
+                break
+        # 段尾插入新列表项
+        lines.insert(end_idx, new_line)
+        text = "\n".join(lines) + "\n"
+    idx_path.write_text(text, encoding="utf-8")
+    return idx_path
+
+
+def _pad_register_index(root: Path, kind: str, scope: str, slug: str, title: str) -> "Path | None":
+    """req-53 / chg-03：往对应 index.md 追加新条目，按 kind schema 分类。
+
+    - kind=rule → artifacts/project/constraints/index.md 表格末追加
+                  `| {scope}/{slug}.md | {title} | {scope} | always | (空) |`
+    - kind=experience → artifacts/project/experience/{scope}/index.md 表格末追加
+                  `| {slug}.md | {title} | experience-{scope} | always | (空) |`
+    - kind=tool → artifacts/project/tools/index.md「## 项目级工具清单」段末追加 `- {slug}.md — {title}`
+
+    返回：被修改的 index.md 路径（用于 git add）；解析失败返回 None。
+    """
+    base = root / "artifacts" / "project"
+    if kind == "rule":
+        idx = base / "constraints" / "index.md"
+        new_row = f"| {scope}/{slug}.md | {title} | {scope} | always | (空) |"
+        return _append_table_row(idx, new_row)
+    if kind == "experience":
+        idx = base / "experience" / scope / "index.md"
+        new_row = f"| {slug}.md | {title} | experience-{scope} | always | (空) |"
+        return _append_table_row(idx, new_row)
+    if kind == "tool":
+        idx = base / "tools" / "index.md"
+        new_line = f"- {slug}.md — {title}"
+        return _append_tool_list_item(idx, new_line)
+    return None
+
+
+def _pad_git_stage(root: Path, paths: "list[Path]") -> bool:
+    """req-53 / chg-03：调 git add 把指定路径加入 stage。
+
+    返回：True = 全部成功；False = 任一失败 / 非 git 仓 / git 缺失。
+    失败时 stderr 警告但不抛异常（OQ-5 决策：silent skip 不阻塞）。
+    """
+    import subprocess as _subprocess
+    if not (root / ".git").exists():
+        print("[harness pad] (info) 非 git 仓，跳过 git add", file=sys.stderr)
+        return False
+    try:
+        for p in paths:
+            rel = p.relative_to(root).as_posix()
+            result = _subprocess.run(
+                ["git", "add", rel],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                print(
+                    f"[harness pad] (warn) git add {rel} failed: {result.stderr.strip()}",
+                    file=sys.stderr,
+                )
+                return False
+        return True
+    except FileNotFoundError:
+        print("[harness pad] (warn) git 命令缺失，跳过 git add", file=sys.stderr)
+        return False
+
+
+def _parse_tool_list_section(idx_path: Path) -> "list[str]":
+    """req-53 / chg-04：解析 tools/index.md「## 项目级工具清单」段下的 markdown 列表项。
+    返回去掉前缀 `- ` 后的字符串列表。
+    """
+    if not idx_path.is_file():
+        return []
+    text = idx_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    section_idx = -1
+    for i, line in enumerate(lines):
+        if line.strip() == "## 项目级工具清单":
+            section_idx = i
+            break
+    if section_idx < 0:
+        return []
+    items: list[str] = []
+    for j in range(section_idx + 1, len(lines)):
+        s = lines[j].strip()
+        if s.startswith("## "):
+            break  # 段结束
+        if s.startswith("- "):
+            items.append(s[2:])
+    return items
+
+
+def _pad_add(root: Path, kind: str, scope: str, title: str) -> int:
+    """req-53 / chg-02 + chg-03：把条目落到 artifacts/project/{kind}/{scope}/{slug}.md。
+
+    - kind=rule → artifacts/project/constraints/{scope}/{slug}.md
+    - kind=experience → artifacts/project/experience/{scope}/{slug}.md
+    - kind=tool → artifacts/project/tools/{slug}.md
+    - slug 由 title 经 _path_slug 转换
+    - 渲染对应 .tmpl 模板（assets/templates/project-add/{kind}.md.tmpl）
+    - 调 write_if_missing 写盘（幂等，不覆盖）
+    - chg-03：追加 index.md 登记 + git auto-stage + 加载链 stderr 活证
+    """
+    from datetime import date
+    slug = _path_slug(title) or title  # _path_slug 退化到 title 本身（CN 场景保留中文）
+    target = _resolve_pad_target(root, kind, scope, slug)
+    if target is None:
+        print(f"[harness pad] ABORT: 无法解析路径 kind={kind} scope={scope}", file=sys.stderr)
+        return 2
+
+    # 模板渲染
+    tmpl_path = PACKAGE_FS_ROOT / "assets" / "templates" / "project-add" / f"{kind}.md.tmpl"
+    if not tmpl_path.exists():
+        print(f"[harness pad] ABORT: 模板缺失 {tmpl_path}", file=sys.stderr)
+        return 2
+    content = tmpl_path.read_text(encoding="utf-8")
+    content = content.replace("{{ slug }}", slug)
+    content = content.replace("{{ scope }}", scope or "tools")  # tool kind 写 tools
+    content = content.replace("{{ title }}", title)
+    content = content.replace("{{ created_at }}", date.today().isoformat())
+
+    # 写盘（幂等）
+    created: list[str] = []
+    skipped: list[str] = []
+    write_if_missing(target, content, created, skipped)
+    rel = target.relative_to(root).as_posix()
+    if created:
+        print(f"[harness pad] added {rel} ✓")
+    else:
+        print(f"[harness pad] {rel} 已存在，跳过", file=sys.stderr)
+        return 0
+
+    # —— chg-03 新增 ——
+    # 1) index.md 自动登记
+    idx_path = _pad_register_index(root, kind, scope, slug, title)
+
+    # 2) git auto-stage（OQ-5 决策）
+    paths_to_stage = [target]
+    if idx_path:
+        paths_to_stage.append(idx_path)
+    git_ok = _pad_git_stage(root, paths_to_stage)
+
+    # 3) 加载链 stderr 活证（复用 _log_project_level_load）
+    scope_for_log = {
+        "rule": "constraints",
+        "experience": "experience",
+        "tool": "tools",
+    }[kind]
+    scope_dir_map = {
+        "rule": root / "artifacts" / "project" / "constraints",
+        "experience": root / "artifacts" / "project" / "experience" / scope if scope else root / "artifacts" / "project" / "experience",
+        "tool": root / "artifacts" / "project" / "tools",
+    }
+    scope_dir = scope_dir_map[kind]
+    hits = sum(1 for f in scope_dir.rglob("*") if f.is_file()) if scope_dir.exists() else 0
+    _log_project_level_load(root, scope_for_log, hits, fallback_used=False)
+
+    # 4) stdout 末尾提示 commit
+    if git_ok:
+        print(f'✓ git staged. 提示 git commit -m "feat: 项目级 {kind}-{title}"')
+    else:
+        print(f'提示 git add + git commit -m "feat: 项目级 {kind}-{title}"')
+    return 0
+
+
+def _pad_list(root: Path) -> int:
+    """req-53 / chg-04：扫 artifacts/project/{constraints,experience/*,tools}/ 6 份 index.md，
+    按 kind / scope 分组打印；空段显示 (无)。
+    """
+    from collections import defaultdict
+    base = root / "artifacts" / "project"
+    print("=== Project-level Catalog (artifacts/project/) ===\n")
+
+    # rule（constraints/index.md，path 含 {scope}/{slug}.md 子路径）
+    print("[rule] (artifacts/project/constraints/)")
+    rule_idx = base / "constraints" / "index.md"
+    rule_rows = _parse_index_md(rule_idx, source="main") if rule_idx.is_file() else []
+    if not rule_rows:
+        print("  (无)")
+    else:
+        # 按 scope 分组
+        groups: dict[str, list[dict]] = defaultdict(list)
+        for r in rule_rows:
+            groups[r.get("scope", "?")].append(r)
+        for scope_name in PAD_KINDS["rule"]:
+            scope_rows = sorted(groups.get(scope_name, []), key=lambda r: r["path"])
+            print(f"  {scope_name}:")
+            if not scope_rows:
+                print("    (无)")
+            for r in scope_rows:
+                print(f"    - {r['path']} — {r['title']}")
+    print()
+
+    # experience（5 子目录 index.md）
+    print("[experience] (artifacts/project/experience/{scope}/)")
+    for scope_name in PAD_KINDS["experience"]:
+        idx = base / "experience" / scope_name / "index.md"
+        rows = _parse_index_md(idx, source="main") if idx.is_file() else []
+        rows = sorted(rows, key=lambda r: r["path"])
+        print(f"  {scope_name}:")
+        if not rows:
+            print("    (无)")
+        for r in rows:
+            print(f"    - {r['path']} — {r['title']}")
+    print()
+
+    # tool（tools/index.md「## 项目级工具清单」段，schema 不同）
+    print("[tool] (artifacts/project/tools/)")
+    tool_idx = base / "tools" / "index.md"
+    tool_items = _parse_tool_list_section(tool_idx) if tool_idx.is_file() else []
+    if not tool_items:
+        print("  (无)")
+    for line in sorted(tool_items):
+        print(f"  - {line}")
+    return 0
+
+
+def _pad_interactive(root: Path) -> int:
+    """req-53 / chg-04：questionary 三步引导（kind → scope → title），完成后调 _pad_add。
+
+    非 TTY 环境直接报错（与 prompt_platform_selection 同款 isatty 守卫）。
+    """
+    if not sys.stdin.isatty():
+        print(
+            "[harness pad] ABORT: interactive 模式需要交互式终端；非 TTY 环境请用位置参数。",
+            file=sys.stderr,
+        )
+        return 2
+    import questionary as _questionary
+
+    # 步骤 1：选 kind
+    kind = _questionary.select(
+        "选择类型（kind）:",
+        choices=list(PAD_KINDS.keys()),  # ["rule", "experience", "tool"]
+        default="rule",
+    ).ask()
+    if not kind:
+        print("[harness pad] cancelled")
+        return 1
+
+    # 步骤 2：选 scope（仅 kind=rule/experience 时）
+    scope = ""
+    if PAD_KINDS[kind]:  # 非空 list 表示需要 scope
+        scope = _questionary.select(
+            f"选择 {kind} 的 scope:",
+            choices=PAD_KINDS[kind],
+        ).ask()
+        if not scope:
+            print("[harness pad] cancelled")
+            return 1
+
+    # 步骤 3：输 title
+    title = _questionary.text(
+        f"{kind}{('/' + scope) if scope else ''} 的标题（≤ 20 字）:",
+        validate=lambda v: bool(v.strip()) or "title 不能为空",
+    ).ask()
+    if not title:
+        print("[harness pad] cancelled")
+        return 1
+
+    # 调真实 _pad_add
+    return _pad_add(root, kind, scope, title.strip())

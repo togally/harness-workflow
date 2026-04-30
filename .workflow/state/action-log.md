@@ -32,6 +32,22 @@
 - sug 入池 2 条: sug-69（subagent 同型病第 5 次复发-升级硬门禁九 stdout paste 强制条款 / high，与 sug-67 / sug-68 同型，建议合并为专项 req）、sug-70（bugfix-11 反例 lint legacy fallback 关键词过宽-误伤合法 branch-path 兼容路径注释 / medium）。
 - archive 建议: bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）+ req-51（项目级规则-经验-工具支持从制品引入）+ bugfix-12（runtime-block.yaml-误判用户野文件-白名单漏配）+ req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）四件均已 done，建议**一起 archive**；done 阶段不动，等用户后续显式触发 `harness archive`。
 
+## 2026-04-29T18:00:00Z analyst(opus): req-53（新增-harness-命令-给项目添加规范-经验-工具-引导式）Phase 2 + Phase 3 完成
+- 触发: subagent 收 briefing「Phase 2 chg 拆分 + Phase 3 plan.md per chg 一气完成」；requirement.md 不动（Phase 1 + OQ Verdicts 锁定）
+- 拆分: 4 chg（chg-01 CLI 入口与反非法 lint / chg-02 add 落位与模板预填 / chg-03 index 登记与 git stage / chg-04 list 与 interactive 与 dogfood）线性依赖；stub-then-replace 渐进策略
+- 产出: 4 chg 各 change.md / plan.md / session-memory.md（共 12 文件）；analysis/session-memory.md 追加 Phase 2 + 3 决策清单（10 条 P-2x default-pick 留痕）
+- 测试 TC 设计: 38 条（chg-01 8 / chg-02 8 / chg-03 10 / chg-04 12）；plan.md 含精确文件 / 行号 / 函数名 / lint 字面
+- lint: artifact-placement PASS / user-write-protected-zones PASS / test-case-design-completeness req-53 4 plan.md 全 PASS（其余 violations 均 req-41 archive 区历史遗留，与 req-53 无关）
+- 阻塞用户拍板事项: 无；待用户对「需求 + 4 chg 拆分 + plan.md」整合产物一次性确认
+
+## 2026-04-30T08:55:00Z done(opus): req-53（新增-harness-命令-给项目添加规范-经验-工具-引导式）六层回顾完成
+- 六层回顾: Context / Tools / Flow / State / Evaluation / Constraints 全过；硬门禁九本周期触发 1 次（executing 自报 baseline 57 实测 51，主 agent 抓出虚报，与 sug-67 / sug-68 / sug-69 同型——同型病累计第 5+ 次复发）；State 层 usage-log 5 entries ≥ 派发次数 5（done 由主 agent 直跑无 entry）；范围红线清洁 0 命中 PetMallPlatform / PetMallAdmin / uav；契约 artifact-placement + user-write-protected-zones 双绿。
+- verdict: 不重审 acceptance verdict（PASS / 0 未达标项）；req-53 4 chg 全过 + 40 TC + bugfix-13 防回归 10 TC 全 PASS；全 suite 51 failed=baseline / 797~798 passed（含 +40 req-53 新增 TC，0 new fail）；dogfood 端到端落位 / index 登记 / git stage / 反非法 ABORT 全过；2 处历史遗留 bug 顺手修（tools/index.md contract-7 + bugfix-13 .gitkeep 期望）。
+- 关键决策: OQ-0 命令名=pad / OQ-1 命令形态 C 候选 + kind 3 个固定（rule/experience/tool）/ rule scope 5 个 + experience scope 5 个 + tool 不分 scope（user 不能发明枚举）/ OQ-2 add+list / OQ-3 interactive 默认开启 / OQ-4 when_load=always / OQ-5 自动 git add+提示 commit 不自动 commit；Phase 2 拆分 4 chg 线性依赖 + stub-then-replace 渐进策略。
+- 产出: artifacts/main/requirements/req-53-新增-harness-命令-给项目添加规范-经验-工具-引导式/交付总结.md（新建）；analysis/session-memory.md 末尾追加 'Done Stage Six-Layer Review' 段。
+- sug 入池 2 条: sug-71（修源码 + 删/改文件时同步扫 tests/ 是否有相关期望需更新 / medium，bugfix-13 round-4 .gitkeep 漏改虚报教训）、sug-72（harness validate 新增 contract 检测 artifacts/project 之外的 artifacts/{其他}/ 自定义结构防 AI 发明路径 / medium，与用户原话痛点呼应）。**不重复入池**：subagent baseline 虚报第 N 次（已有 sug-67/68/69 覆盖）。
+- archive 建议: bugfix-11 + req-51 + bugfix-12 + req-52 + bugfix-13 + req-53 六件均已 done，建议**一起 archive**；done 阶段不动，等用户后续显式触发 `harness archive`。
+
 ## 2026-04-30T03:50:00Z done(opus): bugfix-13（install时自动创建artifacts-project骨架与索引模板）六层回顾完成
 - 六层回顾: Context / Tools / Flow / State / Evaluation / Constraints 全过；硬门禁九本周期触发 1 次（testing 虚报 "52 failed=baseline" 实测 +1，主 agent 独立核查抓出 + round-2 修 README line 21 / 同型 README 模板 line 21 各 1 行，回到 51 failed=755 passed）；同型病第 6 次复发，与 sug-67 / sug-68 / sug-69 / sug-70 同源同型。
 - verdict: 不重审 acceptance verdict（PASS / 0 未达标项）；修复 = 模板树 10 文件（src/.../assets/templates/project-skeleton/）+ helper `_bootstrap_project_skeleton`（workflow_helpers.py L3745）+ install_repo 调用点（L3816）+ 10 反例 TC（test_bugfix_13_project_skeleton_bootstrap.py）+ Round 2 README line 21 contract-7 微调；pytest 51 failed=baseline / 755 passed（acceptance 时刻；现 756 passed，差 1 无回归）。
