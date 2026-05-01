@@ -644,10 +644,12 @@ def _refresh_llm_sections(root: Path, playbook_root: Path) -> None:
         print(f"[llm] WARN: LLM refresh phase failed: {e}", file=sys.stderr)
 
 
-def playbook_refresh(root: str | Path, dry_run: bool = False, no_llm: bool = False) -> int:
+def playbook_refresh(root: str | Path, dry_run: bool = False, no_llm: bool = False) -> int:  # noqa: ARG001
     """刷新路书 5 类 AUTO 区段。
 
     路径锁定：{root}/artifacts/project/playbooks/（OQ-1=B）
+
+    chg-F：no_llm 参数保留签名兼容但忽略；LLM 跳过由 CI=true + NoopProvider 自动处理。
 
     返回 0（成功）/ 1（路书不存在 / IO 错误 / 配对校验严重失败）。
     """
@@ -822,14 +824,9 @@ def playbook_refresh(root: str | Path, dry_run: bool = False, no_llm: bool = Fal
 
     # -----------------------------------------------------------------------
     # LLM 区段刷新阶段（chg-04：AUTO 区段刷新完成后，对已存在的 LLM 区段填充）
-    # chg-D：--no-llm 跳过 LLM 调用，但仍输出 ASSISTANT INSTRUCTION 提示句（让 agent 接力）
+    # chg-F：--no-llm 已删除；CI=true 自动跳过 + NoopProvider fallback 自然处理
     # -----------------------------------------------------------------------
-    if not no_llm:
-        _refresh_llm_sections(root, playbook_root)
-    else:
-        # --no-llm 时：跳过 LLM，输出强提示句让 agent 接力填写
-        from harness_workflow.playbook.init import _print_noop_fill_hint
-        _print_noop_fill_hint(root)
+    _refresh_llm_sections(root, playbook_root)
 
     return 0
 
@@ -848,13 +845,9 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="打印将要写入的 diff，不落盘",
     )
-    parser.add_argument(
-        "--no-llm",
-        action="store_true",
-        help="跳过 LLM 区段填充阶段（chg-C：与 harness install --no-llm 语义一致）",
-    )
+    # chg-F：删除 --no-llm flag（冗余；CI=true 自动跳过 + NoopProvider fallback 已覆盖）
     args = parser.parse_args(argv)
-    return playbook_refresh(args.root, dry_run=args.dry_run, no_llm=args.no_llm)
+    return playbook_refresh(args.root, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

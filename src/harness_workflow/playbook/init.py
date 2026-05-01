@@ -138,17 +138,16 @@ def _fill_with_llm(
 def init_playbook(
     root: Path,
     override_domains: Optional[list[str]] = None,
-    no_llm: bool = False,
 ) -> int:
     """初始化项目路书骨架。
 
     chg-D（精简命令体系）：删除 skip / only 参数，install 始终装路书骨架。
     install 不再输出 ASSISTANT INSTRUCTION 提示句；提示句改由 playbook-refresh 触发。
+    chg-F：删除 no_llm 参数；LLM 跳过由 CI=true 环境变量 + NoopProvider auto-detect fallback 自动处理。
 
     Args:
         root: 仓库根目录。
         override_domains: 非 None → 跳过推断器，直接用指定领域列表（--domains flag 透传）。
-        no_llm: True → 跳过 LLM 填充阶段（--no-llm flag 或 CI=true 时）。
 
     Returns:
         0 = 成功（包括跳过），1 = 失败。
@@ -181,8 +180,8 @@ def init_playbook(
     else:
         print("playbook 已存在，跳过初始化")
 
-    # LLM 填充阶段（chg-04：默认开启，--no-llm 或 CI=true 跳过）
-    if not no_llm and os.getenv("CI", "").lower() != "true":
+    # LLM 填充阶段（chg-04：默认开启；CI=true 自动跳过，NoopProvider auto-detect fallback）
+    if os.getenv("CI", "").lower() != "true":
         try:
             from harness_workflow.playbook.llm import auto_detect_provider, NoopProvider
             llm = auto_detect_provider()

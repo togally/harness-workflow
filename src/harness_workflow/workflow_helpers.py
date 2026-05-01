@@ -253,8 +253,8 @@ ITEM_META_ORDER = [
 
 COMMAND_DEFINITIONS = [
     {"name": "harness", "cli": "harness", "hint": "[instruction]"},
-    {"name": "harness-install", "cli": "harness install", "hint": ""},
-    {"name": "harness-init", "cli": "harness init", "hint": ""},
+    {"name": "harness-install", "cli": "harness install", "hint": "[--agent <cc|codex>] [--force-nested]"},
+    {"name": "harness-init", "cli": "harness init", "hint": "[--write-agents|--write-claude]"},
     {"name": "harness-update", "cli": "harness update", "hint": "[--check|--force-managed]"},
     {"name": "harness-language", "cli": "harness language", "hint": "<english|cn>"},
     {"name": "harness-enter", "cli": "harness enter", "hint": ""},
@@ -269,8 +269,15 @@ COMMAND_DEFINITIONS = [
     {"name": "harness-archive", "cli": "harness archive", "hint": "<requirement>"},
     {"name": "harness-rename", "cli": "harness rename", "hint": "<kind> <old> <new>"},
     {"name": "harness-suggest", "cli": "harness suggest", "hint": "<content>|--list|--apply <id>|--delete <id>"},
-    {"name": "harness-playbook-refresh", "cli": "harness playbook-refresh", "hint": "[--no-llm]"},
+    {"name": "harness-playbook-refresh", "cli": "harness playbook-refresh", "hint": ""},
     {"name": "harness-playbook-check", "cli": "harness playbook-check", "hint": ""},
+    {"name": "harness-validate", "cli": "harness validate", "hint": "[--contract <name>|--human-docs]"},
+    {"name": "harness-trivial", "cli": "harness trivial", "hint": "<title>"},
+    {"name": "harness-migrate", "cli": "harness migrate", "hint": "<requirements|bugfix-layout> [--dry-run]"},
+    {"name": "harness-tool-search", "cli": "harness tool-search", "hint": "<keywords>"},
+    {"name": "harness-tool-rate", "cli": "harness tool-rate", "hint": "<tool> <rating>"},
+    {"name": "harness-feedback", "cli": "harness feedback", "hint": "[--reset]"},
+    {"name": "harness-pad", "cli": "harness pad", "hint": "<rule|experience|tool|list> [scope] [title]"},
 ]
 
 

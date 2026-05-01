@@ -163,6 +163,20 @@ def _print_venv_check() -> int:
     return 0
 
 
+def _check_nested_install(root: Path) -> str:
+    """检查 root 的祖先目录（不含自身）是否已有 .workflow/ 目录。
+
+    Returns:
+        "" = 无嵌套；"<ancestor_path>" = 第一个命中的祖先路径。
+    """
+    current = root.parent
+    while current != current.parent:
+        if (current / ".workflow").is_dir():
+            return str(current)
+        current = current.parent
+    return ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install harness skill to target agent directory.")
     parser.add_argument("--root", default=".", help="Repository root.")
@@ -192,18 +206,29 @@ def main() -> int:
         default=None,
         help="Comma-separated domain names, bypassing domain inference (e.g. --domains a,b,c).",
     )
-    # req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）：
+    # chg-F（嵌套安装防护）：
     parser.add_argument(
-        "--no-llm",
-        dest="no_llm",
+        "--force-nested",
+        dest="force_nested",
         action="store_true",
-        help="Skip LLM content filling stage (also auto-skipped when CI=true).",
+        help="Skip nested install guard (allow installing inside an existing harness repo).",
     )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
 
-    no_llm = getattr(args, "no_llm", False)
+    # chg-F bug-1：嵌套安装防护
+    if not getattr(args, "force_nested", False):
+        ancestor = _check_nested_install(root)
+        if ancestor:
+            print(
+                f"[install] WARN: 检测到祖先目录 {ancestor} 已有 .workflow/，"
+                f"当前在嵌套 harness 项目内部 install 可能不是预期。"
+                f"如确认要嵌套，加 --force-nested",
+                file=sys.stderr,
+            )
+            return 0
+
     # 解析 --domains flag 为列表
     override_domains = None
     if getattr(args, "domains", None):
@@ -228,7 +253,7 @@ def main() -> int:
     if rc != 0:
         return rc
     # 4) init_playbook：追加路书初始化阶段（chg-D：始终装路书骨架，不输出 ASSISTANT INSTRUCTION 提示句）
-    return init_playbook(root, override_domains=override_domains, no_llm=no_llm)
+    return init_playbook(root, override_domains=override_domains)
 
 
 if __name__ == "__main__":

@@ -150,7 +150,7 @@ def test_petmall_full_pipeline(tmp_path, monkeypatch, capsys):
 
     步骤：
       (1) 在进程内调 init_playbook（注入 mock LLM）
-      (2) subprocess playbook-refresh（--no-llm，CI=true）
+      (2) subprocess playbook-refresh（CI=true，chg-F：--no-llm 已删）
       (3) subprocess playbook-check（验证 exit 0）
     断言：
       (a) install 成功 + matched 'maven_multi_module' + 5 模块 domain README 被 mock LLM 填充
@@ -200,7 +200,7 @@ def test_petmall_full_pipeline(tmp_path, monkeypatch, capsys):
         f"Expected all 5 modules in domains, got: {domains}"
     )
 
-    rc = init_playbook(tmp_path, no_llm=False)
+    rc = init_playbook(tmp_path)
     assert rc == 0, f"init_playbook returned {rc}"
     capsys.readouterr()  # flush stdout
 
@@ -230,15 +230,16 @@ def test_petmall_full_pipeline(tmp_path, monkeypatch, capsys):
     # -----------------------------------------------------------------------
     env = _make_env()
 
+    # chg-F：--no-llm 已删除；用 CI=true env 跳过 LLM 阶段
+    env_with_ci = {**env, "CI": "true"}
     refresh_result = subprocess.run(
         [
             sys.executable, "-m", "harness_workflow.cli",
             "playbook-refresh", "--root", str(tmp_path),
-            "--no-llm",
         ],
         capture_output=True,
         text=True,
-        env=env,
+        env=env_with_ci,
     )
 
     assert refresh_result.returncode == 0, (

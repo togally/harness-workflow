@@ -126,7 +126,7 @@ def test_section_readonly_full_semantics(tmp_path, monkeypatch):
     from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
 
     # 使用 override_domains 跳过推断器，直接指定领域列表（确保骨架生成成功）
-    rc_install = init_playbook(tmp_path, no_llm=False, override_domains=domains)
+    rc_install = init_playbook(tmp_path, override_domains=domains)
     assert rc_install == 0, f"init_playbook returned {rc_install}"
 
     playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX

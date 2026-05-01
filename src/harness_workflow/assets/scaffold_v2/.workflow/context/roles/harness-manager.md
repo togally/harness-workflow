@@ -87,28 +87,32 @@ harness <verb> [noun] [--flags]
 | **安装更新类** | install, update, language | 管理 harness skill 生命周期 |
 | **会话控制类** | enter, exit, status, validate | 控制 workflow 会话状态 |
 | **工作流推进类** | next, ff | 推进 stage 流转 |
-| **工件管理类** | requirement, change, bugfix, archive, rename | 管理需求/变更/归档 |
+| **工件管理类** | requirement, change, bugfix, trivial, archive, rename, migrate | 管理需求/变更/归档/迁移 |
 | **路书维护类** | playbook-refresh, playbook-check | 刷新/检测项目路书（artifacts/project/playbooks/）|
-| **辅助功能类** | suggest, tool-search, tool-rate, regression, feedback | 辅助工具和诊断 |
+| **承载层维护类** | pad | 项目级承载层（artifacts/project/）维护引导式入口 |
+| **辅助功能类** | suggest, tool-search, tool-rate, regression, feedback, init | 辅助工具和诊断 |
 
 #### 1.3 提取命令参数
 
 为每类命令提取关键参数：
 
 **安装更新类**：
-- `install [--agent <cc|codex>]` — 安装到指定 agent，**默认装路书骨架**（artifacts/project/playbooks/）
+- `install [--agent <cc|codex>] [--force-nested]` — 安装到指定 agent，**默认装路书骨架**（artifacts/project/playbooks/）；`--force-nested` 跳过嵌套防护
 - `update [--check|--force-managed|--scan]` — 更新项目
 - `language <english|cn>` — 设置语言
 
 **路书维护类**：
-- `playbook-refresh [--no-llm]` — 刷新 AUTO 区段（脚本扫描）+ LLM 区段（模型推断）；NoopProvider fallback 时输出 `[ASSISTANT INSTRUCTION]` 引导当前 agent 接力填 LLM 区段
+- `playbook-refresh` — 刷新 AUTO 区段（脚本扫描）+ LLM 区段（模型推断）；NoopProvider fallback 时输出 `[ASSISTANT INSTRUCTION]` 引导当前 agent 接力填 LLM 区段
 - `playbook-check` — 路书漂移检测（AUTO 哈希 / LLM 完整性 / USER 永不报漂移）
+
+**承载层维护类**：
+- `pad <rule|experience|tool|list> [scope] [title]` — 项目级承载层（artifacts/project/）维护引导式入口
 
 **会话控制类**：
 - `enter [req-id]` — 进入会话
 - `exit` — 退出会话
 - `status` — 显示状态
-- `validate` — 验证工件
+- `validate [--contract <name>|--human-docs]` — 验证工件 / 契约校验
 
 **工作流推进类**：
 - `next [--execute]` — 推进到下一 stage
@@ -118,10 +122,13 @@ harness <verb> [noun] [--flags]
 - `requirement <title> [--id <id>]` — 创建需求
 - `change <title> [--id <id>] [--requirement <req-id>]` — 创建变更
 - `bugfix <title> [--id <id>]` — 创建 bugfix
+- `trivial <title>` — 创建 trivial 轻量任务（≤10 行改动）
 - `archive <requirement>` — 归档需求
-- `rename <requirement|change> <old> <new>` — 重命名
+- `rename <requirement|change|bugfix> <old> <new>` — 重命名
+- `migrate <requirements|bugfix-layout> [--dry-run]` — 迁移 legacy 目录结构
 
 **辅助功能类**：
+- `init [--write-agents|--write-claude]` — 初始化 harness docs 结构
 - `suggest [content] [--list|--apply <id>|--delete <id>]` — 建议管理
 - `tool-search <keywords...>` — 搜索工具
 - `tool-rate <tool-id> <rating>` — 评分工具

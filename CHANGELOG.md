@@ -57,6 +57,30 @@ First stable release of harness-workflow with full Playbook (路书) support.
   - `tests/test_user_section_semantics.py` (5 TC)
   - `tests/test_ignore_build_artifacts.py` (5 TC)
 
+### chg-F（1.0.0 收尾补丁）
+
+**bug 修复**
+- install 嵌套防护：在含祖先 `.workflow/` 的子目录跑 `harness install` 会 warn + exit 0；加 `--force-nested` 跳过检查
+- D-03 用 IGNORE_DIRS：`playbook-check` D-03 模块目录漂移检测跳过 logs/ build/ target/ 等构建产物目录（原误报修复）
+- C-01/C-04 扫描范围限定：只扫真正的路书文件（overview/architecture/runbook/code-map + domains/*/*），跳过 `.workflow/` 路径（harness skill 文件中的示例 marker 不再误报）
+
+**命令清单全量**
+- `COMMAND_DEFINITIONS` 补 8 个缺失命令（validate/trivial/migrate/tool-search/tool-rate/feedback/pad），`/harness-*` slash commands 全齐（26 个）
+
+**删 `--no-llm` flag（冗余）**
+- `harness install` / `harness playbook-refresh` 删除 `--no-llm` flag
+- CI=true 自动跳过 LLM + NoopProvider auto-detect fallback 已覆盖该场景
+- `playbook/init.py` / `harness_playbook_refresh.py` 函数签名同步更新
+
+**harness-manager.md 命令清单同步**
+- 新增承载层维护类（pad）+ 辅助功能类扩展（trivial/migrate/validate/tool-search/tool-rate/feedback/init）
+- scaffold_v2 mirror 字节级一致（diff -q clean）
+
+**新增测试**
+- `tests/test_install_nested_guard.py`（3 TC）
+- `tests/test_d03_ignore_dirs.py`（3 TC）
+- `tests/test_check_scope_limited.py`（3 TC）
+
 ### Verified On
 
 - dogfood: harness-workflow repo itself (Python project)

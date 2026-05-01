@@ -35,6 +35,8 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
+from harness_workflow.tools.harness_playbook_refresh import IGNORE_DIRS
+
 
 # ---------------------------------------------------------------------------
 # 路径锁定（OQ-1=B）
@@ -232,14 +234,15 @@ def check_d03_module_dir_drift(root: Path, playbook_root: Path) -> CheckResult:
                 continue
             for sub_dir in pkg_dir.iterdir():
                 if sub_dir.is_dir() and not sub_dir.name.startswith("_") and \
-                   not sub_dir.name.startswith(".") and sub_dir.name != "__pycache__":
+                   not sub_dir.name.startswith(".") and sub_dir.name != "__pycache__" and \
+                   sub_dir.name not in IGNORE_DIRS:
                     candidate_modules.add(sub_dir.name)
 
     # 扫描 src/modules/* / src/domains/* / app/*
     for scan_path in [root / "src" / "modules", root / "src" / "domains", root / "app"]:
         if scan_path.is_dir():
             for d in scan_path.iterdir():
-                if d.is_dir() and not d.name.startswith("."):
+                if d.is_dir() and not d.name.startswith(".") and d.name not in IGNORE_DIRS:
                     candidate_modules.add(d.name)
 
     # 新增模块但 domains/ 无对应
@@ -485,14 +488,48 @@ def check_k01_keyword_coverage(root: Path, playbook_root: Path) -> CheckResult:
 # C-01 / C-04 AUTO 区段配对校验
 # ---------------------------------------------------------------------------
 
+def _enumerate_playbook_files(playbook_root: Path) -> list[Path]:
+    """枚举受管路书文件清单（C-01/C-04 扫描范围，chg-F bug-3）。
+
+    只扫：
+      - artifacts/project/playbooks/{overview,architecture,runbook,code-map}.md
+      - artifacts/project/playbooks/domains/*/{README,code,data-model,notes}.md
+
+    跳过 .workflow/ 路径下的任何 .md 文件（那是 harness skill 文件不是路书）。
+    """
+    files: list[Path] = []
+    top_level_names = {"overview.md", "architecture.md", "runbook.md", "code-map.md"}
+    for name in sorted(top_level_names):
+        p = playbook_root / name
+        if p.exists():
+            files.append(p)
+
+    domains_dir = playbook_root / "domains"
+    if domains_dir.is_dir():
+        domain_file_names = {"README.md", "code.md", "data-model.md", "notes.md"}
+        for domain_dir in sorted(domains_dir.iterdir()):
+            if not domain_dir.is_dir() or domain_dir.name.startswith("."):
+                continue
+            for fname in sorted(domain_file_names):
+                p = domain_dir / fname
+                if p.exists():
+                    files.append(p)
+
+    return files
+
+
 def check_c01_auto_segment_pairs(root: Path, playbook_root: Path) -> CheckResult:
-    """C-01 / C-04 SEGMENT_UNPAIRED：所有路书文件中 AUTO:X 与 /AUTO:X 必须配对。"""
+    """C-01 / C-04 SEGMENT_UNPAIRED：受管路书文件中 AUTO:X 与 /AUTO:X 必须配对。
+
+    chg-F bug-3：只扫真正的路书文件（overview/architecture/runbook/code-map + domains/*/*）；
+    跳过 .workflow/ 路径（harness skill 文件，示例 marker 不应误报）。
+    """
     issues: list[str] = []
 
     if not playbook_root.is_dir():
         return CheckResult(True, [])
 
-    for md_file in sorted(playbook_root.rglob("*.md")):
+    for md_file in _enumerate_playbook_files(playbook_root):
         try:
             content = md_file.read_text(encoding="utf-8", errors="replace")
         except OSError:

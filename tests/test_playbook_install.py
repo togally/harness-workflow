@@ -3,6 +3,7 @@
 req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）
 chg-D（精简命令体系）：删除 --skip-playbook / --playbook-only flag 相关 TC，
 install 始终装路书骨架 + 不输出 [ASSISTANT INSTRUCTION] 强指令提示。
+chg-F：--no-llm flag 已删除；TC-08 改用 CI=true env 跳过 LLM。
 
 pytest 测试套件（≥ 8 TC）
 
@@ -13,7 +14,7 @@ TC-04: Level-4 单包次级模块兜底（src/{pkg}/*次级模块，OQ-4=B-modif
 TC-05: dogfood subprocess install（创建骨架 + stdout 断言 + 幂等）
 TC-06: install 默认装路书骨架（chg-D：无 flag 也装路书）
 TC-07: install 不输出 [ASSISTANT INSTRUCTION]（chg-D：提示句移到 refresh 触发）
-TC-08: install --no-llm 不输出 [ASSISTANT INSTRUCTION]（chg-D：提示移到 refresh）
+TC-08: install CI=true 不输出 [ASSISTANT INSTRUCTION]（chg-F：原 --no-llm 改为 CI=true）
 TC-09: render_skeleton 4 顶层文件存在
 TC-10: render_skeleton domains 4 件套存在
 """
@@ -237,11 +238,11 @@ def test_tc07_install_no_assistant_instruction_output(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# TC-08: install --no-llm 不输出 [ASSISTANT INSTRUCTION]（chg-D）
+# TC-08: install CI=true 不输出 [ASSISTANT INSTRUCTION]（chg-F：原 --no-llm 改为 CI=true）
 # ---------------------------------------------------------------------------
 
 def test_tc08_install_no_llm_no_assistant_instruction(tmp_path, monkeypatch):
-    """TC-08 (chg-D): install --no-llm 也不输出 [ASSISTANT INSTRUCTION]。"""
+    """TC-08 (chg-D/chg-F): install with CI=true 不输出 [ASSISTANT INSTRUCTION]（--no-llm 已删）。"""
     monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
     _setup_git(tmp_path)
 
@@ -251,15 +252,26 @@ def test_tc08_install_no_llm_no_assistant_instruction(tmp_path, monkeypatch):
     (tmp_path / "src" / "harness_workflow" / "playbook").mkdir(parents=True)
     (tmp_path / "src" / "harness_workflow" / "assets").mkdir(parents=True)
 
-    result = _run_cli(tmp_path, "--no-llm")
+    # chg-F：用 CI=true 代替原 --no-llm
+    import os
+    env = os.environ.copy()
+    env["CI"] = "true"
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{SRC_DIR}:{existing_pythonpath}" if existing_pythonpath else SRC_DIR
+    import subprocess as _sp
+    result = _sp.run(
+        [sys.executable, "-m", "harness_workflow.cli", "install",
+         "--root", str(tmp_path), "--agent", "claude"],
+        capture_output=True, text=True, env=env
+    )
 
     combined = result.stdout + result.stderr
     assert "[ASSISTANT INSTRUCTION" not in combined, (
-        f"install --no-llm should NOT output [ASSISTANT INSTRUCTION]; combined={combined}"
+        f"install CI=true should NOT output [ASSISTANT INSTRUCTION]; combined={combined}"
     )
     # 路书骨架仍然存在
     playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX
-    assert playbook_dir.exists(), f"playbook dir should exist even with --no-llm; stdout={result.stdout}"
+    assert playbook_dir.exists(), f"playbook dir should exist even with CI=true; stdout={result.stdout}"
 
 
 # ---------------------------------------------------------------------------

@@ -183,13 +183,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Comma-separated domain names to use directly, bypassing domain inference (e.g. --domains platform-admin,platform-common).",
     )
-    # req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）：
-    # --no-llm flag：跳过 LLM 填充阶段（_resolve_no_llm 还会检测 CI=true）。
+    # chg-F：删除 --no-llm flag（冗余；CI=true 自动跳过 + NoopProvider auto-detect fallback 已覆盖）
+    # chg-F bug-1：嵌套安装防护
     install_parser.add_argument(
-        "--no-llm",
-        dest="no_llm",
+        "--force-nested",
+        dest="force_nested",
         action="store_true",
-        help="Skip LLM content filling stage (also auto-skipped when CI=true).",
+        help="Skip nested install guard (allow installing inside an existing harness repo).",
     )
 
     # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-04（harness playbook-refresh 子命令）：
@@ -204,13 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="打印将要写入的 diff，不落盘",
     )
-    # req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）：
-    playbook_refresh_parser.add_argument(
-        "--no-llm",
-        dest="no_llm",
-        action="store_true",
-        help="Skip LLM content filling stage (also auto-skipped when CI=true).",
-    )
+    # chg-F：删除 --no-llm flag（冗余；CI=true 自动跳过 + NoopProvider auto-detect fallback 已覆盖）
 
     # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-05（harness playbook-check 子命令）：
     # 注册 playbook-check 子命令（紧接 playbook-refresh 之后）。
@@ -486,9 +480,10 @@ def main() -> int:
         # req-56 / chg-01：透传 --domains flag
         if getattr(args, "domains", None):
             extra_args.extend(["--domains", args.domains])
-        # req-56 / chg-04：透传 --no-llm flag（_resolve_no_llm 已处理 CI=true）
-        if _resolve_no_llm(args):
-            extra_args.append("--no-llm")
+        # chg-F：--no-llm 已删除；CI=true 自动跳过 LLM（init_playbook 内部检测）
+        # 透传 --force-nested flag
+        if getattr(args, "force_nested", False):
+            extra_args.append("--force-nested")
         if args.agent:
             return _run_tool_script(
                 "harness_install.py", ["--agent", args.agent, *extra_args], root
@@ -504,8 +499,8 @@ def main() -> int:
     if args.command == "playbook-refresh":
         from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
         dry_run = getattr(args, "dry_run", False)
-        no_llm = _resolve_no_llm(args)
-        return playbook_refresh(root, dry_run=dry_run, no_llm=no_llm)
+        # chg-F：--no-llm 已删除；LLM 跳过由 CI=true / NoopProvider fallback 自动处理
+        return playbook_refresh(root, dry_run=dry_run)
     # req-55（项目路书Playbook体系）/ chg-05（harness playbook-check 子命令）
     if args.command == "playbook-check":
         from harness_workflow.tools.harness_playbook_check import playbook_check

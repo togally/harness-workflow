@@ -1,11 +1,12 @@
 """tests/test_install_refresh_llm_integration.py
 
 req-56（路书引擎升级）/ chg-04（install/refresh 集成 LLM）
+chg-F：--no-llm flag 已删除；TC-02 改用 CI=true 触发 LLM 跳过。
 LLM 集成测试（6 TC）：
 
 TC-01 install 调 LLM generate（mock provider 被调 ≥1 次 + 区段被替换）
-TC-02 install --no-llm 跳过（mock provider 0 调用 + 区段保留 TODO）
-TC-03 install env CI=true 自动跳过（同 TC-02，_resolve_no_llm 路径）
+TC-02 install CI=true 自动跳过（mock provider 0 调用 + 区段保留 TODO；原 --no-llm 语义改用 CI=true）
+TC-03 install env CI=true 自动跳过（同 TC-02）
 TC-04 LLM NetworkError fallback（stderr WARN + exit 0 + 区段保留 TODO）
 TC-05 refresh 替换 LLM 区段（mock provider + playbook_refresh → LLM 区段内容被替换）
 TC-06 多语言项目集成（Maven 多模块 fixture + mock LLM → domain README 被填充）
@@ -87,7 +88,7 @@ def _read_llm_section(file_path: Path, marker: str) -> str:
 # ---------------------------------------------------------------------------
 
 def test_tc01_install_calls_llm_and_fills_sections(tmp_path, monkeypatch):
-    """TC-01: init_playbook 不传 no_llm → auto_detect_provider 返回 mock → generate 被调 ≥1 次
+    """TC-01: init_playbook() → auto_detect_provider 返回 mock → generate 被调 ≥1 次
     → overview.md LLM:OVERVIEW_DESC 区段内容 != TODO 占位。
     """
     domains = ["core", "api"]
@@ -105,7 +106,7 @@ def test_tc01_install_calls_llm_and_fills_sections(tmp_path, monkeypatch):
     monkeypatch.delenv("CI", raising=False)
 
     from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=False)
+    rc = init_playbook(tmp_path)
     assert rc == 0
 
     # mock provider.generate 至少被调 1 次
@@ -132,11 +133,12 @@ def test_tc01_install_calls_llm_and_fills_sections(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# TC-02: install --no-llm 跳过（mock provider 0 调用 + 区段保留 TODO 占位）
+# TC-02: CI=true 跳过 LLM（mock provider 0 调用 + 区段保留 TODO 占位）
+# chg-F：原 --no-llm 语义改用 monkeypatch.setenv("CI", "true") 触发
 # ---------------------------------------------------------------------------
 
 def test_tc02_install_no_llm_skips_llm(tmp_path, monkeypatch):
-    """TC-02: init_playbook(no_llm=True) → generate 0 调用 + OVERVIEW_DESC 保留 TODO 占位。"""
+    """TC-02: CI=true → generate 0 调用 + OVERVIEW_DESC 保留 TODO 占位（原 --no-llm 测试替代）。"""
     domains = ["core", "api"]
     _setup_python_project(tmp_path, domains)
 
@@ -146,15 +148,16 @@ def test_tc02_install_no_llm_skips_llm(tmp_path, monkeypatch):
         "harness_workflow.playbook.llm.auto_detect_provider",
         lambda *a, **kw: mock_provider,
     )
-    monkeypatch.delenv("CI", raising=False)
+    # chg-F：用 CI=true 替代原 no_llm=True
+    monkeypatch.setenv("CI", "true")
 
     from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=True)
+    rc = init_playbook(tmp_path)
     assert rc == 0
 
-    # mock provider.generate 0 调用
+    # mock provider.generate 0 调用（CI=true 自动跳过）
     assert mock_provider.generate.call_count == 0, (
-        f"Expected generate() NOT to be called with --no-llm, got {mock_provider.generate.call_count} calls"
+        f"Expected generate() NOT to be called when CI=true, got {mock_provider.generate.call_count} calls"
     )
 
     # OVERVIEW_DESC 区段保留 TODO 占位
@@ -162,7 +165,7 @@ def test_tc02_install_no_llm_skips_llm(tmp_path, monkeypatch):
     assert overview_md.exists()
     section = _read_llm_section(overview_md, "OVERVIEW_DESC")
     assert "TODO" in section, (
-        f"Expected TODO placeholder preserved with --no-llm, got: {section!r}"
+        f"Expected TODO placeholder preserved when CI=true, got: {section!r}"
     )
 
 
@@ -171,7 +174,7 @@ def test_tc02_install_no_llm_skips_llm(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_tc03_install_ci_env_skips_llm(tmp_path, monkeypatch):
-    """TC-03: CI=true 时 init_playbook(no_llm=False) → generate 0 调用 + TODO 占位保留。"""
+    """TC-03: CI=true 时 init_playbook() → generate 0 调用 + TODO 占位保留。"""
     domains = ["core", "api"]
     _setup_python_project(tmp_path, domains)
 
@@ -186,7 +189,7 @@ def test_tc03_install_ci_env_skips_llm(tmp_path, monkeypatch):
     monkeypatch.setenv("CI", "true")
 
     from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=False)
+    rc = init_playbook(tmp_path)
     assert rc == 0
 
     # mock provider.generate 0 调用（CI=true 自动跳过）
@@ -225,7 +228,7 @@ def test_tc04_llm_network_error_fallback(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("CI", raising=False)
 
     from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=False)
+    rc = init_playbook(tmp_path)
 
     # exit 0（LLM 失败不阻塞主流程）
     assert rc == 0, f"Expected exit 0 even on LLM failure, got {rc}"
@@ -250,7 +253,7 @@ def test_tc04_llm_network_error_fallback(tmp_path, monkeypatch, capsys):
 # ---------------------------------------------------------------------------
 
 def test_tc05_refresh_replaces_llm_sections(tmp_path, monkeypatch):
-    """TC-05: playbook_refresh(no_llm=False) + mock provider → LLM:OVERVIEW_DESC 区段内容被替换。"""
+    """TC-05: playbook_refresh() + mock provider → LLM:OVERVIEW_DESC 区段内容被替换。"""
     domains = ["service", "repo"]
 
     # 建立完整路书骨架（含 LLM 区段 TODO 占位）
@@ -276,7 +279,7 @@ def test_tc05_refresh_replaces_llm_sections(tmp_path, monkeypatch):
     monkeypatch.delenv("CI", raising=False)
 
     from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
-    rc = playbook_refresh(tmp_path, no_llm=False)
+    rc = playbook_refresh(tmp_path)
     assert rc == 0
 
     # mock provider.generate 被调 ≥1 次
@@ -334,7 +337,7 @@ def test_tc06_maven_multi_module_integration(tmp_path, monkeypatch):
     monkeypatch.delenv("CI", raising=False)
 
     from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=False)
+    rc = init_playbook(tmp_path)
     assert rc == 0
 
     # generate 被调 ≥1 次
