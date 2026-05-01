@@ -88,6 +88,7 @@ harness <verb> [noun] [--flags]
 | **会话控制类** | enter, exit, status, validate | 控制 workflow 会话状态 |
 | **工作流推进类** | next, ff | 推进 stage 流转 |
 | **工件管理类** | requirement, change, bugfix, archive, rename | 管理需求/变更/归档 |
+| **路书维护类** | playbook-refresh, playbook-check | 刷新/检测项目路书（artifacts/project/playbooks/）|
 | **辅助功能类** | suggest, tool-search, tool-rate, regression, feedback | 辅助工具和诊断 |
 
 #### 1.3 提取命令参数
@@ -95,9 +96,13 @@ harness <verb> [noun] [--flags]
 为每类命令提取关键参数：
 
 **安装更新类**：
-- `install [--agent <cc|codex>]` — 安装到指定 agent
+- `install [--agent <cc|codex>]` — 安装到指定 agent，**默认装路书骨架**（artifacts/project/playbooks/）
 - `update [--check|--force-managed|--scan]` — 更新项目
 - `language <english|cn>` — 设置语言
+
+**路书维护类**：
+- `playbook-refresh [--no-llm]` — 刷新 AUTO 区段（脚本扫描）+ LLM 区段（模型推断）；NoopProvider fallback 时输出 `[ASSISTANT INSTRUCTION]` 引导当前 agent 接力填 LLM 区段
+- `playbook-check` — 路书漂移检测（AUTO 哈希 / LLM 完整性 / USER 永不报漂移）
 
 **会话控制类**：
 - `enter [req-id]` — 进入会话

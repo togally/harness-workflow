@@ -269,6 +269,8 @@ COMMAND_DEFINITIONS = [
     {"name": "harness-archive", "cli": "harness archive", "hint": "<requirement>"},
     {"name": "harness-rename", "cli": "harness rename", "hint": "<kind> <old> <new>"},
     {"name": "harness-suggest", "cli": "harness suggest", "hint": "<content>|--list|--apply <id>|--delete <id>"},
+    {"name": "harness-playbook-refresh", "cli": "harness playbook-refresh", "hint": "[--no-llm]"},
+    {"name": "harness-playbook-check", "cli": "harness playbook-check", "hint": ""},
 ]
 
 

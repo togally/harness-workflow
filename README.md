@@ -82,6 +82,8 @@ harness update           # refresh harness-managed files in the repository
 | `harness ff` | Fast-forward to ready_for_execution |
 | `harness update` | Refresh harness-managed files in the repository |
 | `harness feedback` | Export usage event summary |
+| `harness playbook-refresh [--no-llm]` | Refresh project playbook (AUTO sections via static scan + LLM sections via model inference); NoopProvider fallback emits `[ASSISTANT INSTRUCTION]` for the current agent to fill LLM sections |
+| `harness playbook-check` | Detect playbook drift (AUTO hash / LLM marker integrity / USER sections are never flagged) |
 
 ### Quick Start
 
