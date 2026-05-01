@@ -161,7 +161,10 @@ def test_tc06_base_role_hardgate_eight():
     content = base_role_path.read_text(encoding="utf-8")
 
     # Should appear at least twice: in the checklist overview + in the detail heading
-    count = content.count("硬门禁八：任务阻塞错误抛出协议")
+    # req-54 renamed 硬门禁八 from "任务阻塞错误抛出协议" to "subagent dispatch briefing 必含项目级加载链提示"
+    count_new = content.count("硬门禁八：subagent dispatch briefing 必含项目级加载链提示")
+    count_old = content.count("硬门禁八：任务阻塞错误抛出协议")
+    count = count_new + count_old
     assert count >= 2, f"Expected ≥2 occurrences of 硬门禁八, got {count}"
 
 
@@ -170,13 +173,21 @@ def test_tc06_base_role_hardgate_eight():
 # ---------------------------------------------------------------------------
 
 def test_tc07_harness_manager_step37():
-    """TC-07: harness-manager.md contains Step 3.7 with fix-checklist & recovery_attempts."""
+    """TC-07: harness-manager.md contains step-3.7-level recovery content or 3.6.2 hardgate content.
+
+    req-54 restructured harness-manager.md: step 3.7 fix-checklist/recovery_attempts was replaced
+    by 3.6.2 按硬门禁八 brief 项目级加载链. Accept either form.
+    """
     hm_path = ROOT / ".workflow" / "context" / "roles" / "harness-manager.md"
     content = hm_path.read_text(encoding="utf-8")
 
-    assert "3.7" in content, "Step 3.7 not found"
-    assert "fix-checklist" in content, "fix-checklist keyword missing in harness-manager.md"
-    assert "recovery_attempts" in content, "recovery_attempts keyword missing in harness-manager.md"
+    # Accept either the old 3.7 form or the new 3.6.2 hardgate form (req-54 restructure)
+    has_37 = "3.7" in content and "fix-checklist" in content and "recovery_attempts" in content
+    has_362 = "3.6.2" in content and "硬门禁八" in content
+    assert has_37 or has_362, (
+        "harness-manager.md missing both: (3.7 fix-checklist/recovery_attempts) "
+        "and (3.6.2 硬门禁八 hardgate). One of these must be present."
+    )
 
 
 # ---------------------------------------------------------------------------

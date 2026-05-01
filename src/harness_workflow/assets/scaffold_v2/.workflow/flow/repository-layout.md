@@ -92,13 +92,14 @@ artifacts/
 
 ### 2.1 项目级机器型豁免段（req-51（项目级规则-经验-工具支持从制品引入）OQ-1 = B-modified + req-52（硬编码main路径全面去除-跟项目走-索引懒加载-流程日志验证）/ chg-01（契约层路径迁移-无branch项目级-双轨过渡）OQ-A = D-modified）
 
-`artifacts/project/{constraints,experience,tools}/`（req-52 主路径，无 branch 维度，跟项目走）是项目级承载层，**仅限**以下三类文档存入：
+`artifacts/project/{constraints,experience,tools,playbooks}/`（req-52 主路径，无 branch 维度，跟项目走）是项目级承载层，**仅限**以下四类文档存入：
 
 | 子树 | 语义 | 产出者 | 消费者 |
 |------|------|--------|--------|
 | `artifacts/project/constraints/` | 项目独有规则 / 边界约束 | 下游用户（项目团队） | 全部 stage 角色（按 §3 加载链项目级覆盖全局） |
 | `artifacts/project/experience/` | 项目独有经验沉淀（roles / tool / risk / regression / stage 五分类同 `.workflow/context/experience/` schema） | 下游用户 + done 阶段沉淀 | stage 角色按经验加载规则匹配 |
 | `artifacts/project/tools/` | 项目独有工具 catalog / index / protocols / keywords | 下游用户 | tools-manager（按项目级覆盖全局规则匹配） |
+| `artifacts/project/playbooks/` | 项目路书（项目地图 + 代码导航：overview / architecture / runbook / code-map + domains/）沿用 req-51/52 项目级承载层规范，OQ-1=B 决策来源 req-55（项目路书Playbook体系） | harness install / playbook-refresh / 人工 | 全部 stage 角色（baseRole 硬门禁十强制加载） |
 
 #### 双轨过渡 fallback（req-52 / chg-01）
 

@@ -51,7 +51,18 @@ If you need to overwrite existing skill files (e.g., after a breaking update):
 harness install --force  # force reinstall of all platform skills
 ```
 
+To refresh templates and skill files after upgrading harness-workflow:
+
+```bash
+pip install -U harness-workflow
+harness update           # refresh harness-managed files in the repository
+```
+
 ---
+
+**Multi-project workspace** (1.0.1+): when the repo root has no project file but has ≥2 subdirectories that each contain one (e.g. `monorepo/{frontend,backend,admin,...}/`), the playbook engine auto-switches to workspace mode: one aggregated playbook with sub-project sections, each labelled `### {dir} ({stack})`. See CHANGELOG 1.0.1.
+
+**`.workflow/` localization** (1.0.1+): from 1.0.1 onwards `.workflow/` is not git-tracked (state/ is per-user runtime; context/ is framework-level template rebuilt by `harness install`). Team-level experience stays in `artifacts/project/experience/` (git-tracked). Existing projects: run `git rm --cached -r .workflow/` after upgrade to migrate.
 
 ## Core Commands
 
@@ -75,6 +86,8 @@ harness install --force  # force reinstall of all platform skills
 | `harness ff` | Fast-forward to ready_for_execution |
 | `harness update` | Refresh harness-managed files in the repository |
 | `harness feedback` | Export usage event summary |
+| `harness playbook-refresh [--no-llm]` | Refresh project playbook (AUTO sections via static scan + LLM sections via model inference); NoopProvider fallback emits `[ASSISTANT INSTRUCTION]` for the current agent to fill LLM sections |
+| `harness playbook-check` | Detect playbook drift (AUTO hash / LLM marker integrity / USER sections are never flagged) |
 
 ### Quick Start
 
@@ -217,3 +230,19 @@ harness pad
 | tool | `artifacts/project/tools/{slug}.md` |
 
 命令成功后会自动 `git add`；user 仅需 `git commit -m "..."`（按 stdout 提示）。
+
+## harness playbook — 路书引擎
+
+路书（Playbook）是项目级代码导航地图，根目录锁定为 `artifacts/project/playbooks/`。
+
+```bash
+harness install          # 初始化路书骨架（同时调 LLM 填充 overview/domain 描述）
+harness playbook-refresh # 刷新 AUTO 区段（技术栈 / 目录结构 / 脚本列表）
+harness playbook-check   # 检测路书漂移（10 类检测，exit 0 = 健康）
+```
+
+**区段只读规则**：路书 AUTO / LLM 区段只读（脚本 / LLM 维护，agent 不动）；TODO 区域用户可改（agent 默认不改，用户 explicit 后可改）。
+
+- `<!-- AUTO:* -->...<!-- /AUTO:* -->`：由 `harness playbook-refresh` 统一写入，不得手动修改
+- `<!-- LLM:* -->...<!-- /LLM:* -->`：由 `harness install` / `harness playbook-refresh` 调用 LLM 填充，不得手动修改
+- 区段外的 TODO 占位（`## 最近变更` 等人工说明）：用户可改，agent explicit 指令后可改

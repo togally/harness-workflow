@@ -17,7 +17,7 @@
 4. **立即加载 `harness-manager` 角色**：使用 Skill 工具调用 `harness-install`，由 harness-manager 接管后续路由
 ```
 
-**AGENTS.md（Codex / Qoder / Kimi）**:
+**AGENTS.md（Codex）**:
 ```
 4. **立即加载 `harness-manager` 角色**：使用 Skill 工具调用 `harness-install`，由 harness-manager 接管后续路由
 ```
@@ -35,8 +35,6 @@
 |-------|---------|
 | Claude Code | `CLAUDE.md` |
 | Codex | `AGENTS.md` |
-| Qoder | `AGENTS.md` |
-| Kimi | `AGENTS.md` |
 
 ## 注意事项
 

@@ -231,12 +231,13 @@ def test_tc07_mirror_review_checklist():
 
 def test_tc08_roadmap_in_plan():
     """TC-08: chg-03 plan.md §5 has roadmap skeleton with 3 fix-checklists + 5 contracts."""
-    plan_path = (
-        ROOT / ".workflow" / "flow" / "requirements"
-        / "req-48-harness-manager-统一异常捕获-base-role-阻塞抛错协议-fix-checklist-自动修复体系"
-        / "changes" / "chg-03-reviewer加项-端到端dogfood-roadmap" / "plan.md"
-    )
-    assert plan_path.exists(), f"chg-03 plan.md not found: {plan_path}"
+    req48_slug = "req-48-harness-manager-统一异常捕获-base-role-阻塞抛错协议-fix-checklist-自动修复体系"
+    chg_path = "changes/chg-03-reviewer加项-端到端dogfood-roadmap/plan.md"
+    # req-48 may be archived; check both active and archive paths
+    plan_path = ROOT / ".workflow" / "flow" / "requirements" / req48_slug / chg_path
+    if not plan_path.exists():
+        plan_path = ROOT / ".workflow" / "flow" / "archive" / "main" / req48_slug / chg_path
+    assert plan_path.exists(), f"chg-03 plan.md not found in active or archive: {plan_path}"
     content = plan_path.read_text(encoding="utf-8")
 
     # Should have roadmap section

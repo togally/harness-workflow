@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from harness_workflow.workflow_helpers import install_agent, install_repo
+from harness_workflow.playbook.init import init_playbook
 
 
 def _print_venv_check() -> int:
@@ -162,10 +163,24 @@ def _print_venv_check() -> int:
     return 0
 
 
+def _check_nested_install(root: Path) -> str:
+    """检查 root 的祖先目录（不含自身）是否已有 .workflow/ 目录。
+
+    Returns:
+        "" = 无嵌套；"<ancestor_path>" = 第一个命中的祖先路径。
+    """
+    current = root.parent
+    while current != current.parent:
+        if (current / ".workflow").is_dir():
+            return str(current)
+        current = current.parent
+    return ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install harness skill to target agent directory.")
     parser.add_argument("--root", default=".", help="Repository root.")
-    parser.add_argument("--agent", required=True, help="Target agent (kimi, claude, codex, qoder).")
+    parser.add_argument("--agent", required=True, help="Target agent (cc, claude, codex).")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -181,9 +196,44 @@ def main() -> int:
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
     )
+    # chg-D（精简命令体系）：删除 --skip-playbook / --playbook-only 两个 flag。
+    # 路书骨架是 1.0.0 标配，install 始终装路书（无选项）。
+    # req-56（路书引擎升级）/ chg-01（推断器多语言注册化）：
+    # --domains：逗号分隔的领域列表，跳过推断器直接用用户指定领域（last-resort escape hatch）。
+    parser.add_argument(
+        "--domains",
+        dest="domains",
+        default=None,
+        help="Comma-separated domain names, bypassing domain inference (e.g. --domains a,b,c).",
+    )
+    # chg-F（嵌套安装防护）：
+    parser.add_argument(
+        "--force-nested",
+        dest="force_nested",
+        action="store_true",
+        help="Skip nested install guard (allow installing inside an existing harness repo).",
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
+
+    # chg-F bug-1：嵌套安装防护
+    if not getattr(args, "force_nested", False):
+        ancestor = _check_nested_install(root)
+        if ancestor:
+            print(
+                f"[install] WARN: 检测到祖先目录 {ancestor} 已有 .workflow/，"
+                f"当前在嵌套 harness 项目内部 install 可能不是预期。"
+                f"如确认要嵌套，加 --force-nested",
+                file=sys.stderr,
+            )
+            return 0
+
+    # 解析 --domains flag 为列表
+    override_domains = None
+    if getattr(args, "domains", None):
+        override_domains = [d.strip() for d in args.domains.split(",") if d.strip()]
+
     # 1) install_agent：写入 agent 配置 + skill 文件
     rc = install_agent(root, args.agent)
     if rc != 0:
@@ -200,7 +250,10 @@ def main() -> int:
     # 3) check 模式：追加 venv mtime 版本对比报告（sug-55 配套）
     if args.check:
         _print_venv_check()
-    return rc
+    if rc != 0:
+        return rc
+    # 4) init_playbook：追加路书初始化阶段（chg-D：始终装路书骨架，不输出 ASSISTANT INSTRUCTION 提示句）
+    return init_playbook(root, override_domains=override_domains)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,8 @@
 - 硬门禁七：周转汇报不列选项 + 必报本阶段已结束（req-37（阶段结束汇报简化：周转时不给选项，只停下+报本阶段结束+报状态） / chg-01）
 - 硬门禁八：subagent dispatch briefing 必含项目级加载链提示（req-54（硬门禁体系简化-砍4条降级-加1条项目级brief强约束））
 - 硬门禁九：subagent 产出独立核查
+- 硬门禁十：代码加载规则（req-55（项目路书Playbook体系）/ chg-02（baseRole代码加载规则与CLAUDE索引））
+- 硬门禁十一：上下文规模管理（>300k 触发 compact / clear 决策）
 
 > 原硬门禁一（工具优先）/ 二（操作说明与日志）已 req-54（硬门禁体系简化-砍4条降级-加1条项目级brief强约束）降级为指导原则；详见下方「工具委派指导原则」/「操作日志指导原则」段。
 
@@ -406,3 +408,102 @@ SOP 必须覆盖角色的完整生命周期：
 2. **执行**：完成本角色的核心业务任务
 3. **退出**：检查退出条件是否满足
 4. **交接**：保存关键决策到 `session-memory.md`，向主 agent 报告结果
+
+## 硬门禁十：代码加载规则（强制）
+
+> 溯源：req-55（项目路书Playbook体系——项目地图+代码导航）/ chg-02（baseRole 代码加载规则与 CLAUDE 索引）；与既有硬门禁三/四/六/七/八/九并列生效，不替代（注：硬门禁一/二已 req-54 降级为指导原则）。
+
+### §1 任意 harness stage 角色入场必先按工件文本命中路书（req-57 / chg-05 升级）
+
+**适用范围（"任务"= 7 个 stage 角色 + 5 类 harness 工件）**：
+
+任何 harness stage 角色（**analyst / planning / executing / testing / acceptance / regression / done**）在处理任意 harness 工件（**requirement.md / change.md / plan.md / regression diagnosis / bugfix.md** 等）前，**必须**先按工件文本命中路书后读，五步走：
+
+1. **读 overview**：`artifacts/project/playbooks/overview.md`（项目术语 + 领域全貌）
+2. **关键词命中 domain**：从工件文本（标题 / 描述 / scope / acceptance / 涉及文件路径）提取关键词（中英对照），grep `code-map.md` 的 `LLM:CODE_MAP_KEYWORDS` 段 + `domains/*/README.md` 的 `LLM:KEYWORDS` 段，命中 domain
+3. **读命中 domain README**：`artifacts/project/playbooks/domains/<领域>/README.md`（重点看 `LLM:KEY_FILES` + `LLM:DEPENDENCIES`）
+4. **按 README 指引读细节**：`code.md`（文件清单）/ `data-model.md`（数据结构）/ `notes.md`（跨领域笔记）
+5. **禁止跳过 1-4 直接 grep / glob 全仓代码定位文件**——grep 是命中 domain 后的细化工具，不是入口
+
+**为何升级**（req-57 chg-05 实证）：1.0.0 版规则只说"任务入场即读路书"，没明列"任务"= 哪些 stage 角色 / 哪些工件，也没说"怎么从工件文本走到具体 domain"。下游实测 analyst 看到"app 接口开发"直接 grep `RequestMapping`，跳过术语 → code-map 关键词索引 → domain README → KEY_FILES 的导航链。本升级把 5 个步骤显式化、stage 角色和工件类型明列，不留含糊空间。
+
+### §2 路径全部用 `artifacts/project/playbooks/`
+
+路书根目录统一为 `artifacts/project/playbooks/`（OQ-1=B 决策，沿用 req-51/52 项目级承载层规范，无 branch 维度，跟项目走）。所有路书文件引用均使用此前缀，禁止使用旧路径 `artifacts/playbooks/` 或任何带 branch 的变体。
+
+### §3 路书是只读引用
+
+不要修改 `artifacts/project/playbooks/` 下任何文件。路书是只读资源（OQ-5=A 软约束），由 `harness playbook-refresh` 脚本与人工负责更新；chg-05 漂移检测兜底校验路书健康状态。如路书未覆盖，走兜底全局查找后，用 `<!-- TODO: 待补入 code-map -->` 提示用户更新路书，不擅自改路书文件。
+
+### §4 区段级只读语义（req-56 / chg-05 OQ-4=D1 修订 / chg-C 三分类扩展）
+
+路书文件中存在三类区段，按维护方和 check 行为分类：
+
+#### 机器维护区（用户视角："别动，要更新跑命令"）
+
+1. **AUTO 区段**：`<!-- AUTO:* -->...<!-- /AUTO:* -->` 由 `harness playbook-refresh` 脚本统一维护，刷新时自动覆写。手动修改无效且下次 refresh 会被覆盖，同时触发哈希漂移告警（`AUTO_SECTION_HASH_DRIFT`）。区段命名：STACK / LAYOUT / SCRIPTS / DOMAIN_FILES / DOMAIN_LIST。
+
+2. **LLM 区段**：`<!-- LLM:* -->...<!-- /LLM:* -->` 由 `harness install` / `harness playbook-refresh` 调用 LLM 填充（NoopProvider 时由 agent 在当前会话接力填充）。agent **不要手动编辑**已由 LLM 填充的内容。区段命名：PROJECT_NAME / OVERVIEW_DESC / TECH_DECISIONS / COMPONENT_RELATIONS / KEY_DEPENDENCIES / QUICK_START / TEST_COMMANDS / DEPLOY_STEPS / FAQ / CODE_MAP_KEYWORDS / ENTRY_POINTS / CONFIG_FILES / TEST_DIRS / DOMAIN_DESC / KEYWORDS / KEY_FILES / DEPENDENCIES / DATA_STRUCTURES / DB_TABLES / DATA_FLOW / CROSS_DOMAIN_NOTES。
+
+#### 人工维护区（用户视角："这是我的地盘，随时可改"）
+
+3. **USER 区段**：`<!-- USER:* -->...<!-- /USER:* -->` 由用户/团队维护，`playbook-check` 永不报漂移（用户随时可改）。只校验 marker 配对完整性（`SEGMENT_UNPAIRED`）。区段命名：RECENT_CHANGES / PENDING_DECISIONS / HISTORY。
+
+#### 工程层行为对照（详见 `.workflow/flow/playbook-layout.md §4/§5/§6`）
+
+| 类型 | marker | check 行为 | refresh 行为 |
+|------|--------|-----------|-------------|
+| AUTO | `<!-- AUTO:* -->` | 哈希漂移检测 + 配对校验 | 脚本自动覆写 |
+| LLM  | `<!-- LLM:* -->` | 配对完整性校验（不哈希，内容每次不同） | LLM 填充（NoopProvider 时 agent 接力） |
+| USER | `<!-- USER:* -->` | 仅配对完整性（永不报漂移） | 不刷新（人工维护） |
+
+**合规与违规示例**：
+
+```
+✅ 合规：编辑 overview.md <!-- USER:RECENT_CHANGES --> 区段内容（人工维护区，随时可改）
+✅ 合规：用户 explicit 指令后填写 notes.md <!-- USER:PENDING_DECISIONS --> 区段
+✅ 合规：agent 在 install 后接力填充 <!-- LLM:PROJECT_NAME --> 区段（TODO 占位替换）
+❌ 违规：手动改 <!-- AUTO:STACK --> 区段内的 Maven 版本号（应让 playbook-refresh 重跑）
+❌ 违规：手动改 <!-- LLM:OVERVIEW_DESC --> 区段内已由 LLM 填充的描述文字
+❌ 违规：删除 <!-- USER:HISTORY --> 闭标记（marker 不配对 → SEGMENT_UNPAIRED 报错）
+```
+
+> 来源：req-55 / chg-02 / req-56 / chg-05 / chg-C / OQ-1=B / OQ-2=A / OQ-4=D1 / OQ-5=A
+
+## 硬门禁十一：上下文规模管理（强制）
+
+> 溯源：用户拍板加规则；与硬门禁三/四/六/七/八/九/十并列生效。
+
+主 agent / subagent 在执行任务过程中，**必须**监控当前对话上下文规模。当上下文 token 数 **超过 300k** 时，**立即**根据下一个任务与现有上下文的关系做出决策：
+
+### §1 触发条件
+
+- 上下文 ≥ 300k tokens（参考 `/cost` / 系统反馈 / 自我估计）
+
+### §2 决策规则
+
+| 下一任务与上下文关系 | 动作 | 理由 |
+|---|---|---|
+| **关系大**（需依赖前文实施细节、决策记录、发现结果） | 执行 `/compact` | 压缩历史保留要点，保持任务连续性 |
+| **关系小**（独立新任务，前文上下文可丢） | 执行 `/clear` | 清空上下文重启，避免前文干扰 + 节省 token |
+
+### §3 判断标准
+
+判断"关系大"的典型信号：
+- 任务延续当前 req / chg / regression
+- 需引用前文的 OQ / default-pick 决策
+- 需追溯前面 subagent 的产出 / 失败原因
+- 用户在对话中加的临时约定 / 偏好
+
+判断"关系小"的典型信号：
+- 用户切到完全不同的话题 / req
+- 任务可由 session-memory + 当前文件状态独立恢复
+- 前文已是已完成 done 阶段且不再被引用
+
+### §4 执行时机
+
+- **任务入场前自检**：每次新任务到达 / 主 agent 转发指令前先估上下文规模
+- **超 300k 立即决策**：不要等到 OOM 或 token 浪费再处理
+- 决策由主 agent 主动判断，不必询问用户（除非两边都不像，才简短问一句"任务关联性大不大"）
+
+> 来源：用户拍板（2026-04-30）

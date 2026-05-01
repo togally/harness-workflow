@@ -1,4 +1,0 @@
-id: "bugfix-1"
-title: "harness update --check 等 flag 被角色触发吞了，drift check 无路可走"
-archived_at: "2026-04-22T18:36:42.327938+00:00"
-origin_stage: "done"

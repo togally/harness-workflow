@@ -136,6 +136,25 @@ SUGGESTION_SEQUENCE = [
     "apply",
     "done",
 ]
+# req-50/chg-01: legacy sequence for req-id < 50 (history archive read-only).
+# upstream-fix: workflow_next must accept legacy stages so old-req tests pass.
+LEGACY_WORKFLOW_SEQUENCE = [
+    "requirement_review",
+    "planning",
+    "ready_for_execution",
+    "executing",
+    "testing",
+    "acceptance",
+    "done",
+]
+# req-49/trivial track
+TRIVIAL_SEQUENCE = [
+    "trivial_define",
+    "executing",
+    "done",
+]
+VALID_TASK_TYPES = {"req", "requirement", "bugfix", "sug", "suggestion", "trivial"}
+
 LANGUAGE_SPECS = {
     "english": {
         "requirements_dir": "requirements",
@@ -234,8 +253,8 @@ ITEM_META_ORDER = [
 
 COMMAND_DEFINITIONS = [
     {"name": "harness", "cli": "harness", "hint": "[instruction]"},
-    {"name": "harness-install", "cli": "harness install", "hint": ""},
-    {"name": "harness-init", "cli": "harness init", "hint": ""},
+    {"name": "harness-install", "cli": "harness install", "hint": "[--agent <cc|codex>] [--force-nested]"},
+    {"name": "harness-init", "cli": "harness init", "hint": "[--write-agents|--write-claude]"},
     {"name": "harness-update", "cli": "harness update", "hint": "[--check|--force-managed]"},
     {"name": "harness-language", "cli": "harness language", "hint": "<english|cn>"},
     {"name": "harness-enter", "cli": "harness enter", "hint": ""},
@@ -250,6 +269,15 @@ COMMAND_DEFINITIONS = [
     {"name": "harness-archive", "cli": "harness archive", "hint": "<requirement>"},
     {"name": "harness-rename", "cli": "harness rename", "hint": "<kind> <old> <new>"},
     {"name": "harness-suggest", "cli": "harness suggest", "hint": "<content>|--list|--apply <id>|--delete <id>"},
+    {"name": "harness-playbook-refresh", "cli": "harness playbook-refresh", "hint": ""},
+    {"name": "harness-playbook-check", "cli": "harness playbook-check", "hint": ""},
+    {"name": "harness-validate", "cli": "harness validate", "hint": "[--contract <name>|--human-docs]"},
+    {"name": "harness-trivial", "cli": "harness trivial", "hint": "<title>"},
+    {"name": "harness-migrate", "cli": "harness migrate", "hint": "<requirements|bugfix-layout> [--dry-run]"},
+    {"name": "harness-tool-search", "cli": "harness tool-search", "hint": "<keywords>"},
+    {"name": "harness-tool-rate", "cli": "harness tool-rate", "hint": "<tool> <rating>"},
+    {"name": "harness-feedback", "cli": "harness feedback", "hint": "[--reset]"},
+    {"name": "harness-pad", "cli": "harness pad", "hint": "<rule|experience|tool|list> [scope] [title]"},
 ]
 
 
@@ -473,6 +501,8 @@ def load_requirement_runtime(root: Path) -> dict[str, object]:
             return "bugfix"
         if req_id.startswith("sug-"):
             return "suggestion"
+        if req_id.startswith("trivial-"):
+            return "trivial"
         return "requirement"
 
     if current_req:
@@ -732,7 +762,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "3. 再读取 `.workflow/state/runtime.yaml`",
                 "4. 如有需要，再按 `.workflow/context/index.md` 的路由读取对应角色、经验和约束文件",
                 "5. 优先遵循根目录 `AGENTS.md`",
-                "6. 如果存在 `.kimi/skills/harness/SKILL.md`、`.qoder/skills/harness/SKILL.md` 或 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
+                "6. 如果存在 `.claude/skills/harness/SKILL.md`，按主 Harness skill 执行",
                 "",
                 "执行要求：",
                 "",
@@ -766,7 +796,7 @@ def render_agent_command(command_name: str, cli_command: str, argument_hint: str
                 "3. Then read `.workflow/state/runtime.yaml`",
                 "4. Load any additional role / experience / constraint files by following `.workflow/context/index.md`",
                 "5. Prefer the root `AGENTS.md`",
-                "6. If `.kimi/skills/harness/SKILL.md`, `.qoder/skills/harness/SKILL.md` or `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
+                "6. If `.claude/skills/harness/SKILL.md` exists, follow the main Harness skill",
                 "",
                 "Execution rules:",
                 "",
@@ -856,41 +886,6 @@ def render_codex_command_skill(command_name: str, cli_command: str, language: st
     return "\n".join(body) + "\n"
 
 
-def render_kimi_command_skill(command_name: str, cli_command: str, language: str) -> str:
-    is_cn = normalize_language(language) == "cn"
-    if is_cn:
-        description = f"在 Harness 工作流中运行 {cli_command} 命令"
-        hard_gate_lines = [
-            "## Hard Gate",
-            "",
-            "在执行前，必须按顺序读取以下三个文件：",
-            "1. 读取根目录 `WORKFLOW.md`",
-            "2. 读取 `.workflow/context/index.md`",
-            "3. 读取 `.workflow/state/runtime.yaml`",
-            "4. 按照 `.workflow/context/index.md` 加载额外的角色/经验/约束文件",
-            "5. 优先查看根目录 `AGENTS.md`",
-            "6. 如果存在 `.kimi/skills/harness/SKILL.md`，按主 Harness skill 执行",
-        ]
-    else:
-        description = f"Run {cli_command} in the Harness workflow"
-        hard_gate_lines = [
-            "## Hard Gate",
-            "",
-            "Do not act until these three files have been read in order:",
-            "1. Read the root `WORKFLOW.md`",
-            "2. Read `.workflow/context/index.md`",
-            "3. Read `.workflow/state/runtime.yaml`",
-            "4. Load any additional role / experience / constraint files by following `.workflow/context/index.md`",
-            "5. Prefer the root `AGENTS.md`",
-            "6. If `.kimi/skills/harness/SKILL.md` exists, follow the main Harness skill",
-        ]
-
-    frontmatter = f"---\nname: {command_name}\ndescription: \"{description}\"\n---\n\n"
-    body: list[str] = []
-    body.extend(hard_gate_lines)
-    body.append("")
-    body.extend(command_specific_guidance(command_name, language))
-    return frontmatter + "\n".join(body)
 
 
 def command_specific_guidance(command_name: str, language: str) -> list[str]:
@@ -2178,20 +2173,18 @@ def _copy_tree(source: Path, target: Path) -> None:
 
 
 # bugfix-3（新）问题 1：active_agent 持久化到 platforms.yaml，与 enabled[] 解耦。
-# install_agent 使用的 agent 词表是 {"claude","codex","qoder","kimi"}；
-# 而 platforms.yaml.enabled[] 用的是 {"cc","codex","qoder","kimi"}（cc 对应 claude）。
-# active_agent 字段统一采用 install_agent 词表（"claude"），读取时按需映射。
+# install_agent 使用的 agent 词表是 {"claude","codex","cc"}；
+# 而 platforms.yaml.enabled[] 用的是 {"cc","codex"}（cc 对应 claude）。
+# active_agent 字段统一采用 install_agent 词表（"claude"/"cc"），读取时按需映射。
 _AGENT_TO_PLATFORM_KEY = {
     "claude": "cc",
+    "cc": "cc",
     "codex": "codex",
-    "qoder": "qoder",
-    "kimi": "kimi",
 }
 _AGENT_TO_SKILL_DIR = {
     "claude": ".claude",
+    "cc": ".claude",
     "codex": ".codex",
-    "qoder": ".qoder",
-    "kimi": ".kimi",
 }
 
 
@@ -2219,7 +2212,7 @@ def write_active_agent(root: Path, agent: str) -> None:
         except Exception:  # noqa: BLE001
             existing = {}
     if "enabled" not in existing:
-        existing["enabled"] = ["codex", "qoder", "cc", "kimi"]
+        existing["enabled"] = ["codex", "cc"]
     if "disabled" not in existing:
         existing["disabled"] = []
     existing["active_agent"] = agent
@@ -2248,9 +2241,6 @@ def _project_skill_targets(root: Path, active_agent: str | None = None) -> list[
         targets.append(root / ".codex" / "skills" / "harness")
     if "cc" in enabled:
         targets.append(root / ".claude" / "skills" / "harness")
-    if "qoder" in enabled:
-        targets.append(root / ".qoder" / "skills" / "harness")
-    # kimi 不通过 install_local_skills 安装，通过其他机制处理
     return targets
 
 
@@ -2474,29 +2464,18 @@ def _managed_file_contents(
         include_claude=include_claude,
         language=language,
     )
-    # qoder/rules/harness-workflow.md 与 agent 无关（qoder 仅在 force_all_platforms 或 qoder 为 active 时需要）
-    if active_agent is None or active_agent == "qoder":
-        managed[".qoder/rules/harness-workflow.md"] = render_template("qoder-rule.md.tmpl", repo_name, language)
-
     for command in COMMAND_DEFINITIONS:
         markdown = render_agent_command(command["name"], command["cli"], command["hint"], language)
         codex_skill = render_codex_command_skill(command["name"], command["cli"], language)
-        kimi_skill = render_kimi_command_skill(command["name"], command["cli"], language)
 
         if active_agent is None:
             # 兼容模式：全 agent 全量写入（等同旧行为）
-            managed[f".qoder/commands/{command['name']}.md"] = markdown
             managed[f".claude/commands/{command['name']}.md"] = markdown
             managed[f".codex/skills/{command['name']}/SKILL.md"] = codex_skill
-            managed[f".kimi/skills/{command['name']}/SKILL.md"] = kimi_skill
-        elif active_agent == "claude":
+        elif active_agent in ("claude", "cc"):
             managed[f".claude/commands/{command['name']}.md"] = markdown
-        elif active_agent == "qoder":
-            managed[f".qoder/commands/{command['name']}.md"] = markdown
         elif active_agent == "codex":
             managed[f".codex/skills/{command['name']}/SKILL.md"] = codex_skill
-        elif active_agent == "kimi":
-            managed[f".kimi/skills/{command['name']}/SKILL.md"] = kimi_skill
     return managed
 
 
@@ -2983,9 +2962,17 @@ def done_efficiency_aggregate(
 
         # Only use pure stage keys (not *_exited_at keys) for ordering
         pure_stage_ts = {k: v for k, v in stage_timestamps.items() if not k.endswith("_exited_at")}
-        ordered_stages = [s for s in stage_order if s in pure_stage_ts]
-        remaining = [s for s in pure_stage_ts if s not in stage_order]
-        all_stages = ordered_stages + remaining
+        # Sort stages chronologically by their actual timestamp values (avoids legacy vs new ordering bugs)
+        def _ts_sort_key(stage_name: str) -> object:
+            parsed = _parse(str(pure_stage_ts[stage_name]))
+            if parsed is None:
+                # Fall back to stage_order position for unparseable timestamps
+                try:
+                    return (1, stage_order.index(stage_name))
+                except ValueError:
+                    return (1, 999)
+            return (0, parsed)
+        all_stages = sorted(pure_stage_ts.keys(), key=_ts_sort_key)
 
         rows: list[dict] = []
         for i, stage_name in enumerate(all_stages):
@@ -3722,23 +3709,75 @@ def migrate_legacy_docs_to_workflow(root: Path) -> list[str]:
     return actions
 
 
-def _ensure_workflow_dir_gitignore(root: Path) -> None:
-    """Ensure .workflow/ is not excluded by .gitignore."""
+def _ensure_workflow_dir_ignored(root: Path) -> None:
+    """req-57 / chg-03（1.0.1 反转）：写 .gitignore 让 .workflow/ 整体本地化。
+
+    .workflow/ 是个人运行时（state/）+ framework-level context/ 模板（harness install
+    分发，不需要 git 跟踪）。团队级经验已在 artifacts/project/experience/ 由 git 管理。
+
+    三态边界（OQ-5 决策）：
+      (a) 无 .gitignore → 新建仅含 .workflow/
+      (b) 已含精确 .workflow/ 或 .workflow 行 → 跳过（幂等）
+      (c) 已有 .gitignore 但只有模糊匹配（如 .work*）→ 追加 .workflow/ + stdout 提示
+    顺带清除 1.0.0 遗留的 !.workflow/ 否定规则。
+    """
     gitignore = root / ".gitignore"
-    marker = "!.workflow/"
-    if gitignore.exists():
-        content = gitignore.read_text(encoding="utf-8")
-        if marker in content:
-            return
-        if not content.endswith("\n"):
-            content += "\n"
-        content += f"\n# harness workflow directory (must not be ignored)\n{marker}\n"
-        gitignore.write_text(content, encoding="utf-8")
-    else:
+    target_line = ".workflow/"
+    legacy_negation = "!.workflow/"
+
+    if not gitignore.exists():
         gitignore.write_text(
-            f"# harness workflow directory (must not be ignored)\n{marker}\n",
+            f"# harness 1.0.1：工作流运行时目录本地化（state + framework-level context 不入 git）\n{target_line}\n",
             encoding="utf-8",
         )
+        print("[install_repo] created .gitignore with .workflow/", file=sys.stderr)
+        return
+
+    content = gitignore.read_text(encoding="utf-8")
+    lines = content.split("\n")
+
+    # 清 1.0.0 遗留 !.workflow/ 否定规则
+    cleaned = [l for l in lines if l.strip() != legacy_negation]
+    negation_removed = len(cleaned) != len(lines)
+
+    has_exact = any(l.strip() in (target_line, ".workflow") for l in cleaned)
+
+    if has_exact:
+        if negation_removed:
+            gitignore.write_text("\n".join(cleaned), encoding="utf-8")
+            print(
+                "[install_repo] removed legacy !.workflow/ negation (1.0.0 → 1.0.1 reversal)",
+                file=sys.stderr,
+            )
+        return
+
+    has_fuzzy = any(
+        ".work" in l and "*" in l and not l.strip().startswith("#")
+        for l in cleaned
+    )
+
+    if cleaned and cleaned[-1].strip():
+        cleaned.append("")
+    cleaned.extend(["# harness 1.0.1：工作流运行时目录本地化", target_line, ""])
+
+    gitignore.write_text("\n".join(cleaned), encoding="utf-8")
+
+    if has_fuzzy:
+        print(
+            "[install_repo] appended .workflow/ to .gitignore（已有 .work* 模糊规则，请检查冗余）",
+            file=sys.stderr,
+        )
+    elif negation_removed:
+        print(
+            "[install_repo] appended .workflow/ + removed legacy !.workflow/ negation",
+            file=sys.stderr,
+        )
+    else:
+        print("[install_repo] appended .workflow/ to .gitignore", file=sys.stderr)
+
+
+# 1.0.0 → 1.0.1 反转：保留旧函数名 alias 兼容外部调用
+_ensure_workflow_dir_gitignore = _ensure_workflow_dir_ignored
 
 
 def _migrate_workflow_dir(root: Path) -> bool:
@@ -3820,7 +3859,7 @@ def install_repo(
     # ---- 公共前置（install + update 均执行）----
     if _migrate_workflow_dir(root):
         actions.append("migrated .workflow/ → .workflow/")
-    _ensure_workflow_dir_gitignore(root)
+    _ensure_workflow_dir_ignored(root)  # req-57 / chg-03：1.0.1 反转，.workflow/ 整体本地化
 
     # ---- bugfix-13（install 时自动创建 artifacts/project 骨架与索引模板）：拷模板到 artifacts/project/ ----
     _bootstrap_actions = _bootstrap_project_skeleton(root, check=check)
@@ -3902,8 +3941,8 @@ def install_repo(
                 print(f"- {skill_path}")
 
             if not active_list:
-                selected = ["codex", "qoder", "cc", "kimi"]
-                print("\nNew installation: enabling all platforms (codex, qoder, cc, kimi)")
+                selected = ["codex", "cc"]
+                print("\nNew installation: enabling all platforms (codex, cc)")
             else:
                 # bugfix-7 / chg-05：已有 active_list 时跳过 questionary 交互，直接复用已有平台配置。
                 # 仅首次 install（active_list 为空）走交互入口；存量项目不再卡 Enter。
@@ -3947,7 +3986,6 @@ def install_repo(
         else:
             actions.append("would refresh .codex/skills/harness")
             actions.append("would refresh .claude/skills/harness")
-            actions.append("would refresh .qoder/skills/harness")
     else:
         installed = install_local_skills(root, force=True, active_agent=effective_agent)
         for target in installed:
@@ -5244,8 +5282,9 @@ def _locate_regression_dir(root: Path, regression_id: str, language: str) -> Pat
     查找优先级：
     1. ``artifacts/{branch}/requirements/{current_requirement}/regressions/`（若 runtime
        有 current_requirement）；
-    2. ``artifacts/{branch}/regressions/``（无 requirement 时的兜底）；
-    3. ``.workflow/flow/regressions/``（legacy 路径）。
+    2. ``.workflow/flow/requirements/{current_requirement}/regressions/``（flow layout）；
+    3. ``artifacts/{branch}/regressions/``（无 requirement 时的兜底）；
+    4. ``.workflow/flow/regressions/``（legacy 路径）。
     """
     runtime = load_requirement_runtime(root)
     candidates: list[Path] = []
@@ -5254,6 +5293,12 @@ def _locate_regression_dir(root: Path, regression_id: str, language: str) -> Pat
         req_dir = resolve_requirement_reference(resolve_requirement_root(root), req_ref, language)
         if req_dir is not None:
             candidates.append(req_dir / "regressions")
+        # upstream-fix: also check flow layout (.workflow/flow/requirements/{req}/regressions/)
+        flow_req_dir = resolve_requirement_reference(
+            root / ".workflow" / "flow" / "requirements", req_ref, language
+        )
+        if flow_req_dir is not None:
+            candidates.append(flow_req_dir / "regressions")
     candidates.append(resolve_requirement_root(root).parent / "regressions")
     candidates.append(root / ".workflow" / "flow" / "regressions")
     for base in candidates:
@@ -5758,11 +5803,16 @@ def _backfill_done_timestamps(state: dict[str, object]) -> None:
     if "done" not in existing:
         existing["done"] = now_ts
 
-    # 找到已出现在 stage_timestamps 中、按 _STAGE_ORDER 排序的最后一个非 done stage
+    # 找到已出现在 stage_timestamps 中、时间戳最晚的非 done、非 *_exited_at stage
+    # 按实际时间戳排序（避免 _STAGE_ORDER 中 legacy stages 排序与实际发生顺序不一致的问题）
     prev_stage: str | None = None
-    for s in _STAGE_ORDER:
-        if s != "done" and s in existing:
+    prev_stage_ts: object = None
+    for s, ts_val in existing.items():
+        if s == "done" or s.endswith("_exited_at"):
+            continue
+        if prev_stage_ts is None or str(ts_val) > str(prev_stage_ts):
             prev_stage = s
+            prev_stage_ts = ts_val
 
     # 补 prev_stage._exited_at（若缺失）
     if prev_stage:
@@ -7270,9 +7320,12 @@ def _reset_ff_mode_after_done_archive(runtime: dict, new_stage: str) -> dict:
     return runtime
 
 
-# bugfix-3 / 缺陷 1（sug-12 复发）：合法路由 stage 白名单（含三套 sequence 的并集）。
+# bugfix-3 / 缺陷 1（sug-12 复发）：合法路由 stage 白名单（含三套 sequence + legacy stages 的并集）。
+# upstream-fix: legacy stages（requirement_review / planning / ready_for_execution）也须被允许作为路由目标，
+# 否则 req-id < 50 的回退路由（regression decision route_to: planning 等）被误丢弃。
 _REGRESSION_ROUTE_VALID_STAGES = frozenset(
     set(WORKFLOW_SEQUENCE) | set(BUGFIX_SEQUENCE) | set(SUGGESTION_SEQUENCE)
+    | {"requirement_review", "planning", "ready_for_execution"}
 )
 
 
@@ -7635,10 +7688,17 @@ def workflow_next(root: Path, execute: bool = False) -> int:
     operation_type = str(runtime.get("operation_type", "")).strip()
 
     # 根据 operation_type 选择对应的 stage 序列
+    # upstream-fix: legacy stages（requirement_review / planning / ready_for_execution）
+    # 属于 req-id < 50 的旧工作流序列，必须用 LEGACY_WORKFLOW_SEQUENCE 处理。
     if operation_type == "bugfix":
         sequence = BUGFIX_SEQUENCE
     elif operation_type == "suggestion":
         sequence = SUGGESTION_SEQUENCE
+    elif operation_type == "trivial":
+        sequence = TRIVIAL_SEQUENCE
+    elif current_stage in ("requirement_review", "planning", "ready_for_execution"):
+        # legacy req (req-id < 50) — use legacy sequence
+        sequence = LEGACY_WORKFLOW_SEQUENCE
     else:
         sequence = WORKFLOW_SEQUENCE
 
@@ -7955,10 +8015,9 @@ def get_agent_notes_root() -> Path:
 def get_agent_skill_path(root: Path, agent: str) -> Path:
     """Get the target skill path for an agent."""
     agent_dir_map = {
-        "kimi": root / ".kimi" / "skills" / "harness",
         "claude": root / ".claude" / "skills" / "harness",
+        "cc": root / ".claude" / "skills" / "harness",
         "codex": root / ".codex" / "skills" / "harness",
-        "qoder": root / ".qoder" / "skills" / "harness",
     }
     return agent_dir_map.get(agent, root / f".{agent}" / "skills" / "harness")
 
@@ -7968,7 +8027,7 @@ def install_agent(root: Path, agent: str) -> int:
 
     Args:
         root: Repository root
-        agent: Target agent (kimi, claude, codex, qoder)
+        agent: Target agent (cc, claude, codex)
 
     Returns:
         0 on success, non-zero on failure
@@ -7985,8 +8044,8 @@ def install_agent(root: Path, agent: str) -> int:
         # Seed AGENTS.md for non-claude agents, CLAUDE.md for claude.
         init_repo(
             root,
-            write_agents=(agent in ("codex", "qoder", "kimi")),
-            write_claude=(agent == "claude"),
+            write_agents=(agent in ("codex",)),
+            write_claude=(agent in ("claude", "cc")),
         )
         # Ensure config is in place for downstream helpers.
         ensure_config(root)
@@ -8932,3 +8991,339 @@ def _pad_interactive(root: Path) -> int:
 
     # 调真实 _pad_add
     return _pad_add(root, kind, scope, title.strip())
+
+
+# ============================================================
+# req-49: trivial 通道辅助函数（upstream-fix: 补齐缺失 symbols）
+# ============================================================
+
+
+def get_sequence_for_task_type(task_type: str) -> list[str]:
+    """返回给定 task_type 对应的 stage 序列副本。
+
+    req-49 / chg-01: trivial 通道 stage 序列：trivial_define → executing → done。
+    支持 req / requirement / bugfix / sug / suggestion / trivial 六种 task_type。
+    未知 task_type → ValueError。
+    """
+    mapping: dict[str, list[str]] = {
+        "trivial": TRIVIAL_SEQUENCE,
+        "bugfix": BUGFIX_SEQUENCE,
+        "req": WORKFLOW_SEQUENCE,
+        "requirement": WORKFLOW_SEQUENCE,
+        "sug": SUGGESTION_SEQUENCE,
+        "suggestion": SUGGESTION_SEQUENCE,
+    }
+    if task_type not in mapping:
+        raise ValueError(f"Unknown task_type: {task_type!r}. Valid: {sorted(mapping)}")
+    return list(mapping[task_type])  # return a copy
+
+
+def validate_stage(task_type: str, stage: str) -> bool:
+    """给定 task_type + stage，返回 stage 是否合法（属于对应 sequence）。
+
+    未知 task_type → False（不抛异常）。
+    """
+    try:
+        seq = get_sequence_for_task_type(task_type)
+    except ValueError:
+        return False
+    return stage in seq
+
+
+def get_next_stage(task_type: str, stage: str) -> str | None:
+    """给定 task_type + stage，返回下一个 stage。
+
+    terminal stage 或非法 stage → None。
+    """
+    try:
+        seq = get_sequence_for_task_type(task_type)
+    except ValueError:
+        return None
+    if stage not in seq:
+        return None
+    idx = seq.index(stage)
+    if idx + 1 >= len(seq):
+        return None
+    return seq[idx + 1]
+
+
+def is_terminal_stage(task_type: str, stage: str) -> bool:
+    """给定 task_type + stage，返回是否为 terminal stage（序列最后一格 = done）。"""
+    try:
+        seq = get_sequence_for_task_type(task_type)
+    except ValueError:
+        return False
+    return bool(seq) and seq[-1] == stage and stage == seq[-1]
+
+
+def _next_trivial_id(root: Path) -> str:
+    """Return the next available trivial-NN id.
+
+    req-49 / chg-01: trivial task id 分配，扫 state/requirements/ + flow/requirements/。
+    """
+    max_num = 0
+    for d in [
+        root / ".workflow" / "state" / "requirements",
+        root / ".workflow" / "flow" / "requirements",
+    ]:
+        if not d.exists():
+            continue
+        for item in d.iterdir():
+            m = re.match(r"trivial-(\d+)", item.name)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+    return f"trivial-{max_num + 1:02d}"
+
+
+def create_trivial(root: Path, title: str) -> int:
+    """req-49 / chg-01: 创建 trivial 任务（几行代码级别改动，走简化流程）。
+
+    产出：
+    - .workflow/flow/requirements/{trivial-id}-{slug}/requirement.md（含 task_type: trivial）
+    - .workflow/flow/requirements/{trivial-id}-{slug}/trivial-define/trivial-spec.md
+    - .workflow/state/requirements/{trivial-id}-{slug}.yaml（task_type=trivial, stage=trivial_define）
+    - runtime.yaml 更新（operation_type=trivial, stage=trivial_define）
+    """
+    config = ensure_config(root)
+    runtime = load_requirement_runtime(root)
+    trivial_title = title.strip()
+    if not trivial_title:
+        raise SystemExit("A trivial task title is required.")
+
+    trivial_id = _next_trivial_id(root)
+    slug_part = _path_slug(trivial_title)
+    dir_name = f"{trivial_id}-{slug_part}" if slug_part else trivial_id
+    created: list[str] = []
+    skipped: list[str] = []
+
+    flow_req_dir = root / ".workflow" / "flow" / "requirements" / dir_name
+    # requirement.md with task_type: trivial
+    req_md_content = (
+        f"---\n"
+        f"id: {trivial_id}\n"
+        f"title: \"{trivial_title}\"\n"
+        f"task_type: trivial\n"
+        f"stage: trivial_define\n"
+        f"status: active\n"
+        f"created_at: {date.today().isoformat()}\n"
+        f"---\n\n"
+        f"# {trivial_id}（{trivial_title}）\n\n"
+        f"task_type: trivial — 轻量级通道，仅含 trivial_define / executing / done 三个 stage。\n"
+    )
+    write_if_missing(flow_req_dir / "requirement.md", req_md_content, created, skipped)
+
+    # trivial-spec.md placeholder
+    spec_content = (
+        f"# trivial-spec：{trivial_title}\n\n"
+        "## 改动描述\n\n- （请在此描述具体改动内容）\n\n"
+        "## 完成标准\n\n- （请在此描述完成标准）\n"
+    )
+    write_if_missing(flow_req_dir / "trivial-define" / "trivial-spec.md", spec_content, created, skipped)
+
+    # state yaml
+    state_file = root / ".workflow" / "state" / "requirements" / f"{dir_name}.yaml"
+    if not state_file.exists():
+        today = date.today().isoformat()
+        save_simple_yaml(
+            state_file,
+            {
+                "id": trivial_id,
+                "title": trivial_title,
+                "task_type": "trivial",
+                "stage": "trivial_define",
+                "status": "active",
+                "created_at": today,
+                "started_at": today,
+                "completed_at": "",
+                "stage_timestamps": {},
+                "description": "",
+            },
+            ordered_keys=["id", "title", "task_type", "stage", "status",
+                          "created_at", "started_at", "completed_at",
+                          "stage_timestamps", "description"],
+        )
+        created.append(str(state_file.relative_to(root)))
+
+    active_reqs = list(runtime.get("active_requirements", []))
+    if trivial_id not in [str(r) for r in active_reqs]:
+        active_reqs.append(trivial_id)
+    runtime["operation_type"] = "trivial"
+    runtime["operation_target"] = trivial_id
+    runtime["current_requirement"] = trivial_id
+    runtime["current_requirement_title"] = trivial_title
+    runtime["stage"] = "trivial_define"
+    runtime["active_requirements"] = active_reqs
+    save_requirement_runtime(root, runtime)
+
+    print(f"Trivial workspace: {flow_req_dir} [{trivial_title}]")
+    for path in created:
+        print(f"- created {path}")
+    for path in skipped:
+        print(f"- skipped {path}")
+    return 0
+
+
+def apply_suggestion_as_trivial(root: Path, sug_id: str) -> int:
+    """req-49 / chg-01: 把 sug 池建议作为 trivial 任务执行入口。
+
+    步骤：
+    1. 找到 sug 文件（.workflow/flow/suggestions/{sug_id}.md）
+    2. 读取 title，调 create_trivial
+    3. 把 sug 归档到 archive/
+    """
+    sug_dir = root / ".workflow" / "flow" / "suggestions"
+    sug_file = sug_dir / f"{sug_id}.md"
+    if not sug_file.exists():
+        raise SystemExit(f"Suggestion not found: {sug_id}")
+
+    # Extract title from frontmatter
+    text = sug_file.read_text(encoding="utf-8")
+    import re as _re2
+    title_match = _re2.search(r"^title:\s*(.+)$", text, _re2.MULTILINE)
+    if title_match:
+        sug_title = title_match.group(1).strip().strip('"').strip("'")
+    else:
+        sug_title = sug_id
+
+    # Create trivial task
+    rc = create_trivial(root, sug_title)
+    if rc != 0:
+        return rc
+
+    # Archive the suggestion
+    archive_dir = sug_dir / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    sug_file.rename(archive_dir / sug_file.name)
+
+    print(f"Suggestion {sug_id} archived to suggestions/archive/")
+    return 0
+
+
+def classify_diff_change_types(diff: str) -> set[str]:
+    """req-49 / chg-02: 根据 git diff 文本分类改动类型。
+
+    返回类型集合，可包含：typo / string / doc / comment / config_constant / other
+    空 diff → 返回空集。
+    """
+    import re as _re3
+    if not diff.strip():
+        return set()
+
+    types: set[str] = set()
+    added_lines: list[str] = []
+    removed_lines: list[str] = []
+    changed_files: set[str] = set()
+
+    for line in diff.splitlines():
+        if line.startswith("diff --git"):
+            # extract filename
+            m = _re3.search(r"b/(.+)$", line)
+            if m:
+                changed_files.add(m.group(1))
+        elif line.startswith("+") and not line.startswith("+++"):
+            added_lines.append(line[1:])
+        elif line.startswith("-") and not line.startswith("---"):
+            removed_lines.append(line[1:])
+
+    all_changed = added_lines + removed_lines
+    if not all_changed:
+        return set()
+
+    # doc: .md / .rst / .txt files
+    if any(f.endswith((".md", ".rst", ".txt")) for f in changed_files):
+        types.add("doc")
+
+    # config_constant: .yaml / .yml / .json / .toml files
+    if any(f.endswith((".yaml", ".yml", ".json", ".toml")) for f in changed_files):
+        types.add("config_constant")
+
+    # comment: lines starting with #
+    if all(l.strip().startswith("#") for l in all_changed if l.strip()):
+        types.add("comment")
+        return types
+
+    # Analyze changed lines
+    non_comment = [l for l in all_changed if not l.strip().startswith("#")]
+    if not non_comment:
+        types.add("comment")
+        return types
+
+    # Check for complex logic (function definitions, loops, multiple changed lines)
+    has_def = any(_re3.match(r"^\s*def ", l) for l in non_comment)
+    has_class = any(_re3.match(r"^\s*class ", l) for l in non_comment)
+    has_for = any(_re3.match(r"^\s*for ", l) for l in non_comment)
+    has_while = any(_re3.match(r"^\s*while ", l) for l in non_comment)
+    has_import = any(_re3.match(r"^\s*import |^\s*from .* import", l) for l in non_comment)
+
+    if has_import:
+        types.add("other")
+        return types
+
+    if has_def or has_class or has_for or has_while or len(non_comment) > 5:
+        types.add("other")
+        return types
+
+    # Check for string typo fix (single token change in a string)
+    if len(added_lines) == 1 and len(removed_lines) == 1:
+        a, r = added_lines[0], removed_lines[0]
+        if "'" in a or '"' in a:
+            types.add("typo")
+            types.add("string")
+        else:
+            types.add("typo")
+    else:
+        if not types:
+            types.add("other")
+
+    return types
+
+
+def validate_trivial_eligibility(root: Path, *, threshold_lines: int = 10, threshold_files: int = 2) -> tuple[bool, str]:
+    """req-49 / chg-02: 校验当前工作区改动是否满足 trivial 通道准入标准。
+
+    Returns (ok: bool, reason: str)。
+    ok=True → 满足 trivial 准入；ok=False + reason → 拒绝原因。
+
+    准入条件：
+    - git diff (unstaged) 非空
+    - 改动文件数 ≤ threshold_files（默认 2）
+    - 改动行数（added + removed）≤ threshold_lines（默认 10）
+    - 改动类型不含 other（无复杂逻辑 / import 等）
+    """
+    import subprocess as _sp
+    # Get unstaged diff
+    result = _sp.run(
+        ["git", "diff"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+    )
+    diff = result.stdout
+
+    if not diff.strip():
+        return False, "no diff: 无未暂存的改动，请先修改文件再评估 trivial 准入"
+
+    # Count changed files
+    files_result = _sp.run(
+        ["git", "diff", "--name-only"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+    )
+    changed_files = [f for f in files_result.stdout.splitlines() if f.strip()]
+    if len(changed_files) > threshold_files:
+        return False, f"文件数超标：改动了 {len(changed_files)} 个文件（阈值 {threshold_files}）"
+
+    # Count changed lines
+    added = sum(1 for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++"))
+    removed = sum(1 for line in diff.splitlines() if line.startswith("-") and not line.startswith("---"))
+    total_lines = added + removed
+    if total_lines > threshold_lines:
+        return False, f"行数超标：改动了 {total_lines} 行（阈值 {threshold_lines}）"
+
+    # Classify change types
+    types = classify_diff_change_types(diff)
+    if "other" in types:
+        return False, "改动类型含 other（复杂逻辑 / import / 函数重构），不适合 trivial 通道"
+
+    return True, "eligible"

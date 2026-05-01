@@ -174,7 +174,7 @@ def test_index_md_has_analyst_row():
         "context/index.md missing 'roles/analyst.md' path reference "
         "(chg-02（角色索引 + role-model-map 更新）not landed)"
     )
-    has_merge_note = "原 requirement-review" in body or "原 planning" in body
+    has_merge_note = "原 requirement-review" in body or "原 requirement_review" in body or "原 planning" in body
     assert has_merge_note, (
         "context/index.md missing merge annotation "
         "('原 requirement-review' or '原 planning') "

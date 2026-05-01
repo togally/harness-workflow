@@ -29,3 +29,16 @@ If any of those files are missing, inconsistent, or unreadable, stop immediately
 - `harness regression "<issue>"`
 
 If runtime state is missing or inconsistent, repair `.workflow/state/runtime.yaml` instead of improvising a parallel workflow; if required files are missing, stop immediately.
+
+## 项目路书
+
+任务入场即读路书，AI 用作项目地图与代码导航，避免全局盲扫代码。项目知识与代码导航在 `artifacts/project/playbooks/`：
+
+- `artifacts/project/playbooks/overview.md`（项目概述：定位、术语、里程碑）
+- `artifacts/project/playbooks/architecture.md`（架构地图：技术栈、目录职责、数据流）
+- `artifacts/project/playbooks/runbook.md`（运行手册：启动/测试/构建命令、环境变量）
+- `artifacts/project/playbooks/code-map.md`（代码导航：关键词 → 领域索引，agent 入口）
+
+## Agent 自动响应约定
+
+任何由 harness CLI 输出的 `[ASSISTANT INSTRUCTION — REQUIRED FOLLOW-UP, NOT OPTIONAL]` 段落必须**立即按段落内步骤执行**，作为该 CLI 命令完整流程的一部分。**不要**把它当作 informational 报告或建议，**不要**反过来询问用户是否需要执行。典型场景：`harness install` 完成后输出此类指令要求当前 agent 接力填写路书 LLM 区段，agent 必须立即读项目代码、填路书、完成验证。

@@ -42,9 +42,14 @@ def _init_harness_repo(tmpdir: Path) -> None:
     subprocess.run(["git", "checkout", "-b", "main"], cwd=str(tmpdir), capture_output=True)
 
 
+_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _run_harness(tmpdir: Path, *args: str) -> subprocess.CompletedProcess:
+    import os
     cmd = [sys.executable, "-m", "harness_workflow.cli"] + list(args) + ["--root", str(tmpdir)]
-    return subprocess.run(cmd, capture_output=True, text=True, cwd=str(tmpdir))
+    env = {**os.environ, "PYTHONPATH": str(_ROOT / "src")}
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=str(tmpdir), env=env)
 
 
 class TestCliTrivial:
@@ -62,7 +67,8 @@ class TestCliTrivial:
         result = _run_harness(tmp_path, "trivial", "修复测试 typo")
         assert result.returncode == 0
         assert "修复测试 typo" in result.stdout, f"stdout 需含 title，实际: {result.stdout}"
-        assert "trivial_define" in result.stdout or "stage" in result.stdout.lower()
+        # trivial-define appears in path as "trivial-define" or in stage as "trivial_define"
+        assert "trivial" in result.stdout.lower(), f"stdout 需含 trivial 关键词，实际: {result.stdout}"
 
     def test_runtime_yaml_updated(self, tmp_path):
         """runtime.yaml task_type=trivial + stage=trivial_define"""

@@ -77,14 +77,14 @@ class CompatModeWarningTest(_BaseTempRepo):
     def test_update_repo_compat_mode_warning_when_active_agent_missing(self) -> None:
         """init_repo 后人工删掉 active_agent（模拟旧仓），update_repo 必须：
         - stdout 打印 "active agent not set; refreshing enabled set (compat mode)"
-        - 实际走全 agent 刷新路径（.codex / .claude / .qoder 都要被写入 commands）
+        - 实际走全 agent 刷新路径（.codex / .claude 都要被写入 commands）
         """
         self.assertEqual(init_repo(self.repo, write_agents=True, write_claude=True), 0)
         # init_repo 不写 active_agent，但我们显式确保字段不存在（防未来默认值）
         platforms_path = self.repo / ".workflow" / "state" / "platforms.yaml"
         data = yaml.safe_load(platforms_path.read_text(encoding="utf-8")) or {}
         data.pop("active_agent", None)
-        # 保留 enabled=[codex,qoder,cc,kimi]（init_repo 的默认值）
+        # 保留 enabled=[codex,cc]（init_repo 的默认值）
         platforms_path.write_text(
             yaml.dump(data, default_flow_style=False, allow_unicode=True),
             encoding="utf-8",
@@ -92,7 +92,7 @@ class CompatModeWarningTest(_BaseTempRepo):
         self.assertIsNone(data.get("active_agent"))  # 前置条件
 
         # 清掉 init 期间可能创建的 agent 目录，便于断言 compat mode 把它们重建
-        for d in [".claude", ".codex", ".qoder", ".kimi"]:
+        for d in [".claude", ".codex"]:
             target = self.repo / d
             if target.exists():
                 shutil.rmtree(target)
@@ -113,7 +113,7 @@ class CompatModeWarningTest(_BaseTempRepo):
             ),
         )
 
-        # 断言 2：实际刷新走 enabled[] 旧路径（.codex / .claude / .qoder 都有 commands）
+        # 断言 2：实际刷新走 enabled[] 旧路径（.codex / .claude 都有 commands）
         self.assertTrue(
             (self.repo / ".codex" / "skills" / "harness-install" / "SKILL.md").exists(),
             msg="E1：compat mode 下 .codex skills 应被刷新（走 enabled[] 旧行为）",
@@ -121,10 +121,6 @@ class CompatModeWarningTest(_BaseTempRepo):
         self.assertTrue(
             (self.repo / ".claude" / "commands" / "harness-install.md").exists(),
             msg="E1：compat mode 下 .claude commands 应被刷新",
-        )
-        self.assertTrue(
-            (self.repo / ".qoder" / "commands" / "harness-install.md").exists(),
-            msg="E1：compat mode 下 .qoder commands 应被刷新",
         )
 
 

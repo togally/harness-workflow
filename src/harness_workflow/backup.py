@@ -1,7 +1,7 @@
 """平台配置备份和恢复工具
 
 此模块提供平台配置的备份、恢复和状态查询功能。
-支持的平台：codex, qoder, cc
+支持的平台：codex, cc
 """
 
 from __future__ import annotations
@@ -18,17 +18,9 @@ PLATFORM_CONFIGS = {
         "source": "AGENTS.md",
         "backup_dir": "codex",
     },
-    "qoder": {
-        "source": ".qoder/skills/harness/SKILL.md",
-        "backup_dir": "qoder",
-    },
     "cc": {
         "source": ".claude/commands",
         "backup_dir": "cc",
-    },
-    "kimi": {
-        "source": ".kimi/skills/harness/SKILL.md",
-        "backup_dir": "kimi",
     },
 }
 
@@ -36,7 +28,7 @@ BACKUP_BASE = ".workflow/context/backup"
 PLATFORMS_FILE = ".workflow/state/platforms.yaml"
 
 # 所有支持的平台
-ALL_PLATFORMS = ["codex", "qoder", "cc", "kimi"]
+ALL_PLATFORMS = ["codex", "cc"]
 
 
 def ensure_backup_dir(root: str = ".") -> Path:
@@ -69,7 +61,7 @@ def backup_config(platform: str, root: str = ".") -> bool:
     """将平台配置移动到备份目录
 
     Args:
-        platform: 平台名称 (codex/qoder/cc)
+        platform: 平台名称 (codex/cc)
         root: 项目根目录
 
     Returns:
@@ -106,7 +98,7 @@ def restore_config(platform: str, root: str = ".") -> bool:
     """从备份恢复配置
 
     Args:
-        platform: 平台名称 (codex/qoder/cc)
+        platform: 平台名称 (codex/cc)
         root: 项目根目录
 
     Returns:
@@ -148,7 +140,7 @@ def get_backup_status(root: str = ".") -> dict[str, bool]:
         root: 项目根目录
 
     Returns:
-        {"codex": True, "qoder": False, "cc": True} 表示哪些平台有备份
+        {"codex": True, "cc": True} 表示哪些平台有备份
     """
     root_path = Path(root).resolve()
     backup_base = root_path / BACKUP_BASE
@@ -168,7 +160,7 @@ def get_active_platforms(root: str = ".") -> dict[str, bool]:
         root: 项目根目录
 
     Returns:
-        {"codex": True, "qoder": False, "cc": True} 表示哪些平台配置已激活
+        {"codex": True, "cc": True} 表示哪些平台配置已激活
     """
     root_path = Path(root).resolve()
 
@@ -194,7 +186,7 @@ def get_backup_path(platform: str, root: str = ".") -> Path:
     """获取指定平台的备份路径
 
     Args:
-        platform: 平台名称 (codex/qoder/cc)
+        platform: 平台名称 (codex/cc)
         root: 项目根目录
 
     Returns:
@@ -212,7 +204,7 @@ def get_platform_file_patterns(platform: str) -> list[str]:
     """获取指定平台对应的文件模式列表
 
     Args:
-        platform: 平台名称 (codex/qoder/cc)
+        platform: 平台名称 (codex/cc)
 
     Returns:
         该平台对应的文件路径模式列表
@@ -222,15 +214,8 @@ def get_platform_file_patterns(platform: str) -> list[str]:
             "AGENTS.md",
             ".codex/skills/",
         ],
-        "qoder": [
-            ".qoder/commands/",
-            ".qoder/rules/",
-        ],
         "cc": [
             ".claude/commands/",
-        ],
-        "kimi": [
-            ".kimi/skills/",
         ],
     }
     return patterns.get(platform, [])
@@ -244,7 +229,7 @@ def read_platforms_config(root: str = ".") -> dict:
         root: 项目根目录
 
     Returns:
-        {"enabled": ["codex", "cc"], "disabled": ["qoder"], "last_updated": "2026-04-13"}
+        {"enabled": ["codex", "cc"], "disabled": [], "last_updated": "2026-04-13"}
         如果文件不存在，返回默认配置（全部启用）
     """
     root_path = Path(root).resolve()

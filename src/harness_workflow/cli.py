@@ -23,6 +23,12 @@ def _get_tools_dir() -> Path:
 _MAX_LOCATE_DEPTH = 20
 
 
+def _resolve_no_llm(args) -> bool:
+    """返回是否跳过 LLM 填充：args.no_llm=True 或环境变量 CI=true 时跳过。"""
+    import os
+    return getattr(args, "no_llm", False) or os.getenv("CI", "").lower() == "true"
+
+
 def _auto_locate_repo_root(start: Path) -> Path:
     """从 ``start`` 向上最多 ``_MAX_LOCATE_DEPTH`` 层查找 ``.workflow/`` 目录。
 
@@ -59,7 +65,7 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
     if not sys.stdin.isatty():
         if current_platforms:
             return current_platforms
-        return ["codex", "qoder", "cc", "kimi"]
+        return ["codex", "cc"]
 
     platforms = questionary.checkbox(
         "选择要支持的平台（空格选择，回车确认）:",
@@ -70,19 +76,9 @@ def prompt_platform_selection(current_platforms: Optional[list[str]] = None) -> 
                 "checked": current_platforms is None or "codex" in (current_platforms or [])
             },
             {
-                "name": "qoder (.qoder/skills/harness/SKILL.md)",
-                "value": "qoder",
-                "checked": current_platforms is None or "qoder" in (current_platforms or [])
-            },
-            {
                 "name": "cc (.claude/commands/)",
                 "value": "cc",
                 "checked": current_platforms is None or "cc" in (current_platforms or [])
-            },
-            {
-                "name": "kimi (.kimi/skills/harness/SKILL.md)",
-                "value": "kimi",
-                "checked": current_platforms is None or "kimi" in (current_platforms or []),
             },
         ]
     ).ask()
@@ -101,17 +97,15 @@ def prompt_agent_selection() -> str | None:
 
     # If not in an interactive terminal, return default
     if not sys.stdin.isatty():
-        return "kimi"
+        return "cc"
 
     agent = questionary.select(
         "选择目标 agent:",
         choices=[
-            Choice.build({"name": "kimi (.kimi/skills/)", "value": "kimi"}),
-            Choice.build({"name": "claude (.claude/skills/)", "value": "claude"}),
+            Choice.build({"name": "cc (.claude/skills/)", "value": "cc"}),
             Choice.build({"name": "codex (.codex/skills/)", "value": "codex"}),
-            Choice.build({"name": "qoder (.qoder/skills/)", "value": "qoder"}),
         ],
-        default="kimi",
+        default="cc",
     ).ask()
 
     return agent
@@ -160,7 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser = subparsers.add_parser("install", help="Install harness skill and initialize current repository.")
     install_parser.add_argument("--root", default=".", help="Repository root.")
     install_parser.add_argument("--force-skill", action="store_true", help="Overwrite existing local project skills.")
-    install_parser.add_argument("--agent", choices=["kimi", "claude", "codex", "qoder"], help="Install harness skill to specific agent directory.")
+    install_parser.add_argument("--agent", choices=["cc", "claude", "codex"], help="Install harness skill to specific agent directory.")
     # chg-07（CLI 路由修正：harness install 接 install_repo + 移除 harness update --flag
     # 的 install_repo hack）：install 子命令加 --check / --force-managed / --all-platforms
     # 三 flag，透传给 install_repo（与原 update 子命令同名同 dest，行为对齐）。
@@ -178,6 +172,56 @@ def build_parser() -> argparse.ArgumentParser:
         "--all-platforms",
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
+    )
+    # chg-D（精简命令体系）：删除 --skip-playbook / --playbook-only 两个 flag。
+    # 路书骨架是 1.0.0 标配，install 始终装路书（无选项）。
+    # req-56（路书引擎升级）/ chg-01（推断器多语言注册化）：
+    # --domains flag：逗号分隔的领域列表，跳过推断器直接用用户指定领域（last-resort escape hatch）。
+    install_parser.add_argument(
+        "--domains",
+        dest="domains",
+        default=None,
+        help="Comma-separated domain names to use directly, bypassing domain inference (e.g. --domains platform-admin,platform-common).",
+    )
+    # chg-F：删除 --no-llm flag（冗余；CI=true 自动跳过 + NoopProvider auto-detect fallback 已覆盖）
+    # chg-F bug-1：嵌套安装防护
+    install_parser.add_argument(
+        "--force-nested",
+        dest="force_nested",
+        action="store_true",
+        help="Skip nested install guard (allow installing inside an existing harness repo).",
+    )
+
+    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-04（harness playbook-refresh 子命令）：
+    # 注册 playbook-refresh 子命令（紧接 install_parser 之后）。
+    playbook_refresh_parser = subparsers.add_parser(
+        "playbook-refresh",
+        help="刷新路书 AUTO 区段（artifacts/project/playbooks/ 内 5 类 <!-- AUTO:* --> 区段）。",
+    )
+    playbook_refresh_parser.add_argument("--root", default=".", help="仓库根目录")
+    playbook_refresh_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="打印将要写入的 diff，不落盘",
+    )
+    # chg-F：删除 --no-llm flag（冗余；CI=true 自动跳过 + NoopProvider auto-detect fallback 已覆盖）
+
+    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-05（harness playbook-check 子命令）：
+    # 注册 playbook-check 子命令（紧接 playbook-refresh 之后）。
+    playbook_check_parser = subparsers.add_parser(
+        "playbook-check",
+        help="路书漂移检测（artifacts/project/playbooks/ 内 10 类 check：6 漂移 + 1 关键词 + 3 契约 + AUTO 哈希漂移）。",
+    )
+    playbook_check_parser.add_argument("--root", default=".", help="仓库根目录")
+    playbook_check_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="打印检测结果，不写盘（check 本身只读，保留接口兼容）",
+    )
+    playbook_check_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：任何 issue（含 K-01 警告）均 exit 1",
     )
 
     init_parser = subparsers.add_parser("init", help="Initialize harness docs structure.")
@@ -197,7 +241,7 @@ def build_parser() -> argparse.ArgumentParser:
     # bugfix-3（新）问题 1：单 agent 作用域 + 全平台 escape hatch
     update_parser.add_argument(
         "--agent",
-        choices=["claude", "codex", "qoder", "kimi"],
+        choices=["claude", "codex", "cc"],
         help="Override active agent for this update only (does not persist).",
     )
     update_parser.add_argument(
@@ -252,12 +296,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--contract",
         dest="contract",
         default=None,
-        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "schema-audit", "missing-document", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness", "llm-only-docs"],
-        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. schema-audit: lint old-format dirs in state/requirements/ (req-48/chg-02). missing-document: lint planning stage changes/ empty (req-48/chg-02). test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）. llm-only-docs: 扫机器型模板 frontmatter + 禁止对人解释段落 + 行数上限（req-50/chg-05）.",
+        choices=["all", "7", "regression", "triggers", "role-stage-continuity", "artifact-placement", "schema-audit", "missing-document", "test-case-design-completeness", "testing-no-destructive-git", "deployment-sync", "user-write-protected-zones", "build-cache-freshness", "llm-only-docs", "playbook-layout"],
+        help="Run contract automation check. artifact-placement: lint machine-type docs in artifacts/. schema-audit: lint old-format dirs in state/requirements/ (req-48/chg-02). missing-document: lint planning stage changes/ empty (req-48/chg-02). test-case-design-completeness: lint §测试用例设计 section in plan.md/diagnosis.md (bugfix-6 A3/B5/C3). testing-no-destructive-git: WARN if testing subagent logs destructive git commands (sug-51). deployment-sync: check venv vs source sync; HARNESS_DEV_MODE=1 豁免（sug-55）. user-write-protected-zones: 用户项目保护区硬门禁（bugfix-8）. build-cache-freshness: dev mode build/lib vs src/ stale lint（bugfix-8）. llm-only-docs: 扫机器型模板 frontmatter + 禁止对人解释段落 + 行数上限（req-50/chg-05）. playbook-layout: 路书结构契约校验（req-55/chg-05）：AUTO 区段配对 + path schema 锁定 + domains 互引一致性。",
     )
 
     next_parser = subparsers.add_parser("next", help="Advance the workflow to the next review stage.")
     next_parser.add_argument("--root", default=".", help="Repository root.")
+    next_parser.add_argument("--execute", action="store_true", help="Confirm execution when stage=ready_for_execution.")
 
     ff_parser = subparsers.add_parser("ff", help="Fast-forward workflow stages until execution confirmation.")
     ff_parser.add_argument("--root", default=".", help="Repository root.")
@@ -274,6 +319,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="配合 --auto：low=仅 low 风险自动 ack，all=全部自动 ack，未传=每条决策点都交互。",
     )
 
+    trivial_parser = subparsers.add_parser("trivial", help="Create a trivial task (req-49: lightweight track for small changes).")
+    trivial_parser.add_argument("title", nargs="?", help="Trivial task title.")
+    trivial_parser.add_argument("--root", default=".", help="Repository root.")
+    trivial_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
+
     req_parser = subparsers.add_parser("requirement", help="Create a requirement inside the active version.")
     req_parser.add_argument("title", nargs="?", help="Requirement title.")
     req_parser.add_argument("--root", default=".", help="Repository root.")
@@ -285,6 +335,7 @@ def build_parser() -> argparse.ArgumentParser:
     bugfix_parser.add_argument("--root", default=".", help="Repository root.")
     bugfix_parser.add_argument("--id", help="Optional explicit bugfix id.")
     bugfix_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
+    bugfix_parser.add_argument("--force-full", action="store_true", dest="force_full", help="Force full workflow (suppress trivial-track hint).")
 
     change_parser = subparsers.add_parser("change", help="Create a change inside the active version.")
     change_parser.add_argument("title", nargs="?", help="Change title.")
@@ -426,6 +477,13 @@ def main() -> int:
             extra_args.append("--force-managed")
         if getattr(args, "all_platforms", False):
             extra_args.append("--all-platforms")
+        # req-56 / chg-01：透传 --domains flag
+        if getattr(args, "domains", None):
+            extra_args.extend(["--domains", args.domains])
+        # chg-F：--no-llm 已删除；CI=true 自动跳过 LLM（init_playbook 内部检测）
+        # 透传 --force-nested flag
+        if getattr(args, "force_nested", False):
+            extra_args.append("--force-nested")
         if args.agent:
             return _run_tool_script(
                 "harness_install.py", ["--agent", args.agent, *extra_args], root
@@ -437,6 +495,18 @@ def main() -> int:
         return _run_tool_script(
             "harness_install.py", ["--agent", agent, *extra_args], root
         )
+    # req-55（项目路书Playbook体系）/ chg-04（harness playbook-refresh 子命令）
+    if args.command == "playbook-refresh":
+        from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+        dry_run = getattr(args, "dry_run", False)
+        # chg-F：--no-llm 已删除；LLM 跳过由 CI=true / NoopProvider fallback 自动处理
+        return playbook_refresh(root, dry_run=dry_run)
+    # req-55（项目路书Playbook体系）/ chg-05（harness playbook-check 子命令）
+    if args.command == "playbook-check":
+        from harness_workflow.tools.harness_playbook_check import playbook_check
+        dry_run = getattr(args, "dry_run", False)
+        strict = getattr(args, "strict", False)
+        return playbook_check(root, dry_run=dry_run, strict=strict)
     if args.command == "init":
         cmd_args = []
         if args.write_agents:
@@ -520,11 +590,18 @@ def main() -> int:
         # req-31（批量建议合集（20条））/ chg-01（契约自动化 + apply-all bug）/ Step 2：
         # --contract {all,7,regression} 契约自动化校验（sug-10 / sug-15 / sug-25）。
         if getattr(args, "contract", None):
+            # req-55（项目路书Playbook体系）/ chg-05（harness playbook-check 子命令）：
+            # playbook-layout 契约直接调 playbook_check 契约子集（C-01/C-03/C-05）。
+            if args.contract == "playbook-layout":
+                from harness_workflow.tools.harness_playbook_check import playbook_check
+                return playbook_check(root, contract_only=True)
             from harness_workflow.validate_contract import run_contract_cli
             return run_contract_cli(root, contract=args.contract)
         return _run_tool_script("harness_validate.py", [], root)
     if args.command == "next":
         cmd_args = []
+        if getattr(args, "execute", False):
+            cmd_args.append("--execute")
         return _run_tool_script("harness_next.py", cmd_args, root)
     if args.command == "ff":
         auto_flag = getattr(args, "auto", False)
@@ -536,6 +613,13 @@ def main() -> int:
             from harness_workflow.ff_auto import workflow_ff_auto
             return workflow_ff_auto(root, auto_accept=auto_accept)
         return _run_tool_script("harness_ff.py", [], root)
+    if args.command == "trivial":
+        from harness_workflow.workflow_helpers import create_trivial as _create_trivial
+        title_val = (getattr(args, "title", None) or getattr(args, "title_flag", None) or "").strip()
+        if not title_val:
+            print("A trivial task title is required.", file=sys.stderr)
+            return 1
+        return _create_trivial(root, title_val)
     if args.command == "requirement":
         cmd_args = []
         if args.title:

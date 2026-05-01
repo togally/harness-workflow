@@ -1,4 +1,0 @@
-id: "bugfix-3"
-title: "CLI sug-12 / sug-13 复发：harness next 在 regression/planning 后吞 stage（执行至 testing 跳过应有的 planning/executing），且 runtime.yaml ↔ state/requirements/req-*.yaml 的 stage 字段不同步（多次手工修复）"
-archived_at: "2026-04-23T07:40:33.054658+00:00"
-origin_stage: "done"

@@ -34,7 +34,7 @@ The harness-manager role is the unified entry point for all harness commands. It
 | Command | Description |
 |---------|-------------|
 | `harness install` | Initialize repository and install harness skill |
-| `harness install --agent <agent>` | Install harness skill to specific agent (kimi/claude/codex/qoder) |
+| `harness install --agent <agent>` | Install harness skill to specific agent (cc/claude/codex) |
 | `harness update` | Refresh harness-managed files in repository |
 | `harness update --check` | Show what would change without writing |
 | `harness update --scan` | Scan project and generate adaptation report |

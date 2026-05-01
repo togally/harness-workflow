@@ -1,0 +1,224 @@
+"""tests/test_install_post_message.py
+
+chg-D（精简命令体系）：[ASSISTANT INSTRUCTION] 提示句移到 playbook-refresh 触发，
+install 不再输出提示。
+chg-F：--no-llm flag 已删除；CI=true 或 NoopProvider fallback 自然触发跳过行为。
+
+TC-01: playbook_refresh + NoopProvider 后 stdout 含 [ASSISTANT INSTRUCTION]（refresh 触发提示）
+TC-02: playbook_refresh 调真 LLM（mock provider 填好内容）后 stdout 不含提示（LLM 已填充）
+TC-03（bonus）: playbook_refresh NoopProvider fallback 时也输出提示句
+TC-04: init_playbook(CI=true) 不输出 [ASSISTANT INSTRUCTION]（chg-D：install 不再提示）
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from io import StringIO
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = str(REPO_ROOT / "src")
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+from harness_workflow.playbook.skeleton import render_skeleton, PLAYBOOK_ROOT_SUFFIX
+from harness_workflow.playbook.llm import (
+    GeneratedContent,
+    LLMProvider,
+    NoopProvider,
+    PlaybookContext,
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _setup_python_project(root: Path, domains: list[str]) -> None:
+    """建立 Python 模块结构（src/modules/*），供 infer_domains 命中 Level-1。"""
+    for d in domains:
+        (root / "src" / "modules" / d).mkdir(parents=True, exist_ok=True)
+
+
+def _make_mock_content(domains: list[str]) -> GeneratedContent:
+    """构建 mock LLM 返回内容（固定文本）。"""
+    return GeneratedContent(
+        overview_description="Mock project overview for testing purposes.",
+        tech_decisions=["Use Python", "Use FastAPI"],
+        domain_descriptions={d: f"Mock description for {d} domain." for d in domains},
+        domain_keywords={d: [f"{d}-kw1", f"{d}-kw2"] for d in domains},
+    )
+
+
+def _make_mock_provider_filled(domains: list[str]):
+    """构建 mock LLM provider，generate() 返回固定内容（模拟真实 LLM 填充）。"""
+    content = _make_mock_content(domains)
+    provider = MagicMock(spec=LLMProvider)
+    provider.name = "MockProvider"
+    provider.is_available.return_value = True
+    provider.generate.return_value = content
+    return provider
+
+
+# ---------------------------------------------------------------------------
+# TC-01: playbook_refresh + NoopProvider 后 stdout 含 [ASSISTANT INSTRUCTION]
+# chg-F：原 --no-llm 路径改为 NoopProvider fallback（_refresh_llm_sections 检测 TODO 后输出提示）
+# ---------------------------------------------------------------------------
+
+def test_tc01_refresh_noop_stdout_contains_hints(tmp_path, capsys, monkeypatch):
+    """TC-01 (chg-D/chg-F): playbook_refresh() + NoopProvider → stdout 含 [ASSISTANT INSTRUCTION]。
+    这是 chg-D 后 [ASSISTANT INSTRUCTION] 提示句的触发路径（NoopProvider fallback）。
+    """
+    domains = ["service-a", "service-b"]
+    _setup_python_project(tmp_path, domains)
+    render_skeleton(tmp_path, domains)
+
+    # 返回 NoopProvider（generate 返回 None → TODO 占位保留 → 输出提示）
+    noop = NoopProvider()
+    monkeypatch.setattr(
+        "harness_workflow.playbook.llm.auto_detect_provider",
+        lambda *a, **kw: noop,
+    )
+    # 确保 CI env 不影响
+    monkeypatch.delenv("CI", raising=False)
+
+    from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+    rc = playbook_refresh(tmp_path)
+    assert rc == 0
+
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # 应该含强指令式 ASSISTANT INSTRUCTION 头
+    assert "[ASSISTANT INSTRUCTION" in stdout, (
+        f"Expected '[ASSISTANT INSTRUCTION' header in stdout after refresh with NoopProvider, got:\n{stdout}"
+    )
+    assert "REQUIRED FOLLOW-UP" in stdout, (
+        f"Expected 'REQUIRED FOLLOW-UP' in stdout, got:\n{stdout}"
+    )
+
+    # 应该含路书文件路径引用
+    assert "overview.md" in stdout, (
+        f"Expected 'overview.md' reference in stdout, got:\n{stdout}"
+    )
+    assert "domains/" in stdout, (
+        f"Expected 'domains/' reference in stdout, got:\n{stdout}"
+    )
+
+    # 提示应该强调只填 LLM 区段，不碰 AUTO 区段
+    assert "<!-- LLM:" in stdout, (
+        f"Expected '<!-- LLM:' marker reference in stdout, got:\n{stdout}"
+    )
+    assert "<!-- AUTO:" in stdout, (
+        f"Expected '<!-- AUTO:' marker reference (do-not-modify hint) in stdout, got:\n{stdout}"
+    )
+
+    # 提示应该指示 agent 立刻执行不要委托给用户
+    assert "automatically" in stdout.lower() or "immediately" in stdout.lower(), (
+        f"Expected automatic-execution directive in stdout, got:\n{stdout}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TC-02: playbook_refresh 调真 LLM（mock provider 填好内容）后 stdout 不含提示
+# ---------------------------------------------------------------------------
+
+def test_tc02_refresh_with_real_llm_no_hint_output(tmp_path, capsys, monkeypatch):
+    """TC-02 (chg-D): playbook_refresh() + mock provider → stdout 不含提示句。
+
+    mock provider 不是 NoopProvider，generate() 返回实际内容 → 不输出提示。
+    """
+    domains = ["core", "api"]
+    _setup_python_project(tmp_path, domains)
+    render_skeleton(tmp_path, domains)
+
+    mock_provider = _make_mock_provider_filled(domains)
+
+    # patch auto_detect_provider 返回 mock（非 Noop）
+    monkeypatch.setattr(
+        "harness_workflow.playbook.llm.auto_detect_provider",
+        lambda *a, **kw: mock_provider,
+    )
+    monkeypatch.delenv("CI", raising=False)
+
+    from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+    rc = playbook_refresh(tmp_path)
+    assert rc == 0
+
+    # generate 被调用
+    assert mock_provider.generate.call_count >= 1
+
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # 不应含提示句（LLM 已经填好了）
+    assert "[ASSISTANT INSTRUCTION" not in stdout, (
+        f"Expected NO [ASSISTANT INSTRUCTION] in stdout when LLM filled, got:\n{stdout}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TC-03（bonus）: playbook_refresh NoopProvider fallback 时也输出提示句
+# ---------------------------------------------------------------------------
+
+def test_tc03_refresh_noop_provider_shows_hint(tmp_path, capsys, monkeypatch):
+    """TC-03 (chg-D): playbook_refresh + NoopProvider → stdout 含 [ASSISTANT INSTRUCTION]。"""
+    domains = ["module-x"]
+    _setup_python_project(tmp_path, domains)
+    render_skeleton(tmp_path, domains)
+
+    # 返回 NoopProvider（generate 返回 None）
+    noop = NoopProvider()
+    monkeypatch.setattr(
+        "harness_workflow.playbook.llm.auto_detect_provider",
+        lambda *a, **kw: noop,
+    )
+    monkeypatch.delenv("CI", raising=False)
+
+    from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+    rc = playbook_refresh(tmp_path)
+    assert rc == 0
+
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # NoopProvider 未填内容，应该有强指令式提示
+    assert "[ASSISTANT INSTRUCTION" in stdout, (
+        f"Expected '[ASSISTANT INSTRUCTION' header when NoopProvider used in refresh, got:\n{stdout}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TC-04: init_playbook(CI=true) 不输出 [ASSISTANT INSTRUCTION]（chg-D）
+# chg-F：原 no_llm=True 改为 monkeypatch.setenv("CI", "true")
+# ---------------------------------------------------------------------------
+
+def test_tc04_init_playbook_no_llm_no_assistant_instruction(tmp_path, capsys, monkeypatch):
+    """TC-04 (chg-D/chg-F): init_playbook() with CI=true 不再输出 [ASSISTANT INSTRUCTION]。
+    提示句已移到 playbook-refresh 触发路径。
+    """
+    domains = ["service-a", "service-b"]
+    _setup_python_project(tmp_path, domains)
+
+    # chg-F：用 CI=true 替代原 no_llm=True
+    monkeypatch.setenv("CI", "true")
+
+    from harness_workflow.playbook.init import init_playbook
+    rc = init_playbook(tmp_path)
+    assert rc == 0
+
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # chg-D: install 不再输出提示句
+    assert "[ASSISTANT INSTRUCTION" not in stdout, (
+        f"chg-D: init_playbook should NOT output [ASSISTANT INSTRUCTION], got:\n{stdout}"
+    )
+    # 骨架文件应存在
+    playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX
+    assert playbook_dir.exists(), f"playbook dir should be created; stdout={stdout}"

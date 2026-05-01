@@ -7,8 +7,8 @@
   且二次调用可覆盖（`claude → codex`）。
 
 - **用例 2（问题 1 / update_repo 不感知 active agent）** — `test_update_repo_only_refreshes_active_agent`
-  当 `active_agent=claude` + `enabled=[codex,qoder,cc,kimi]` 时，`update_repo` 只刷新 `.claude/`
-  目录（其它 agent 目录不变动）；`force_all_platforms=True` 时四个 agent 全刷新（escape hatch）。
+  当 `active_agent=claude` + `enabled=[codex,cc]` 时，`update_repo` 只刷新 `.claude/`
+  目录（其它 agent 目录不变动）；`force_all_platforms=True` 时两个 agent 全刷新（escape hatch）。
 
 - **用例 3（问题 2 / FEEDBACK_DIR 常量落位错误）** — `test_feedback_jsonl_writes_under_state_feedback`
   - 3a：新建仓调 `record_feedback_event` 后文件出现在 `.workflow/state/feedback/feedback.jsonl`，`.harness/` 不被创建；
@@ -121,32 +121,30 @@ class UpdateOnlyRefreshesActiveAgentTest(unittest.TestCase):
         data = {}
         if config_path.exists():
             data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-        data["enabled"] = ["codex", "qoder", "cc", "kimi"]
+        data["enabled"] = ["codex", "cc"]
         data["disabled"] = []
         data["active_agent"] = agent
         config_path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True), encoding="utf-8")
 
     def _snapshot_managed_files(self) -> dict[str, bool]:
-        """采样四个 agent 的 harness-install.md command 文件是否存在。"""
+        """采样两个 agent 的 harness-install.md command 文件是否存在。"""
         return {
             ".claude": (self.repo / ".claude" / "commands" / "harness-install.md").exists(),
             ".codex": (self.repo / ".codex" / "skills" / "harness-install" / "SKILL.md").exists(),
-            ".qoder": (self.repo / ".qoder" / "commands" / "harness-install.md").exists(),
-            ".kimi": (self.repo / ".kimi" / "skills" / "harness-install" / "SKILL.md").exists(),
         }
 
     def test_update_repo_only_refreshes_active_agent(self) -> None:
-        """active_agent=claude + enabled=全四个 → update_repo 只写 .claude/*；
+        """active_agent=claude + enabled=[codex,cc] → update_repo 只写 .claude/*；
         其它 agent 的 commands/skills 不被创建。`force_all_platforms=True` 恢复旧行为。
 
         诊断原文（§1.2 D / F）：update_repo 无 --agent 参数；_managed_file_contents
-        不论 platforms 配置，16 个 COMMAND_DEFINITIONS × 4 agent 全量写入。
+        不论 platforms 配置，16 个 COMMAND_DEFINITIONS × 2 agent 全量写入。
         """
         # Step 1：初始建仓 + 设定 active_agent=claude
         self.assertEqual(init_repo(self.repo, write_agents=True, write_claude=True), 0)
-        # init_repo 会写全四个 agent 的 commands — 这是兼容旧行为。
+        # init_repo 会写全两个 agent 的 commands — 这是兼容旧行为。
         # 清掉非 claude 的 agent 目录，模拟"全新 install --agent claude"的结果
-        for d in [".codex", ".qoder", ".kimi"]:
+        for d in [".codex"]:
             target = self.repo / d
             if target.exists():
                 shutil.rmtree(target)
@@ -167,16 +165,8 @@ class UpdateOnlyRefreshesActiveAgentTest(unittest.TestCase):
                 "当前 _managed_file_contents 无视 active_agent 全量写入。"
             ),
         )
-        self.assertFalse(
-            snapshot[".qoder"],
-            msg="active_agent=claude 时，update_repo 不得再写 .qoder/commands/harness-install.md",
-        )
-        self.assertFalse(
-            snapshot[".kimi"],
-            msg="active_agent=claude 时，update_repo 不得再写 .kimi/skills/harness-install/SKILL.md",
-        )
 
-        # Step 3：force_all_platforms=True escape hatch 应恢复旧行为（四个 agent 全刷新）
+        # Step 3：force_all_platforms=True escape hatch 应恢复旧行为（两个 agent 全刷新）
         self.assertEqual(
             update_repo(self.repo, check=False, force_all_platforms=True),
             0,
@@ -185,7 +175,7 @@ class UpdateOnlyRefreshesActiveAgentTest(unittest.TestCase):
         self.assertTrue(
             all(snapshot_all.values()),
             msg=(
-                "force_all_platforms=True 必须恢复旧行为（四个 agent 全刷新 escape hatch），"
+                "force_all_platforms=True 必须恢复旧行为（两个 agent 全刷新 escape hatch），"
                 f"实际：{snapshot_all}"
             ),
         )
