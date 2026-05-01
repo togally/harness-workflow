@@ -427,13 +427,18 @@ def _scan_layout(root: Path) -> str:
 def _scan_domain_files(domain_dir: Path, root: Path, domain_name: str) -> str:
     """扫描 domains/<领域>/ 对应源码目录，生成文件清单。
 
-    按 chg-03 domain_inference 推断的结构，查找 src/**/{domain_name}/ 或顶层 {domain_name}/。
+    按 chg-03 / chg-A domain_inference 推断的结构，查找：
+    - python/js: src/modules/, src/domains/, app/, src/{pkg}/
+    - maven 单层: 顶层 {domain_name}/
+    - maven nested（chg-A 递归）: 任意 packaging=pom 父目录下的 {domain_name}/
     """
     lines = []
     candidates = [
         root / "src" / "modules" / domain_name,
         root / "src" / "domains" / domain_name,
         root / "app" / domain_name,
+        # maven 顶层模块（chg-A 适配）
+        root / domain_name,
     ]
     # 检查 src/{pkg}/{domain_name}（单包兜底）
     src_dir = root / "src"
@@ -441,6 +446,10 @@ def _scan_domain_files(domain_dir: Path, root: Path, domain_name: str) -> str:
         for pkg_dir in src_dir.iterdir():
             if pkg_dir.is_dir() and not pkg_dir.name.startswith(".") and pkg_dir.name != "__pycache__":
                 candidates.append(pkg_dir / domain_name)
+    # maven nested（chg-A 适配）：扫描顶层每个 packaging=pom 父目录下找 {domain_name}/
+    for top_dir in root.iterdir():
+        if top_dir.is_dir() and not top_dir.name.startswith(".") and (top_dir / "pom.xml").is_file():
+            candidates.append(top_dir / domain_name)
 
     source_dir = None
     for c in candidates:
