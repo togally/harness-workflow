@@ -3709,23 +3709,75 @@ def migrate_legacy_docs_to_workflow(root: Path) -> list[str]:
     return actions
 
 
-def _ensure_workflow_dir_gitignore(root: Path) -> None:
-    """Ensure .workflow/ is not excluded by .gitignore."""
+def _ensure_workflow_dir_ignored(root: Path) -> None:
+    """req-57 / chg-03（1.0.1 反转）：写 .gitignore 让 .workflow/ 整体本地化。
+
+    .workflow/ 是个人运行时（state/）+ framework-level context/ 模板（harness install
+    分发，不需要 git 跟踪）。团队级经验已在 artifacts/project/experience/ 由 git 管理。
+
+    三态边界（OQ-5 决策）：
+      (a) 无 .gitignore → 新建仅含 .workflow/
+      (b) 已含精确 .workflow/ 或 .workflow 行 → 跳过（幂等）
+      (c) 已有 .gitignore 但只有模糊匹配（如 .work*）→ 追加 .workflow/ + stdout 提示
+    顺带清除 1.0.0 遗留的 !.workflow/ 否定规则。
+    """
     gitignore = root / ".gitignore"
-    marker = "!.workflow/"
-    if gitignore.exists():
-        content = gitignore.read_text(encoding="utf-8")
-        if marker in content:
-            return
-        if not content.endswith("\n"):
-            content += "\n"
-        content += f"\n# harness workflow directory (must not be ignored)\n{marker}\n"
-        gitignore.write_text(content, encoding="utf-8")
-    else:
+    target_line = ".workflow/"
+    legacy_negation = "!.workflow/"
+
+    if not gitignore.exists():
         gitignore.write_text(
-            f"# harness workflow directory (must not be ignored)\n{marker}\n",
+            f"# harness 1.0.1：工作流运行时目录本地化（state + framework-level context 不入 git）\n{target_line}\n",
             encoding="utf-8",
         )
+        print("[install_repo] created .gitignore with .workflow/", file=sys.stderr)
+        return
+
+    content = gitignore.read_text(encoding="utf-8")
+    lines = content.split("\n")
+
+    # 清 1.0.0 遗留 !.workflow/ 否定规则
+    cleaned = [l for l in lines if l.strip() != legacy_negation]
+    negation_removed = len(cleaned) != len(lines)
+
+    has_exact = any(l.strip() in (target_line, ".workflow") for l in cleaned)
+
+    if has_exact:
+        if negation_removed:
+            gitignore.write_text("\n".join(cleaned), encoding="utf-8")
+            print(
+                "[install_repo] removed legacy !.workflow/ negation (1.0.0 → 1.0.1 reversal)",
+                file=sys.stderr,
+            )
+        return
+
+    has_fuzzy = any(
+        ".work" in l and "*" in l and not l.strip().startswith("#")
+        for l in cleaned
+    )
+
+    if cleaned and cleaned[-1].strip():
+        cleaned.append("")
+    cleaned.extend(["# harness 1.0.1：工作流运行时目录本地化", target_line, ""])
+
+    gitignore.write_text("\n".join(cleaned), encoding="utf-8")
+
+    if has_fuzzy:
+        print(
+            "[install_repo] appended .workflow/ to .gitignore（已有 .work* 模糊规则，请检查冗余）",
+            file=sys.stderr,
+        )
+    elif negation_removed:
+        print(
+            "[install_repo] appended .workflow/ + removed legacy !.workflow/ negation",
+            file=sys.stderr,
+        )
+    else:
+        print("[install_repo] appended .workflow/ to .gitignore", file=sys.stderr)
+
+
+# 1.0.0 → 1.0.1 反转：保留旧函数名 alias 兼容外部调用
+_ensure_workflow_dir_gitignore = _ensure_workflow_dir_ignored
 
 
 def _migrate_workflow_dir(root: Path) -> bool:
@@ -3807,7 +3859,7 @@ def install_repo(
     # ---- 公共前置（install + update 均执行）----
     if _migrate_workflow_dir(root):
         actions.append("migrated .workflow/ → .workflow/")
-    _ensure_workflow_dir_gitignore(root)
+    _ensure_workflow_dir_ignored(root)  # req-57 / chg-03：1.0.1 反转，.workflow/ 整体本地化
 
     # ---- bugfix-13（install 时自动创建 artifacts/project 骨架与索引模板）：拷模板到 artifacts/project/ ----
     _bootstrap_actions = _bootstrap_project_skeleton(root, check=check)

@@ -77,6 +77,48 @@ def _list_subdirs(parent: Path) -> list[str]:
     )
 
 
+# ---------------------------------------------------------------------------
+# Workspace 检测共享 helper（req-57（多项目工作区路书）/ chg-01）
+# ---------------------------------------------------------------------------
+
+WORKSPACE_PROJECT_FILES = (
+    "pom.xml", "package.json", "pyproject.toml", "Cargo.toml",
+    "go.mod", "build.gradle", "build.gradle.kts",
+)
+
+
+def _has_project_file(directory: Path) -> bool:
+    """目录下是否含任一已知项目文件标志。"""
+    if not directory.is_dir():
+        return False
+    return any((directory / f).exists() for f in WORKSPACE_PROJECT_FILES)
+
+
+def detect_workspace_subprojects(root: Path) -> list[str]:
+    """检测 root 是否为多项目工作区。
+
+    触发条件（两条同时成立）：
+      1. root 自身**没有**任一项目文件标志（pom/package/pyproject/Cargo/go.mod/gradle）
+      2. root 顶层有 ≥2 个非隐藏子目录，各自含项目文件标志
+
+    Returns:
+        命中：sub-project 目录名列表（按字典序）；未命中：空列表
+    """
+    if not root.is_dir():
+        return []
+    if _has_project_file(root):
+        return []
+    sub_projects = sorted(
+        d.name for d in root.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+        and d.name not in ("artifacts", "target", "build", "dist", "node_modules", "__pycache__")
+        and _has_project_file(d)
+    )
+    if len(sub_projects) >= 2:
+        return sub_projects
+    return []
+
+
 def _print_matched(mode: str, domains: list[str], pkg: Optional[str] = None) -> None:
     """stdout 打印命中级别（让用户感知命中哪类 detector）。"""
     count = len(domains)
@@ -101,6 +143,29 @@ class DomainDetector(ABC):
     @abstractmethod
     def detect(self, root: Path) -> Optional[tuple[str, list[str]]]:
         """命中返回 (matched_mode, domains)，未命中返回 None。"""
+
+
+# ---------------------------------------------------------------------------
+# 多项目工作区 detector（priority=5，先于所有单项目 detector）
+# ---------------------------------------------------------------------------
+
+class WorkspaceDetector(DomainDetector):
+    """priority=5，name='workspace'（req-57 / chg-01）
+
+    多项目工作区检测：root 自身无项目文件且顶层 ≥2 个非隐藏子目录各有项目文件
+    → 把每个 sub-project 当顶级 domain。
+
+    域名直接用 sub-project 目录名（OQ-2：保留大小写 + 短横线，不规范化）。
+    内部不递归（OQ-3：只到 sub-project 层）。
+    """
+    name = "workspace"
+    priority = 5
+
+    def detect(self, root: Path) -> Optional[tuple[str, list[str]]]:
+        sub_projects = detect_workspace_subprojects(root)
+        if sub_projects:
+            return self.name, sub_projects
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +454,7 @@ class PythonPackageFallbackDetector(DomainDetector):
 # ---------------------------------------------------------------------------
 
 DEFAULT_DETECTORS: list[DomainDetector] = [
+    WorkspaceDetector(),  # priority=5（req-57：多项目工作区，先于所有单项目 detector）
     MavenMultiModuleDetector(),
     GradleMultiModuleDetector(),
     CargoWorkspaceDetector(),

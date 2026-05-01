@@ -60,6 +60,10 @@ harness update           # refresh harness-managed files in the repository
 
 ---
 
+**Multi-project workspace** (1.0.1+): when the repo root has no project file but has ≥2 subdirectories that each contain one (e.g. `monorepo/{frontend,backend,admin,...}/`), the playbook engine auto-switches to workspace mode: one aggregated playbook with sub-project sections, each labelled `### {dir} ({stack})`. See CHANGELOG 1.0.1.
+
+**`.workflow/` localization** (1.0.1+): from 1.0.1 onwards `.workflow/` is not git-tracked (state/ is per-user runtime; context/ is framework-level template rebuilt by `harness install`). Team-level experience stays in `artifacts/project/experience/` (git-tracked). Existing projects: run `git rm --cached -r .workflow/` after upgrade to migrate.
+
 ## Core Commands
 
 | Command | Description |

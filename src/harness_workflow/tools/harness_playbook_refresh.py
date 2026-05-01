@@ -100,27 +100,30 @@ def replace_auto_section(
 # 扫描函数：5 类 AUTO 区段内容
 # ---------------------------------------------------------------------------
 
-def _scan_stack(root: Path) -> str:
-    """扫描 pyproject.toml / package.json / go.mod / pom.xml / Cargo.toml 提取技术栈。"""
-    lines = []
+def _scan_stack_single(root: Path) -> tuple[list[str], str]:
+    """扫描单个项目目录，返回 (stack_lines, stack_label)。
+
+    stack_label 用于 workspace 模式 "### {dir} ({stack_label})" 副标题。
+    优先级：Java/Maven > Node/Vue > Node/React > Node > Go > Python > Rust。
+    """
+    lines: list[str] = []
+    label_priority: list[tuple[int, str]] = []
 
     # Python: pyproject.toml
     pyproject = root / "pyproject.toml"
     if pyproject.exists():
         content = pyproject.read_text(encoding="utf-8", errors="replace")
-        # 语言版本
         m = re.search(r'python\s*=\s*["\']([^"\']+)["\']', content)
         if m:
             lines.append(f"- Python: {m.group(1)}")
         else:
             lines.append("- Python (pyproject.toml)")
-        # 主要依赖（[tool.poetry.dependencies] 或 [project] dependencies）
         deps_m = re.findall(r'^([a-zA-Z0-9_\-]+)\s*=\s*["\'^~>=!]', content, re.MULTILINE)
         if deps_m:
-            # 过滤 python 本身和常见非包名
             filtered = [d for d in deps_m[:10] if d.lower() not in ("python", "name", "version")]
             if filtered:
                 lines.append(f"  主要依赖: {', '.join(filtered[:8])}")
+        label_priority.append((50, "Python"))
 
     # Node.js: package.json
     package_json = root / "package.json"
@@ -131,11 +134,19 @@ def _scan_stack(root: Path) -> str:
             name = data.get("name", "node-project")
             version = data.get("version", "")
             lines.append(f"- Node.js: {name}" + (f" {version}" if version else ""))
-            deps = list((data.get("dependencies") or {}).keys())[:5]
+            deps_dict = data.get("dependencies") or {}
+            deps = list(deps_dict.keys())[:5]
             if deps:
                 lines.append(f"  主要依赖: {', '.join(deps)}")
+            if "vue" in deps_dict:
+                label_priority.append((20, "Node/Vue"))
+            elif "react" in deps_dict or "next" in deps_dict:
+                label_priority.append((20, "Node/React"))
+            else:
+                label_priority.append((30, "Node"))
         except Exception:
             lines.append("- Node.js (package.json)")
+            label_priority.append((30, "Node"))
 
     # Go: go.mod
     go_mod = root / "go.mod"
@@ -146,6 +157,7 @@ def _scan_stack(root: Path) -> str:
         mod_m = re.search(r'^module\s+(\S+)', content, re.MULTILINE)
         mod_name = mod_m.group(1) if mod_m else "go-project"
         lines.append(f"- Go {version}: {mod_name}")
+        label_priority.append((40, "Go"))
 
     # Java: pom.xml
     pom = root / "pom.xml"
@@ -153,6 +165,12 @@ def _scan_stack(root: Path) -> str:
         content = pom.read_text(encoding="utf-8", errors="replace")
         art_m = re.search(r'<artifactId>([^<]+)</artifactId>', content)
         lines.append(f"- Java/Maven: {art_m.group(1) if art_m else 'project'}")
+        label_priority.append((10, "Java/Maven"))
+
+    # Gradle
+    if (root / "build.gradle").exists() or (root / "build.gradle.kts").exists():
+        lines.append("- Java/Gradle (build.gradle)")
+        label_priority.append((10, "Java/Gradle"))
 
     # Rust: Cargo.toml
     cargo = root / "Cargo.toml"
@@ -160,10 +178,44 @@ def _scan_stack(root: Path) -> str:
         content = cargo.read_text(encoding="utf-8", errors="replace")
         m = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
         lines.append(f"- Rust: {m.group(1) if m else 'project'}")
+        label_priority.append((60, "Rust"))
 
+    label = ""
+    if label_priority:
+        label_priority.sort(key=lambda x: x[0])
+        label = label_priority[0][1]
+
+    return lines, label
+
+
+def _scan_stack(root: Path) -> str:
+    """扫描技术栈。
+
+    workspace 模式（req-57 / chg-01）：root 无项目文件 + ≥2 子目录各有项目文件
+      → 多段聚合："### {dirname} ({stack_label})" + 子项目 stack_lines
+    单项目模式：保持 1.0.0 行为。
+    """
+    from harness_workflow.playbook.domain_inference import detect_workspace_subprojects
+
+    sub_projects = detect_workspace_subprojects(root)
+    if sub_projects:
+        sections: list[str] = []
+        for sub_name in sub_projects:
+            sub_root = root / sub_name
+            sub_lines, sub_label = _scan_stack_single(sub_root)
+            header = f"### {sub_name}" + (f" ({sub_label})" if sub_label else "")
+            sections.append(header)
+            if sub_lines:
+                sections.extend(sub_lines)
+            else:
+                sections.append("<!-- 未检测到已知项目文件 -->")
+            sections.append("")
+        return "\n".join(sections).rstrip()
+
+    # 单项目模式
+    lines, _ = _scan_stack_single(root)
     if not lines:
         lines.append("<!-- 未检测到已知项目文件，请手工填写技术栈 -->")
-
     return "\n".join(lines)
 
 
@@ -365,99 +417,181 @@ DEFAULT_SCRIPT_DETECTORS: list[ScriptDetector] = [
 ]
 
 
-def _scan_scripts(root: Path, detectors: list[ScriptDetector] | None = None) -> str:
-    """扫描 scripts 配置，注册器架构（chg-02）。
-
-    与 domain inference 不同：不像命中即停，scripts 多个 build system 可并存，
-    所有 detector 命中结果全部汇总输出。
-    零命中时输出 baseline 兼容占位符。
-    """
+def _scan_scripts_single(root: Path, detectors: list[ScriptDetector] | None = None) -> list[str]:
+    """单项目目录的 scripts 扫描，返回行列表（不含占位符）。"""
     detectors = detectors or DEFAULT_SCRIPT_DETECTORS
     all_lines: list[str] = []
-
     for d in sorted(detectors, key=lambda x: x.priority):
         if d.applies(root):
             result = d.detect(root)
             if result:
                 all_lines.extend(result)
+    return all_lines
 
+
+def _scan_scripts(root: Path, detectors: list[ScriptDetector] | None = None) -> str:
+    """扫描 scripts 配置（chg-02 注册器架构）。
+
+    workspace 模式（req-57 / chg-01）：按 sub-project 分段。
+    """
+    from harness_workflow.playbook.domain_inference import detect_workspace_subprojects
+
+    sub_projects = detect_workspace_subprojects(root)
+    if sub_projects:
+        sections: list[str] = []
+        for sub_name in sub_projects:
+            sub_lines = _scan_scripts_single(root / sub_name, detectors)
+            sections.append(f"### {sub_name}")
+            if sub_lines:
+                sections.extend(sub_lines)
+            else:
+                sections.append("<!-- 未检测到脚本配置 -->")
+            sections.append("")
+        return "\n".join(sections).rstrip()
+
+    all_lines = _scan_scripts_single(root, detectors)
     if not all_lines:
         all_lines.append("<!-- 未检测到脚本配置，请手工填写常用命令 -->")
-
     return "\n".join(all_lines)
 
 
-def _scan_layout(root: Path) -> str:
-    """扫描顶层目录树（深度 2，过滤噪声目录 + 构建产物目录）。"""
-    lines = []
-    root_resolved = Path(root).resolve()
+def _is_layout_noise(name: str) -> bool:
+    """判断目录名是否为 layout 扫描噪声。"""
+    if name.startswith(".") and name not in (".github", ".workflow"):
+        return True
+    if name in _NOISE_DIRS:
+        return True
+    if name in IGNORE_DIRS:
+        return True
+    if name.endswith(".egg-info"):
+        return True
+    return False
 
-    def _is_noise(name: str) -> bool:
-        if name.startswith(".") and name not in (".github", ".workflow"):
-            return True
-        if name in _NOISE_DIRS:
-            return True
-        if name in IGNORE_DIRS:
-            return True
-        if name.endswith(".egg-info"):
-            return True
-        return False
 
-    # 顶层条目
+def _scan_layout_single(scan_root: Path, prefix: str = "") -> list[str]:
+    """扫描单个目录的两层树，返回行列表。
+
+    prefix 非空（workspace 模式）→ 路径形如 `prefix/{name}/`。
+    """
+    lines: list[str] = []
     try:
-        top_entries = sorted(root_resolved.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        top_entries = sorted(scan_root.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
     except PermissionError:
-        return "<!-- 目录扫描失败 -->"
+        return ["<!-- 目录扫描失败 -->"]
 
+    base = f"{prefix}/" if prefix else ""
     for entry in top_entries:
-        if _is_noise(entry.name):
+        if _is_layout_noise(entry.name):
             continue
         if entry.is_dir():
-            lines.append(f"- `{entry.name}/`")
-            # 深度 2：列子目录
+            lines.append(f"- `{base}{entry.name}/`")
             try:
                 sub_entries = sorted(entry.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
                 for sub in sub_entries:
-                    if _is_noise(sub.name):
+                    if _is_layout_noise(sub.name):
                         continue
                     if sub.is_dir():
-                        lines.append(f"  - `{entry.name}/{sub.name}/`")
+                        lines.append(f"  - `{base}{entry.name}/{sub.name}/`")
                     else:
-                        lines.append(f"  - `{entry.name}/{sub.name}`")
+                        lines.append(f"  - `{base}{entry.name}/{sub.name}`")
             except PermissionError:
                 pass
         else:
-            lines.append(f"- `{entry.name}`")
+            lines.append(f"- `{base}{entry.name}`")
+    return lines
 
+
+def _scan_layout(root: Path) -> str:
+    """扫描顶层目录树（深度 2，过滤噪声 + 构建产物）。
+
+    workspace 模式（req-57 / chg-01）：按 sub-project 分段，路径加 sub-project 前缀。
+    """
+    from harness_workflow.playbook.domain_inference import detect_workspace_subprojects
+
+    root_resolved = Path(root).resolve()
+
+    sub_projects = detect_workspace_subprojects(root_resolved)
+    if sub_projects:
+        sections: list[str] = []
+        for sub_name in sub_projects:
+            sections.append(f"### {sub_name}")
+            sub_lines = _scan_layout_single(root_resolved / sub_name, prefix=sub_name)
+            if sub_lines:
+                sections.extend(sub_lines)
+            else:
+                sections.append("<!-- 目录为空 -->")
+            sections.append("")
+        return "\n".join(sections).rstrip()
+
+    lines = _scan_layout_single(root_resolved, prefix="")
     if not lines:
         lines.append("<!-- 目录为空 -->")
-
     return "\n".join(lines)
+
+
+_WORKSPACE_DOMAIN_FILE_LIMIT = 200  # workspace 模式每 domain 文件数上限
+
+
+def _enumerate_code_files(scan_root: Path, root: Path) -> list[str]:
+    r"""枚举 scan_root 下所有代码文件，返回相对 root 的路径行（带 IGNORE_DIRS 过滤）。"""
+    code_exts = {".py", ".ts", ".tsx", ".js", ".vue", ".go", ".java", ".rs", ".kt"}
+    lines: list[str] = []
+    try:
+        for f in sorted(scan_root.rglob("*")):
+            if any(part in IGNORE_DIRS for part in f.parts):
+                continue
+            if f.is_file() and f.suffix in code_exts:
+                try:
+                    rel = f.relative_to(root)
+                    lines.append(f"- `{rel}`: <!-- TODO: 一句话职责描述 -->")
+                except ValueError:
+                    lines.append(f"- `{f}`: <!-- TODO: 一句话职责描述 -->")
+    except PermissionError:
+        lines.append("<!-- 文件扫描权限不足 -->")
+    return lines
 
 
 def _scan_domain_files(domain_dir: Path, root: Path, domain_name: str) -> str:
     """扫描 domains/<领域>/ 对应源码目录，生成文件清单。
 
-    按 chg-03 / chg-A domain_inference 推断的结构，查找：
-    - python/js: src/modules/, src/domains/, app/, src/{pkg}/
-    - maven 单层: 顶层 {domain_name}/
-    - maven nested（chg-A 递归）: 任意 packaging=pom 父目录下的 {domain_name}/
+    workspace 模式（req-57 / chg-02）：domain_name = sub-project 顶层目录名，
+      扫整个 sub-project 子树（200 文件上限防爆）。
+    单项目模式（1.0.0 行为）：按 src/modules / src/domains / app / src/{pkg} /
+      maven 顶层 / nested 顺序找源码目录。
     """
-    lines = []
+    from harness_workflow.playbook.domain_inference import detect_workspace_subprojects
+
+    sub_projects = detect_workspace_subprojects(root)
+
+    # workspace 模式
+    if sub_projects and domain_name in sub_projects:
+        sub_root = root / domain_name
+        if not sub_root.is_dir():
+            return f"<!-- 子项目 {domain_name} 目录不存在 -->"
+        all_lines = _enumerate_code_files(sub_root, root)
+        if not all_lines:
+            return f"<!-- 子项目 {domain_name} 无代码文件 -->"
+        if len(all_lines) > _WORKSPACE_DOMAIN_FILE_LIMIT:
+            truncated = all_lines[:_WORKSPACE_DOMAIN_FILE_LIMIT]
+            remaining = len(all_lines) - _WORKSPACE_DOMAIN_FILE_LIMIT
+            truncated.append(
+                f"- `...`: <!-- 还有 {remaining} 个代码文件未列出（已截断到 {_WORKSPACE_DOMAIN_FILE_LIMIT} 条），用 `find {domain_name} -name '*.java'` 等查询 -->"
+            )
+            return "\n".join(truncated)
+        return "\n".join(all_lines)
+
+    # 单项目模式（1.0.0）
     candidates = [
         root / "src" / "modules" / domain_name,
         root / "src" / "domains" / domain_name,
         root / "app" / domain_name,
-        # maven 顶层模块（chg-A 适配）
         root / domain_name,
     ]
-    # 检查 src/{pkg}/{domain_name}（单包兜底）
     src_dir = root / "src"
     if src_dir.is_dir():
         for pkg_dir in src_dir.iterdir():
             if pkg_dir.is_dir() and not pkg_dir.name.startswith(".") and pkg_dir.name != "__pycache__":
                 candidates.append(pkg_dir / domain_name)
-    # maven nested（chg-A 适配）：扫描顶层每个 packaging=pom 父目录下找 {domain_name}/
     for top_dir in root.iterdir():
         if top_dir.is_dir() and not top_dir.name.startswith(".") and (top_dir / "pom.xml").is_file():
             candidates.append(top_dir / domain_name)
@@ -469,29 +603,11 @@ def _scan_domain_files(domain_dir: Path, root: Path, domain_name: str) -> str:
             break
 
     if source_dir is None:
-        lines.append(f"<!-- 未找到领域 {domain_name} 对应源码目录，请手工填写 -->")
-        return "\n".join(lines)
+        return f"<!-- 未找到领域 {domain_name} 对应源码目录，请手工填写 -->"
 
-    # 枚举代码文件（.py / .ts / .go / .java / .rs）
-    code_exts = {".py", ".ts", ".tsx", ".js", ".go", ".java", ".rs", ".kt"}
-    try:
-        for f in sorted(source_dir.rglob("*")):
-            # 跳过构建产物目录（chg-C Step 4.2）
-            if any(part in IGNORE_DIRS for part in f.parts):
-                continue
-            if f.is_file() and f.suffix in code_exts:
-                # 相对于仓库根的路径
-                try:
-                    rel = f.relative_to(root)
-                    lines.append(f"- `{rel}`: <!-- TODO: 一句话职责描述 -->")
-                except ValueError:
-                    lines.append(f"- `{f}`: <!-- TODO: 一句话职责描述 -->")
-    except PermissionError:
-        lines.append("<!-- 文件扫描权限不足 -->")
-
+    lines = _enumerate_code_files(source_dir, root)
     if not lines:
-        lines.append(f"<!-- 领域 {domain_name} 源码目录无代码文件 -->")
-
+        return f"<!-- 领域 {domain_name} 源码目录无代码文件 -->"
     return "\n".join(lines)
 
 

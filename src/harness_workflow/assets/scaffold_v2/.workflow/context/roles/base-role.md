@@ -413,9 +413,19 @@ SOP 必须覆盖角色的完整生命周期：
 
 > 溯源：req-55（项目路书Playbook体系——项目地图+代码导航）/ chg-02（baseRole 代码加载规则与 CLAUDE 索引）；与既有硬门禁三/四/六/七/八/九并列生效，不替代（注：硬门禁一/二已 req-54 降级为指导原则）。
 
-### §1 何时读路书
+### §1 任意 harness stage 角色入场必先按工件文本命中路书（req-57 / chg-05 升级）
 
-任务入场即读路书。凡涉及代码定位的任务，**必须**先读 `artifacts/project/playbooks/overview.md` 理解项目术语，再读 `artifacts/project/playbooks/code-map.md` 匹配领域，命中后进入 `artifacts/project/playbooks/domains/<领域>/README.md`，按 README 指引读 `code.md` 拿到具体文件清单，直接读这些文件。禁止上来就全局查找代码（grep / glob）。
+**适用范围（"任务"= 7 个 stage 角色 + 5 类 harness 工件）**：
+
+任何 harness stage 角色（**analyst / planning / executing / testing / acceptance / regression / done**）在处理任意 harness 工件（**requirement.md / change.md / plan.md / regression diagnosis / bugfix.md** 等）前，**必须**先按工件文本命中路书后读，五步走：
+
+1. **读 overview**：`artifacts/project/playbooks/overview.md`（项目术语 + 领域全貌）
+2. **关键词命中 domain**：从工件文本（标题 / 描述 / scope / acceptance / 涉及文件路径）提取关键词（中英对照），grep `code-map.md` 的 `LLM:CODE_MAP_KEYWORDS` 段 + `domains/*/README.md` 的 `LLM:KEYWORDS` 段，命中 domain
+3. **读命中 domain README**：`artifacts/project/playbooks/domains/<领域>/README.md`（重点看 `LLM:KEY_FILES` + `LLM:DEPENDENCIES`）
+4. **按 README 指引读细节**：`code.md`（文件清单）/ `data-model.md`（数据结构）/ `notes.md`（跨领域笔记）
+5. **禁止跳过 1-4 直接 grep / glob 全仓代码定位文件**——grep 是命中 domain 后的细化工具，不是入口
+
+**为何升级**（req-57 chg-05 实证）：1.0.0 版规则只说"任务入场即读路书"，没明列"任务"= 哪些 stage 角色 / 哪些工件，也没说"怎么从工件文本走到具体 domain"。下游实测 analyst 看到"app 接口开发"直接 grep `RequestMapping`，跳过术语 → code-map 关键词索引 → domain README → KEY_FILES 的导航链。本升级把 5 个步骤显式化、stage 角色和工件类型明列，不留含糊空间。
 
 ### §2 路径全部用 `artifacts/project/playbooks/`
 

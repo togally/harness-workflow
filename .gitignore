@@ -22,8 +22,9 @@ build/
 # === macOS 元数据（req-28 / chg-01 新增）===
 .DS_Store
 
-# === harness workflow 目录 ===
-# 规则意图：.workflow/ 整体入版本，仅下列明确子路径忽略。
-# !.workflow/ 必须先于任何 .workflow/** 子忽略声明，否则否定规则被覆盖。
-!.workflow/
-.workflow/context/backup/
+# === harness workflow 目录（req-57 / 1.0.1 反转）===
+# 1.0.1 起 .workflow/ 整体本地化：state/ 是个人运行时；context/{flow,tools,...}/
+# 是 framework-level 模板（由 harness install 从 scaffold_v2 重建）；
+# 团队级经验在 artifacts/project/experience/（git 管理）。
+# 工具自仓 dogfooding：用 /.workflow/ 仅匹配根级（不含 src/.../scaffold_v2/.workflow/ 模板路径）。
+/.workflow/
