@@ -173,22 +173,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
     )
-    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）：
-    # 互斥组：--skip-playbook 和 --playbook-only 不能同时传（OQ-3=A 双 flag 逃生口）。
-    playbook_group = install_parser.add_mutually_exclusive_group()
-    playbook_group.add_argument(
-        "--skip-playbook",
-        action="store_true",
-        help="Skip playbook initialization stage (do not create artifacts/project/playbooks/).",
-    )
-    playbook_group.add_argument(
-        "--playbook-only",
-        action="store_true",
-        help="Only run playbook initialization; skip install_repo and install_agent.",
-    )
+    # chg-D（精简命令体系）：删除 --skip-playbook / --playbook-only 两个 flag。
+    # 路书骨架是 1.0.0 标配，install 始终装路书（无选项）。
     # req-56（路书引擎升级）/ chg-01（推断器多语言注册化）：
     # --domains flag：逗号分隔的领域列表，跳过推断器直接用用户指定领域（last-resort escape hatch）。
-    # 与 --skip-playbook / --playbook-only 不互斥。
     install_parser.add_argument(
         "--domains",
         dest="domains",
@@ -495,10 +483,6 @@ def main() -> int:
             extra_args.append("--force-managed")
         if getattr(args, "all_platforms", False):
             extra_args.append("--all-platforms")
-        if getattr(args, "skip_playbook", False):
-            extra_args.append("--skip-playbook")
-        if getattr(args, "playbook_only", False):
-            extra_args.append("--playbook-only")
         # req-56 / chg-01：透传 --domains flag
         if getattr(args, "domains", None):
             extra_args.extend(["--domains", args.domains])

@@ -84,7 +84,8 @@ def test_petmall_fixture_dogfood(tmp_path, monkeypatch):
             encoding="utf-8",
         )
 
-    result = _run_install(tmp_path, "--playbook-only")
+    # chg-D: --playbook-only 已删除，改用标准 install（始终装路书骨架）
+    result = _run_install(tmp_path)
     combined = result.stdout + result.stderr
 
     # 断言：stdout 含 matched 'maven_multi_module'
@@ -110,11 +111,12 @@ def test_petmall_fixture_dogfood(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_cli_domains_flag_override(tmp_path, monkeypatch):
-    """TC-Dogfood-02: --domains a,b --playbook-only，断言域目录 a/ b/ 创建。"""
+    """TC-Dogfood-02: --domains a,b，断言域目录 a/ b/ 创建。（chg-D: --playbook-only 已删除）"""
     monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
     _setup_git(tmp_path)
 
-    result = _run_install(tmp_path, "--domains", "domain-alpha,domain-beta", "--playbook-only")
+    # chg-D: --playbook-only 已删除，改用标准 install + --domains
+    result = _run_install(tmp_path, "--domains", "domain-alpha,domain-beta")
     combined = result.stdout + result.stderr
 
     # exit 0

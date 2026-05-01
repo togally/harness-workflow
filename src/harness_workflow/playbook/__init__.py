@@ -1,7 +1,8 @@
-"""playbook 子包（req-56（路书引擎升级）/ chg-01（推断器多语言注册化）/ chg-03（LLM provider 抽象层））
+"""playbook 子包（req-56（路书引擎升级）/ chg-01（推断器多语言注册化）/ chg-03（LLM provider 抽象层）
+chg-D（精简命令体系）：删除 skip / only 参数）
 
 公开 API：
-  init_playbook(root, skip=False, only=False, override_domains=None) -> int
+  init_playbook(root, override_domains=None, no_llm=False) -> int
   infer_domains(root, override_domains=None, detectors=None) -> (matched_mode, domains)
   render_skeleton(root, domains) -> int
   DomainDetector: 抽象基类

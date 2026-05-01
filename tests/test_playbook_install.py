@@ -1,6 +1,9 @@
 """tests/test_playbook_install.py
 
 req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）
+chg-D（精简命令体系）：删除 --skip-playbook / --playbook-only flag 相关 TC，
+install 始终装路书骨架 + 不输出 [ASSISTANT INSTRUCTION] 强指令提示。
+
 pytest 测试套件（≥ 8 TC）
 
 TC-01: Level-1 src/modules/* 推断
@@ -8,9 +11,9 @@ TC-02: Level-2 src/domains/* 推断
 TC-03: Level-3 app/* 推断
 TC-04: Level-4 单包次级模块兜底（src/{pkg}/*次级模块，OQ-4=B-modified）
 TC-05: dogfood subprocess install（创建骨架 + stdout 断言 + 幂等）
-TC-06: --skip-playbook flag（不创建路书目录）
-TC-07: --playbook-only flag（playbooks 目录存在 + stdout 含 skipped install_repo）
-TC-08: 双 flag 互斥校验（--skip-playbook --playbook-only → exit != 0）
+TC-06: install 默认装路书骨架（chg-D：无 flag 也装路书）
+TC-07: install 不输出 [ASSISTANT INSTRUCTION]（chg-D：提示句移到 refresh 触发）
+TC-08: install --no-llm 不输出 [ASSISTANT INSTRUCTION]（chg-D：提示移到 refresh）
 TC-09: render_skeleton 4 顶层文件存在
 TC-10: render_skeleton domains 4 件套存在
 """
@@ -184,69 +187,79 @@ def test_tc05_dogfood_subprocess_install(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# TC-06: --skip-playbook flag
+# TC-06: install 默认装路书骨架（chg-D：不需要任何 flag 就装路书）
 # ---------------------------------------------------------------------------
 
-def test_tc06_skip_playbook_flag(tmp_path, monkeypatch):
-    """TC-06: --skip-playbook → 路书目录不被创建。"""
+def test_tc06_install_always_creates_playbook(tmp_path, monkeypatch):
+    """TC-06 (chg-D): install 始终创建路书骨架（无任何 flag）。"""
     monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
     _setup_git(tmp_path)
 
-    result = _run_cli(tmp_path, "--skip-playbook")
-
-    playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX
-    assert not playbook_dir.exists(), (
-        f"playbook dir should NOT exist with --skip-playbook; stdout={result.stdout}"
-    )
-
-
-# ---------------------------------------------------------------------------
-# TC-07: --playbook-only flag
-# ---------------------------------------------------------------------------
-
-def test_tc07_playbook_only_flag(tmp_path, monkeypatch):
-    """TC-07: --playbook-only → 路书存在 + stdout 含 skipped install_repo + mirror 未刷。"""
-    monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
-    _setup_git(tmp_path)
-
-    # 建单包结构，确保领域推断成功
+    # 建 harness-workflow 自身结构（src/{pkg}/{tools,playbook,assets}）确保推断成功
     pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text('[project]\nname = "mypkg"\nversion = "0.1.0"\n', encoding="utf-8")
-    (tmp_path / "src" / "mypkg" / "tools").mkdir(parents=True)
-    (tmp_path / "src" / "mypkg" / "assets").mkdir(parents=True)
+    pyproject.write_text('[project]\nname = "harness_workflow"\nversion = "0.1.0"\n', encoding="utf-8")
+    (tmp_path / "src" / "harness_workflow" / "tools").mkdir(parents=True)
+    (tmp_path / "src" / "harness_workflow" / "playbook").mkdir(parents=True)
+    (tmp_path / "src" / "harness_workflow" / "assets").mkdir(parents=True)
 
-    # marker 文件：安装前不存在 CLAUDE.md
-    marker = tmp_path / ".workflow" / "state" / "runtime.yaml"
-    assert not marker.exists(), "runtime.yaml should not exist before --playbook-only"
+    result = _run_cli(tmp_path)
 
-    result = _run_cli(tmp_path, "--playbook-only")
-
-    # 路书目录存在
+    # 路书骨架应该存在
     playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX
-    assert playbook_dir.exists(), f"playbook dir should exist; stdout={result.stdout}, stderr={result.stderr}"
-
-    # stdout 含 skipped install_repo
-    assert "skipped install_repo" in result.stdout, f"Expected 'skipped install_repo' in stdout: {result.stdout}"
-
-    # mirror / agent skill 未被刷写（runtime.yaml 不存在 = install_repo 未跑）
-    assert not marker.exists(), "runtime.yaml should NOT exist (install_repo was skipped)"
-
-
-# ---------------------------------------------------------------------------
-# TC-08: 双 flag 互斥校验
-# ---------------------------------------------------------------------------
-
-def test_tc08_mutual_exclusion_flags(tmp_path, monkeypatch):
-    """TC-08: --skip-playbook --playbook-only 同时传 → exit != 0。"""
-    monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
-
-    result = _run_cli(tmp_path, "--skip-playbook", "--playbook-only")
-
-    assert result.returncode != 0, "Should fail when both --skip-playbook and --playbook-only are passed"
-    # argparse 互斥组错误应该在 stderr 中
-    assert "mutually exclusive" in result.stderr.lower() or result.returncode == 2, (
-        f"Expected mutual exclusion error; stderr={result.stderr}"
+    assert playbook_dir.exists(), (
+        f"playbook dir should always be created; stdout={result.stdout}, stderr={result.stderr}"
     )
+    assert (playbook_dir / "overview.md").exists()
+    assert (playbook_dir / "architecture.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# TC-07: install 不输出 [ASSISTANT INSTRUCTION]（chg-D：提示句移到 refresh）
+# ---------------------------------------------------------------------------
+
+def test_tc07_install_no_assistant_instruction_output(tmp_path, monkeypatch):
+    """TC-07 (chg-D): install 不输出 [ASSISTANT INSTRUCTION]；提示句改由 refresh 触发。"""
+    monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
+    _setup_git(tmp_path)
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[project]\nname = "harness_workflow"\nversion = "0.1.0"\n', encoding="utf-8")
+    (tmp_path / "src" / "harness_workflow" / "tools").mkdir(parents=True)
+    (tmp_path / "src" / "harness_workflow" / "playbook").mkdir(parents=True)
+    (tmp_path / "src" / "harness_workflow" / "assets").mkdir(parents=True)
+
+    result = _run_cli(tmp_path)
+
+    combined = result.stdout + result.stderr
+    assert "[ASSISTANT INSTRUCTION" not in combined, (
+        f"install should NOT output [ASSISTANT INSTRUCTION]; combined={combined}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TC-08: install --no-llm 不输出 [ASSISTANT INSTRUCTION]（chg-D）
+# ---------------------------------------------------------------------------
+
+def test_tc08_install_no_llm_no_assistant_instruction(tmp_path, monkeypatch):
+    """TC-08 (chg-D): install --no-llm 也不输出 [ASSISTANT INSTRUCTION]。"""
+    monkeypatch.delenv("HARNESS_DEV_REPO_ROOT", raising=False)
+    _setup_git(tmp_path)
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[project]\nname = "harness_workflow"\nversion = "0.1.0"\n', encoding="utf-8")
+    (tmp_path / "src" / "harness_workflow" / "tools").mkdir(parents=True)
+    (tmp_path / "src" / "harness_workflow" / "playbook").mkdir(parents=True)
+    (tmp_path / "src" / "harness_workflow" / "assets").mkdir(parents=True)
+
+    result = _run_cli(tmp_path, "--no-llm")
+
+    combined = result.stdout + result.stderr
+    assert "[ASSISTANT INSTRUCTION" not in combined, (
+        f"install --no-llm should NOT output [ASSISTANT INSTRUCTION]; combined={combined}"
+    )
+    # 路书骨架仍然存在
+    playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX
+    assert playbook_dir.exists(), f"playbook dir should exist even with --no-llm; stdout={result.stdout}"
 
 
 # ---------------------------------------------------------------------------

@@ -1,9 +1,12 @@
 """tests/test_install_post_message.py
 
-chg-A（req-55 改进）: install 后输出 LLM 区段未填充时的提示句
+chg-D（精简命令体系）：[ASSISTANT INSTRUCTION] 提示句移到 playbook-refresh 触发，
+install 不再输出提示。
 
-TC-01: install --no-llm 后 stdout 含两段提示（"Claude Code 提示" + "Codex 提示"）
-TC-02: install 调真 LLM（mock provider 填好内容）后 stdout 不含提示（LLM 已填充）
+TC-01: playbook_refresh --no-llm 后 stdout 含 [ASSISTANT INSTRUCTION]（refresh 触发提示）
+TC-02: playbook_refresh 调真 LLM（mock provider 填好内容）后 stdout 不含提示（LLM 已填充）
+TC-03（bonus）: playbook_refresh NoopProvider fallback 时也输出提示句
+TC-04: init_playbook(no_llm=True) 不输出 [ASSISTANT INSTRUCTION]（chg-D：install 不再提示）
 """
 
 from __future__ import annotations
@@ -62,19 +65,22 @@ def _make_mock_provider_filled(domains: list[str]):
 
 
 # ---------------------------------------------------------------------------
-# TC-01: install --no-llm 后 stdout 含两段提示
+# TC-01: playbook_refresh --no-llm 后 stdout 含 [ASSISTANT INSTRUCTION]
 # ---------------------------------------------------------------------------
 
-def test_tc01_no_llm_stdout_contains_hints(tmp_path, capsys, monkeypatch):
-    """TC-01: init_playbook(no_llm=True) → stdout 含 'Claude Code 提示' 和 'Codex 提示'。"""
+def test_tc01_refresh_no_llm_stdout_contains_hints(tmp_path, capsys, monkeypatch):
+    """TC-01 (chg-D): playbook_refresh(no_llm=True) → stdout 含 [ASSISTANT INSTRUCTION]。
+    这是 chg-D 后 [ASSISTANT INSTRUCTION] 提示句的唯一触发路径。
+    """
     domains = ["service-a", "service-b"]
     _setup_python_project(tmp_path, domains)
+    render_skeleton(tmp_path, domains)
 
     # 确保 CI env 不影响
     monkeypatch.delenv("CI", raising=False)
 
-    from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=True)
+    from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+    rc = playbook_refresh(tmp_path, no_llm=True)
     assert rc == 0
 
     captured = capsys.readouterr()
@@ -82,7 +88,7 @@ def test_tc01_no_llm_stdout_contains_hints(tmp_path, capsys, monkeypatch):
 
     # 应该含强指令式 ASSISTANT INSTRUCTION 头
     assert "[ASSISTANT INSTRUCTION" in stdout, (
-        f"Expected '[ASSISTANT INSTRUCTION' header in stdout, got:\n{stdout}"
+        f"Expected '[ASSISTANT INSTRUCTION' header in stdout after refresh --no-llm, got:\n{stdout}"
     )
     assert "REQUIRED FOLLOW-UP" in stdout, (
         f"Expected 'REQUIRED FOLLOW-UP' in stdout, got:\n{stdout}"
@@ -111,16 +117,17 @@ def test_tc01_no_llm_stdout_contains_hints(tmp_path, capsys, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# TC-02: install 调真 LLM（mock provider 填好内容）后 stdout 不含提示
+# TC-02: playbook_refresh 调真 LLM（mock provider 填好内容）后 stdout 不含提示
 # ---------------------------------------------------------------------------
 
-def test_tc02_with_real_llm_no_hint_output(tmp_path, capsys, monkeypatch):
-    """TC-02: init_playbook(no_llm=False) + mock provider 返回内容 → stdout 不含提示句。
+def test_tc02_refresh_with_real_llm_no_hint_output(tmp_path, capsys, monkeypatch):
+    """TC-02 (chg-D): playbook_refresh(no_llm=False) + mock provider → stdout 不含提示句。
 
-    mock provider 不是 NoopProvider，generate() 返回实际内容 → llm_filled=True → 不输出提示。
+    mock provider 不是 NoopProvider，generate() 返回实际内容 → 不输出提示。
     """
     domains = ["core", "api"]
     _setup_python_project(tmp_path, domains)
+    render_skeleton(tmp_path, domains)
 
     mock_provider = _make_mock_provider_filled(domains)
 
@@ -131,8 +138,8 @@ def test_tc02_with_real_llm_no_hint_output(tmp_path, capsys, monkeypatch):
     )
     monkeypatch.delenv("CI", raising=False)
 
-    from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=False)
+    from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+    rc = playbook_refresh(tmp_path, no_llm=False)
     assert rc == 0
 
     # generate 被调用
@@ -142,25 +149,20 @@ def test_tc02_with_real_llm_no_hint_output(tmp_path, capsys, monkeypatch):
     stdout = captured.out
 
     # 不应含提示句（LLM 已经填好了）
-    assert "Claude Code 提示" not in stdout, (
-        f"Expected NO 'Claude Code 提示' in stdout when LLM filled, got:\n{stdout}"
-    )
-    assert "Codex 提示" not in stdout, (
-        f"Expected NO 'Codex 提示' in stdout when LLM filled, got:\n{stdout}"
-    )
-    assert "[playbook] LLM 区段未填充" not in stdout, (
-        f"Expected NO LLM hint when LLM filled, got:\n{stdout}"
+    assert "[ASSISTANT INSTRUCTION" not in stdout, (
+        f"Expected NO [ASSISTANT INSTRUCTION] in stdout when LLM filled, got:\n{stdout}"
     )
 
 
 # ---------------------------------------------------------------------------
-# TC-03（bonus）: NoopProvider fallback 时也输出提示句
+# TC-03（bonus）: playbook_refresh NoopProvider fallback 时也输出提示句
 # ---------------------------------------------------------------------------
 
-def test_tc03_noop_provider_fallback_shows_hint(tmp_path, capsys, monkeypatch):
-    """TC-03（bonus）: auto_detect_provider 返回 NoopProvider 时（无 LLM），也应输出提示句。"""
+def test_tc03_refresh_noop_provider_shows_hint(tmp_path, capsys, monkeypatch):
+    """TC-03 (chg-D): playbook_refresh + NoopProvider → stdout 含 [ASSISTANT INSTRUCTION]。"""
     domains = ["module-x"]
     _setup_python_project(tmp_path, domains)
+    render_skeleton(tmp_path, domains)
 
     # 返回 NoopProvider（generate 返回 None）
     noop = NoopProvider()
@@ -170,8 +172,8 @@ def test_tc03_noop_provider_fallback_shows_hint(tmp_path, capsys, monkeypatch):
     )
     monkeypatch.delenv("CI", raising=False)
 
-    from harness_workflow.playbook.init import init_playbook
-    rc = init_playbook(tmp_path, no_llm=False)
+    from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+    rc = playbook_refresh(tmp_path, no_llm=False)
     assert rc == 0
 
     captured = capsys.readouterr()
@@ -179,5 +181,35 @@ def test_tc03_noop_provider_fallback_shows_hint(tmp_path, capsys, monkeypatch):
 
     # NoopProvider 未填内容，应该有强指令式提示
     assert "[ASSISTANT INSTRUCTION" in stdout, (
-        f"Expected '[ASSISTANT INSTRUCTION' header when NoopProvider used, got:\n{stdout}"
+        f"Expected '[ASSISTANT INSTRUCTION' header when NoopProvider used in refresh, got:\n{stdout}"
     )
+
+
+# ---------------------------------------------------------------------------
+# TC-04: init_playbook(no_llm=True) 不输出 [ASSISTANT INSTRUCTION]（chg-D）
+# ---------------------------------------------------------------------------
+
+def test_tc04_init_playbook_no_llm_no_assistant_instruction(tmp_path, capsys, monkeypatch):
+    """TC-04 (chg-D): init_playbook(no_llm=True) 不再输出 [ASSISTANT INSTRUCTION]。
+    提示句已移到 playbook-refresh 触发路径。
+    """
+    domains = ["service-a", "service-b"]
+    _setup_python_project(tmp_path, domains)
+
+    # 确保 CI env 不影响
+    monkeypatch.delenv("CI", raising=False)
+
+    from harness_workflow.playbook.init import init_playbook
+    rc = init_playbook(tmp_path, no_llm=True)
+    assert rc == 0
+
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # chg-D: install 不再输出提示句
+    assert "[ASSISTANT INSTRUCTION" not in stdout, (
+        f"chg-D: init_playbook should NOT output [ASSISTANT INSTRUCTION], got:\n{stdout}"
+    )
+    # 骨架文件应存在
+    playbook_dir = tmp_path / PLAYBOOK_ROOT_SUFFIX
+    assert playbook_dir.exists(), f"playbook dir should be created; stdout={stdout}"

@@ -1,6 +1,9 @@
 """chg-B polish 测试套件
+chg-D（精简命令体系）更新：[ASSISTANT INSTRUCTION] 提示句移到 playbook-refresh 触发，
+init_playbook 不再输出提示。
 
-TC-01  init_playbook 在路书已存在 + LLM 区段仍 TODO 时仍输出提示句
+TC-01  playbook_refresh 在路书已存在 + LLM 区段仍 TODO + --no-llm 时输出提示句（chg-D 行为）
+TC-01b init_playbook 在路书已存在时不输出 [ASSISTANT INSTRUCTION]（chg-D 验证）
 TC-02  K-01 命中 >= 3 个时折叠输出（一行 + 命中清单）
 """
 from __future__ import annotations
@@ -18,8 +21,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
-class InitPlaybookPolish1Test(unittest.TestCase):
-    """TC-01: init_playbook 在路书已存在 + LLM 区段仍 TODO 时仍输出提示句。"""
+class RefreshPlaybookPolish1Test(unittest.TestCase):
+    """TC-01 (chg-D): playbook_refresh 在路书已存在 + LLM 区段仍 TODO + --no-llm 时输出提示句。
+    TC-01b: init_playbook 在路书已存在时不输出 [ASSISTANT INSTRUCTION]（chg-D 行为）。
+    """
 
     def setUp(self) -> None:
         self.tempdir = Path(tempfile.mkdtemp(prefix="harness-polish1-"))
@@ -29,13 +34,60 @@ class InitPlaybookPolish1Test(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.tempdir, ignore_errors=True)
 
-    def test_hint_printed_when_playbook_exists_with_todo(self) -> None:
-        """路书已存在 + 仍有 <!-- TODO: 占位 → 应输出 LLM 提示句。"""
+    def test_hint_printed_by_refresh_when_playbook_exists_with_todo(self) -> None:
+        """TC-01 (chg-D): 路书已存在 + 仍有 <!-- TODO: 占位 → playbook_refresh(--no-llm) 应输出 LLM 提示句。"""
         from harness_workflow.playbook.skeleton import PLAYBOOK_ROOT_SUFFIX
         playbook_dir = self.repo / PLAYBOOK_ROOT_SUFFIX
         playbook_dir.mkdir(parents=True, exist_ok=True)
 
         # 写入含 <!-- TODO: 占位的文件（模拟 --no-llm 后未填充的状态）
+        (playbook_dir / "overview.md").write_text(
+            "# Overview\n"
+            "<!-- AUTO:DOMAIN_LIST -->\n"
+            "<!-- /AUTO:DOMAIN_LIST -->\n"
+            "<!-- LLM:OVERVIEW_DESC -->\n"
+            "<!-- TODO: 请填写项目概述 -->\n"
+            "<!-- /LLM:OVERVIEW_DESC -->\n",
+            encoding="utf-8",
+        )
+        # architecture.md 需存在（AUTO:STACK 等）
+        (playbook_dir / "architecture.md").write_text(
+            "# Architecture\n"
+            "<!-- AUTO:STACK -->\n"
+            "<!-- /AUTO:STACK -->\n"
+            "<!-- AUTO:SCRIPTS -->\n"
+            "<!-- /AUTO:SCRIPTS -->\n"
+            "<!-- AUTO:LAYOUT -->\n"
+            "<!-- /AUTO:LAYOUT -->\n",
+            encoding="utf-8",
+        )
+        (playbook_dir / "code-map.md").write_text(
+            "# Code Map\n"
+            "<!-- AUTO:DOMAIN_FILES -->\n"
+            "<!-- /AUTO:DOMAIN_FILES -->\n",
+            encoding="utf-8",
+        )
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            from harness_workflow.tools.harness_playbook_refresh import playbook_refresh
+            rc = playbook_refresh(self.repo, no_llm=True)
+        output = buf.getvalue()
+
+        self.assertEqual(rc, 0)
+        self.assertIn(
+            "[ASSISTANT INSTRUCTION",
+            output,
+            msg="refresh --no-llm 在路书含 TODO 占位时应输出 LLM 填充强指令提示",
+        )
+
+    def test_init_playbook_no_hint_when_playbook_exists(self) -> None:
+        """TC-01b (chg-D): init_playbook 在路书已存在时不输出 [ASSISTANT INSTRUCTION]。"""
+        from harness_workflow.playbook.skeleton import PLAYBOOK_ROOT_SUFFIX
+        playbook_dir = self.repo / PLAYBOOK_ROOT_SUFFIX
+        playbook_dir.mkdir(parents=True, exist_ok=True)
+
+        # 写入含 <!-- TODO: 占位的文件
         (playbook_dir / "overview.md").write_text(
             "# Overview\n"
             "<!-- LLM:OVERVIEW_DESC -->\n"
@@ -56,39 +108,11 @@ class InitPlaybookPolish1Test(unittest.TestCase):
             output,
             msg="应打印 '已存在' 提示",
         )
-        self.assertIn(
+        # chg-D: init_playbook 不再输出提示句
+        self.assertNotIn(
             "[ASSISTANT INSTRUCTION",
             output,
-            msg="路书已存在但含 TODO 占位时，应仍输出 LLM 填充强指令提示",
-        )
-
-    def test_no_hint_when_playbook_exists_without_todo(self) -> None:
-        """路书已存在且无 <!-- TODO: 占位 → 不应输出 LLM 提示句。"""
-        from harness_workflow.playbook.skeleton import PLAYBOOK_ROOT_SUFFIX
-        playbook_dir = self.repo / PLAYBOOK_ROOT_SUFFIX
-        playbook_dir.mkdir(parents=True, exist_ok=True)
-
-        # 写入无 TODO 占位的文件（模拟已填充状态）
-        (playbook_dir / "overview.md").write_text(
-            "# Overview\n"
-            "<!-- LLM:OVERVIEW_DESC -->\n"
-            "这是一个已填写完毕的项目概述。\n"
-            "<!-- /LLM:OVERVIEW_DESC -->\n",
-            encoding="utf-8",
-        )
-
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            from harness_workflow.playbook.init import init_playbook
-            rc = init_playbook(self.repo, no_llm=True)
-        output = buf.getvalue()
-
-        self.assertEqual(rc, 0)
-        self.assertIn("playbook 已存在，跳过初始化", output)
-        self.assertNotIn(
-            "LLM 区段未填充",
-            output,
-            msg="路书已存在且无 TODO 占位时，不应输出 LLM 填充提示句",
+            msg="chg-D: init_playbook 不应输出 [ASSISTANT INSTRUCTION]，请用 harness playbook-refresh",
         )
 
 

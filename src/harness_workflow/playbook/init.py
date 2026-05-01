@@ -1,9 +1,8 @@
 """init_playbook 主入口（req-56（路书引擎升级）/ chg-01（推断器多语言注册化）
-兼容 req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化））
+兼容 req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）
+chg-D（精简命令体系）：删除 skip / only 参数，install 始终装路书骨架，不输出 ASSISTANT INSTRUCTION 提示句）
 
-init_playbook(root, skip=False, only=False, override_domains=None, no_llm=False) -> int
-  skip=True → 立即返回（--skip-playbook）
-  only=True → 仅渲染骨架，跳 install_repo / install_agent（--playbook-only 由 cli 层处理）
+init_playbook(root, override_domains=None, no_llm=False) -> int
   override_domains 非 None → 跳过推断器，直接用指定领域列表（--domains flag 透传）
   no_llm=True → 跳过 LLM 填充阶段（--no-llm flag 或 CI=true 时）
   检查 artifacts/project/playbooks/ 已存在 → 跳过 + stdout 提示
@@ -138,17 +137,16 @@ def _fill_with_llm(
 
 def init_playbook(
     root: Path,
-    skip: bool = False,
-    only: bool = False,
     override_domains: Optional[list[str]] = None,
     no_llm: bool = False,
 ) -> int:
     """初始化项目路书骨架。
 
+    chg-D（精简命令体系）：删除 skip / only 参数，install 始终装路书骨架。
+    install 不再输出 ASSISTANT INSTRUCTION 提示句；提示句改由 playbook-refresh 触发。
+
     Args:
         root: 仓库根目录。
-        skip: True → 立即返回 0（--skip-playbook 语义）。
-        only: True → 仅渲染骨架（不跑 install_repo / install_agent；CLI 层保证调用顺序）。
         override_domains: 非 None → 跳过推断器，直接用指定领域列表（--domains flag 透传）。
         no_llm: True → 跳过 LLM 填充阶段（--no-llm flag 或 CI=true 时）。
 
@@ -157,18 +155,11 @@ def init_playbook(
     """
     root = Path(root).resolve()
 
-    if skip:
-        # --skip-playbook：不初始化路书
-        return 0
-
     playbook_dir = root / PLAYBOOK_ROOT_SUFFIX
 
-    # 已存在 → 跳过（幂等），但检查 LLM 区段是否仍为 TODO 占位
+    # 已存在 → 跳过（幂等）
     if playbook_dir.exists() and any(playbook_dir.iterdir()):
         print("playbook 已存在，跳过初始化")
-        # chg-B polish-1：路书已存在但 LLM 区段仍是 TODO 时，仍输出提示句
-        if _check_has_todo_placeholders(root):
-            _print_noop_fill_hint(root)
         return 0
 
     # 推断领域（透传 override_domains）
@@ -191,7 +182,6 @@ def init_playbook(
         print("playbook 已存在，跳过初始化")
 
     # LLM 填充阶段（chg-04：默认开启，--no-llm 或 CI=true 跳过）
-    llm_filled = False
     if not no_llm and os.getenv("CI", "").lower() != "true":
         try:
             from harness_workflow.playbook.llm import auto_detect_provider, NoopProvider
@@ -203,17 +193,11 @@ def init_playbook(
                 "matched_mode": matched_mode,
             }
             _fill_with_llm(root, domains, llm, project_metadata)
-            # 若不是 Noop 且调用成功，标记为已填充
-            if not isinstance(llm, NoopProvider):
-                llm_filled = True
         except Exception as e:
             print(f"[llm] WARN: LLM filling phase failed: {e}", file=sys.stderr)
 
-    # chg-A（req-55改进）：LLM 区段未填充时输出提示句（引导 agent 手动填写）
-    # 检测条件：no_llm=True 或使用 NoopProvider（LLM 区段仍为 TODO 占位）
-    _should_print_hint = no_llm or (not llm_filled)
-    if _should_print_hint and written > 0:
-        _print_noop_fill_hint(root)
+    # chg-D：install 不再输出 ASSISTANT INSTRUCTION 提示句。
+    # 需要填写路书时请跑 `harness playbook-refresh`，refresh 负责触发提示句。
 
     return 0
 

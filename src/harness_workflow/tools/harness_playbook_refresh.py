@@ -822,9 +822,14 @@ def playbook_refresh(root: str | Path, dry_run: bool = False, no_llm: bool = Fal
 
     # -----------------------------------------------------------------------
     # LLM 区段刷新阶段（chg-04：AUTO 区段刷新完成后，对已存在的 LLM 区段填充）
+    # chg-D：--no-llm 跳过 LLM 调用，但仍输出 ASSISTANT INSTRUCTION 提示句（让 agent 接力）
     # -----------------------------------------------------------------------
     if not no_llm:
         _refresh_llm_sections(root, playbook_root)
+    else:
+        # --no-llm 时：跳过 LLM，输出强提示句让 agent 接力填写
+        from harness_workflow.playbook.init import _print_noop_fill_hint
+        _print_noop_fill_hint(root)
 
     return 0
 

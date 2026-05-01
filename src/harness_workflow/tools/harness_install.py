@@ -182,19 +182,8 @@ def main() -> int:
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
     )
-    # req-55（项目路书Playbook体系-项目地图+代码导航）/ chg-03（harness install 追加路书初始化）：
-    # --skip-playbook / --playbook-only 互斥（OQ-3=A 双 flag 逃生口）。
-    playbook_group = parser.add_mutually_exclusive_group()
-    playbook_group.add_argument(
-        "--skip-playbook",
-        action="store_true",
-        help="Skip playbook initialization stage.",
-    )
-    playbook_group.add_argument(
-        "--playbook-only",
-        action="store_true",
-        help="Only run playbook initialization; skip install_agent and install_repo.",
-    )
+    # chg-D（精简命令体系）：删除 --skip-playbook / --playbook-only 两个 flag。
+    # 路书骨架是 1.0.0 标配，install 始终装路书（无选项）。
     # req-56（路书引擎升级）/ chg-01（推断器多语言注册化）：
     # --domains：逗号分隔的领域列表，跳过推断器直接用用户指定领域（last-resort escape hatch）。
     parser.add_argument(
@@ -214,18 +203,11 @@ def main() -> int:
 
     root = Path(args.root).resolve()
 
-    skip_playbook = getattr(args, "skip_playbook", False)
-    playbook_only = getattr(args, "playbook_only", False)
     no_llm = getattr(args, "no_llm", False)
     # 解析 --domains flag 为列表
     override_domains = None
     if getattr(args, "domains", None):
         override_domains = [d.strip() for d in args.domains.split(",") if d.strip()]
-
-    # --playbook-only：仅跑路书初始化，跳过 install_agent / install_repo
-    if playbook_only:
-        print("skipped install_repo (--playbook-only); mirror not synced this run")
-        return init_playbook(root, skip=False, only=True, override_domains=override_domains, no_llm=no_llm)
 
     # 1) install_agent：写入 agent 配置 + skill 文件
     rc = install_agent(root, args.agent)
@@ -245,8 +227,8 @@ def main() -> int:
         _print_venv_check()
     if rc != 0:
         return rc
-    # 4) init_playbook：追加路书初始化阶段（OQ-3=A 默认追加，透传 override_domains）
-    return init_playbook(root, skip=skip_playbook, only=False, override_domains=override_domains, no_llm=no_llm)
+    # 4) init_playbook：追加路书初始化阶段（chg-D：始终装路书骨架，不输出 ASSISTANT INSTRUCTION 提示句）
+    return init_playbook(root, override_domains=override_domains, no_llm=no_llm)
 
 
 if __name__ == "__main__":

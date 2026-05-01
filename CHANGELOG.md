@@ -4,6 +4,12 @@
 
 First stable release of harness-workflow with full Playbook (路书) support.
 
+### Breaking Changes（chg-D 精简命令体系）
+- 删除 `harness install --playbook-only` flag：install 默认装路书骨架（不再可选）
+- 删除 `harness install --skip-playbook` flag：路书是 1.0.0 标配
+- install 不再输出 `[ASSISTANT INSTRUCTION]` 强指令提示——改由 `harness playbook-refresh` 触发
+- agent 想填路书：主动跑 `harness playbook-refresh` → 命令输出强指令 → agent 接力填
+
 ### Major Features
 
 **req-55: 项目路书 Playbook 体系**
