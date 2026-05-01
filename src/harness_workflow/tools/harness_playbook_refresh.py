@@ -36,6 +36,15 @@ _NOISE_DIRS = {
     ".eggs", "*.egg-info",
 }
 
+# 构建产物目录 IGNORE 列表（chg-C Step 4.2：忽略构建产物，防止污染路书）
+IGNORE_DIRS: set[str] = {
+    "target", "build", "dist", "node_modules", "__pycache__",
+    ".git", ".gradle", ".idea", ".vscode", ".pytest_cache",
+    "out", "bin", "obj", ".tox", ".venv", "venv",
+    "logs",  # 运行时日志
+    ".mypy_cache", ".eggs", ".ruff_cache",
+}
+
 
 # ---------------------------------------------------------------------------
 # 核心 helper：AUTO 区段替换
@@ -379,7 +388,7 @@ def _scan_scripts(root: Path, detectors: list[ScriptDetector] | None = None) -> 
 
 
 def _scan_layout(root: Path) -> str:
-    """扫描顶层目录树（深度 2，过滤噪声目录）。"""
+    """扫描顶层目录树（深度 2，过滤噪声目录 + 构建产物目录）。"""
     lines = []
     root_resolved = Path(root).resolve()
 
@@ -387,6 +396,8 @@ def _scan_layout(root: Path) -> str:
         if name.startswith(".") and name not in (".github", ".workflow"):
             return True
         if name in _NOISE_DIRS:
+            return True
+        if name in IGNORE_DIRS:
             return True
         if name.endswith(".egg-info"):
             return True
@@ -465,6 +476,9 @@ def _scan_domain_files(domain_dir: Path, root: Path, domain_name: str) -> str:
     code_exts = {".py", ".ts", ".tsx", ".js", ".go", ".java", ".rs", ".kt"}
     try:
         for f in sorted(source_dir.rglob("*")):
+            # 跳过构建产物目录（chg-C Step 4.2）
+            if any(part in IGNORE_DIRS for part in f.parts):
+                continue
             if f.is_file() and f.suffix in code_exts:
                 # 相对于仓库根的路径
                 try:
@@ -526,6 +540,9 @@ def _refresh_llm_sections(root: Path, playbook_root: Path) -> None:
 
         llm = auto_detect_provider()
         if isinstance(llm, NoopProvider):
+            # chg-C Step 4.1：NoopProvider fallback 时输出强提示句，让 agent 接力填充
+            from harness_workflow.playbook.init import _print_noop_fill_hint
+            _print_noop_fill_hint(root)
             return
 
         # 推断领域
@@ -826,8 +843,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="打印将要写入的 diff，不落盘",
     )
+    parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="跳过 LLM 区段填充阶段（chg-C：与 harness install --no-llm 语义一致）",
+    )
     args = parser.parse_args(argv)
-    return playbook_refresh(args.root, dry_run=args.dry_run)
+    return playbook_refresh(args.root, dry_run=args.dry_run, no_llm=args.no_llm)
 
 
 if __name__ == "__main__":

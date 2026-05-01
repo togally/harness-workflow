@@ -425,26 +425,40 @@ SOP 必须覆盖角色的完整生命周期：
 
 不要修改 `artifacts/project/playbooks/` 下任何文件。路书是只读资源（OQ-5=A 软约束），由 `harness playbook-refresh` 脚本与人工负责更新；chg-05 漂移检测兜底校验路书健康状态。如路书未覆盖，走兜底全局查找后，用 `<!-- TODO: 待补入 code-map -->` 提示用户更新路书，不擅自改路书文件。
 
-### §4 区段级只读语义（req-56 / chg-05 OQ-4=D1 修订）
+### §4 区段级只读语义（req-56 / chg-05 OQ-4=D1 修订 / chg-C 三分类扩展）
 
-路书文件中存在两类机器维护区段，均为**只读**，agent 不得手动编辑：
+路书文件中存在三类区段，按维护方和 check 行为分类：
 
-1. **AUTO 区段只读**：`<!-- AUTO:* -->...<!-- /AUTO:* -->` 区段由 `harness playbook-refresh` 脚本统一维护，刷新时自动覆写。手动修改无效且下次 refresh 会被覆盖，同时触发 `AUTO_SECTION_HASH_DRIFT` 漂移告警。
+#### 机器维护区（用户视角："别动，要更新跑命令"）
 
-2. **LLM 区段只读**：`<!-- LLM:* -->...<!-- /LLM:* -->` 区段由 `harness install` / `harness playbook-refresh` 调用 LLM 填充，agent **不要手动编辑**。手动修改同样触发 `AUTO_SECTION_HASH_DRIFT` 漂移告警。
+1. **AUTO 区段**：`<!-- AUTO:* -->...<!-- /AUTO:* -->` 由 `harness playbook-refresh` 脚本统一维护，刷新时自动覆写。手动修改无效且下次 refresh 会被覆盖，同时触发哈希漂移告警（`AUTO_SECTION_HASH_DRIFT`）。区段命名：STACK / LAYOUT / SCRIPTS / DOMAIN_FILES / DOMAIN_LIST。
 
-3. **TODO 区域可改**：区段外的 TODO 占位（`<!-- TODO: ... -->` 注释、`## 用途描述` 等节下的人工说明行）**用户可改**；agent 默认不改，但用户 explicit 指令后可改。路径约束（§1-§3）沿用，不受 TODO 编辑影响。
+2. **LLM 区段**：`<!-- LLM:* -->...<!-- /LLM:* -->` 由 `harness install` / `harness playbook-refresh` 调用 LLM 填充（NoopProvider 时由 agent 在当前会话接力填充）。agent **不要手动编辑**已由 LLM 填充的内容。区段命名：PROJECT_NAME / OVERVIEW_DESC / TECH_DECISIONS / COMPONENT_RELATIONS / KEY_DEPENDENCIES / QUICK_START / TEST_COMMANDS / DEPLOY_STEPS / FAQ / CODE_MAP_KEYWORDS / ENTRY_POINTS / CONFIG_FILES / TEST_DIRS / DOMAIN_DESC / KEYWORDS / KEY_FILES / DEPENDENCIES / DATA_STRUCTURES / DB_TABLES / DATA_FLOW / CROSS_DOMAIN_NOTES。
 
-**合规与违规示例**（≤ 8 行）：
+#### 人工维护区（用户视角："这是我的地盘，随时可改"）
+
+3. **USER 区段**：`<!-- USER:* -->...<!-- /USER:* -->` 由用户/团队维护，`playbook-check` 永不报漂移（用户随时可改）。只校验 marker 配对完整性（`SEGMENT_UNPAIRED`）。区段命名：RECENT_CHANGES / PENDING_DECISIONS / HISTORY。
+
+#### 工程层行为对照（详见 `.workflow/flow/playbook-layout.md §4/§5/§6`）
+
+| 类型 | marker | check 行为 | refresh 行为 |
+|------|--------|-----------|-------------|
+| AUTO | `<!-- AUTO:* -->` | 哈希漂移检测 + 配对校验 | 脚本自动覆写 |
+| LLM  | `<!-- LLM:* -->` | 配对完整性校验（不哈希，内容每次不同） | LLM 填充（NoopProvider 时 agent 接力） |
+| USER | `<!-- USER:* -->` | 仅配对完整性（永不报漂移） | 不刷新（人工维护） |
+
+**合规与违规示例**：
 
 ```
-✅ 合规：编辑 overview.md "## 最近变更" 段下的 TODO 占位（区段外）
-✅ 合规：用户 explicit 指令后改 overview.md "## 项目名称" 下的人工说明
+✅ 合规：编辑 overview.md <!-- USER:RECENT_CHANGES --> 区段内容（人工维护区，随时可改）
+✅ 合规：用户 explicit 指令后填写 notes.md <!-- USER:PENDING_DECISIONS --> 区段
+✅ 合规：agent 在 install 后接力填充 <!-- LLM:PROJECT_NAME --> 区段（TODO 占位替换）
 ❌ 违规：手动改 <!-- AUTO:STACK --> 区段内的 Maven 版本号（应让 playbook-refresh 重跑）
-❌ 违规：手动改 <!-- LLM:OVERVIEW_DESC --> 区段内的描述文字（应让 install/refresh 重调 LLM）
+❌ 违规：手动改 <!-- LLM:OVERVIEW_DESC --> 区段内已由 LLM 填充的描述文字
+❌ 违规：删除 <!-- USER:HISTORY --> 闭标记（marker 不配对 → SEGMENT_UNPAIRED 报错）
 ```
 
-> 来源：req-55 / chg-02 / req-56 / chg-05 / OQ-1=B / OQ-2=A / OQ-4=D1 / OQ-5=A
+> 来源：req-55 / chg-02 / req-56 / chg-05 / chg-C / OQ-1=B / OQ-2=A / OQ-4=D1 / OQ-5=A
 
 ## 硬门禁十一：上下文规模管理（强制）
 

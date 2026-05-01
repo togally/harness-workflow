@@ -65,3 +65,39 @@ git commit 须经主 agent 明确授权后才允许执行。
 
 ### 来源
 req-55（项目路书Playbook体系；事故时 req-id 为 req-53，因后与远程 main 撞车 rename）并行执行期间，5 次 git reset --hard 抹掉 chg-01（路书目录骨架契约）/ chg-02（baseRole代码加载规则与CLAUDE索引）tracked 文件改动。
+
+---
+
+## 风险四：harness 工作流偏离（速度优先 chg 不立项）
+
+### 场景
+1.0.0 发版前临时收口阶段，主 agent 跳过 harness requirement / change 标准流程，直接派 subagent 实施改动。
+
+### 风险内容
+req-55（项目路书Playbook体系）+ req-56（路书引擎升级）后续的 **chg-A（路书改进 maven nested + 提示句）/ chg-B（清 kimi/qoder + 2 polish）/ chg-C（产品规范完善 + 1.0.0 发版）** 三组改动**未走 harness 立项流程**：
+- 无 harness requirement 立项
+- 无 analysis stage（OQ + default-pick 决策记录）
+- 无标准 chg.md / plan.md
+- 无 testing / acceptance gate runtime.yaml stage 流转
+- 直接 commit + push 到 feature/req-53-playbook
+
+涉及改动规模较大（chg-C 单 chg 14 文件 + 30+ 测试），**严格按规范应作为 req-57（路书产品规范完善 + 1.0.0 发版准备）立项**。
+
+### 缓解 / 决策溯源
+**用户授权速度优先**：1.0.0 关键发版里程碑，速度优先 vs 流程完整性的权衡选择 Plan B（接受偏离），换取尽快在其他项目（PetMallPlatform）中使用 1.0.0 路书功能。
+
+涉及 commit:
+- 79df99e Merge origin/main
+- 04d167a WIP req-55/56
+- c131dfa req-56 完成 + 硬门禁十一
+- b5fb966 req-56 后续完善 + 46 upstream bug
+- 58125b0 fix refresh nested maven
+- 1.0.0 发版（chg-C，本次 commit）
+
+### 后续补救建议
+1.0.0 发版后，下个 req 周期：
+- 反向补 req-57（"路书产品规范完善 + 1.0.0 发版"）的 requirement / chg-A/B/C 的 plan.md 作为审计补档
+- 或在下一个 req 第一个 chg 里 retrofit 此次偏离
+
+### 来源
+1.0.0 发版前临时收口阶段（用户授权速度优先决策，2026-04-30 / 05-01）。

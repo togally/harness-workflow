@@ -3,6 +3,11 @@
 req-56 / chg-05 注释更新：_AUTO_OPEN_RE / _AUTO_CLOSE_RE 正则扩展覆盖 LLM 区段（<!-- LLM:* -->），
 行为基本不变，只扩正则面（AUTO|LLM 命名空间，issue 字符串前缀不变，向后兼容）。
 
+chg-C 注释更新：新增 USER 区段支持（<!-- USER:* -->）。
+  - USER 区段永不报漂移（人工随时可改）
+  - USER 区段 marker 完整性仍校验（SEGMENT_UNPAIRED）
+  - K-01 keyword coverage 扩展到所有 LLM:* 区段（不只 README 职责描述）
+
 检测 artifacts/project/playbooks/ 内路书漂移 + 契约校验（OQ-1=B 路径定位）：
 
   D-01 依赖漂移（DEPENDENCY_DRIFT）
@@ -12,10 +17,11 @@ req-56 / chg-05 注释更新：_AUTO_OPEN_RE / _AUTO_CLOSE_RE 正则扩展覆盖
   D-05 code.md 引用失效（CODE_MD_REF_BROKEN）
   D-06 README 依赖链接失效（README_DEP_BROKEN）
   K-01 关键词覆盖空（KEYWORD_COVERAGE）
-  C-01 AUTO/LLM 区段配对（SEGMENT_UNPAIRED）
+  C-01 AUTO/LLM/USER 区段配对（SEGMENT_UNPAIRED）
   C-03 path schema 锁定（PATH_SCHEMA_VIOLATION）
   C-05 domains 互引一致性（DOMAIN_SUBDIR_MISMATCH）
   AUTO/LLM 区段哈希漂移（OQ-5=A 路书只读软约束 + CI 兜底）
+  USER 区段永不报漂移（人工随时可改）
 
 不调 LLM（纯静态分析，spec §四明示）。
 """
@@ -42,6 +48,10 @@ _BAD_PATH_PATTERN = re.compile(r"artifacts/playbooks/")
 # AUTO/LLM 区段开/闭标记正则（req-56 / chg-05 扩展：覆盖 AUTO 和 LLM 两个命名空间）
 _AUTO_OPEN_RE = re.compile(r"<!--\s*(AUTO|LLM):(\w+)\s*-->")
 _AUTO_CLOSE_RE = re.compile(r"<!--\s*/(AUTO|LLM):(\w+)\s*-->")
+
+# USER 区段开/闭标记正则（chg-C 新增：USER 区段永不报漂移，只校验配对完整性）
+_USER_OPEN_RE = re.compile(r"<!--\s*USER:(\w+)\s*-->")
+_USER_CLOSE_RE = re.compile(r"<!--\s*/USER:(\w+)\s*-->")
 
 
 # ---------------------------------------------------------------------------
@@ -71,9 +81,10 @@ def _find_auto_segments(content: str) -> list[tuple[str, str]]:
 
 
 def _check_auto_pairs(content: str) -> list[str]:
-    """C-01 / C-04：检测 AUTO/LLM 区段配对是否完整，返回缺失配对的 issue 列表。
-    req-56 / chg-05：正则扩展覆盖 LLM 命名空间，issue 字符串前缀不变（向后兼容）。"""
-    # _AUTO_OPEN_RE / _AUTO_CLOSE_RE 返回 (namespace, name) 两元组
+    """C-01 / C-04：检测 AUTO/LLM/USER 区段配对是否完整，返回缺失配对的 issue 列表。
+    req-56 / chg-05：正则扩展覆盖 LLM 命名空间，issue 字符串前缀不变（向后兼容）。
+    chg-C：新增 USER 命名空间配对校验（USER 区段永不报漂移，但 marker 不配对仍报 SEGMENT_UNPAIRED）。"""
+    # _AUTO_OPEN_RE / _AUTO_CLOSE_RE 返回 (namespace, name) 两元组（覆盖 AUTO + LLM）
     open_markers = set(_AUTO_OPEN_RE.findall(content))
     close_markers = set(_AUTO_CLOSE_RE.findall(content))
     issues = []
@@ -81,6 +92,15 @@ def _check_auto_pairs(content: str) -> list[str]:
         issues.append(f"SEGMENT_UNPAIRED: <!-- {ns}:{name} --> 缺少对应 <!-- /{ns}:{name} -->")
     for ns, name in close_markers - open_markers:
         issues.append(f"SEGMENT_UNPAIRED: <!-- /{ns}:{name} --> 缺少对应 <!-- {ns}:{name} -->")
+
+    # USER 区段配对校验（chg-C：永不报漂移，但 marker 不配对仍报 SEGMENT_UNPAIRED）
+    user_open_names = set(_USER_OPEN_RE.findall(content))
+    user_close_names = set(_USER_CLOSE_RE.findall(content))
+    for name in user_open_names - user_close_names:
+        issues.append(f"SEGMENT_UNPAIRED: <!-- USER:{name} --> 缺少对应 <!-- /USER:{name} -->")
+    for name in user_close_names - user_open_names:
+        issues.append(f"SEGMENT_UNPAIRED: <!-- /USER:{name} --> 缺少对应 <!-- USER:{name} -->")
+
     return issues
 
 
@@ -391,9 +411,23 @@ def check_d06_readme_dep_link(root: Path, playbook_root: Path) -> CheckResult:
 # K-01 关键词覆盖检测
 # ---------------------------------------------------------------------------
 
+def _is_llm_section_empty(section_content: str) -> bool:
+    """检测 LLM 区段内容是否仍为 TODO 占位（空 / ≤ 10 字节 / 仅 TODO 注释）。"""
+    stripped = section_content.strip()
+    if len(stripped) <= 10:
+        return True
+    # 仅含 <!-- LLM:* --> 和/或 <!-- TODO: ... --> 注释行
+    # 去掉所有注释行后看是否为空
+    non_comment = re.sub(r'<!--.*?-->', '', stripped, flags=re.DOTALL).strip()
+    if not non_comment:
+        return True
+    return False
+
+
 def check_k01_keyword_coverage(root: Path, playbook_root: Path) -> CheckResult:
     """K-01 KEYWORD_COVERAGE：扫 domains/*/README.md 的 '## 职责描述' 节，
-    全空 / 内容 ≤ 10 字节 / 仅 TODO 占位 → 警告。"""
+    全空 / 内容 ≤ 10 字节 / 仅 TODO 占位 → 警告。
+    chg-C 扩展：同时扫 domains/*/README.md 中 LLM:DOMAIN_DESC 区段（与职责描述节等效）。"""
     issues: list[str] = []
 
     domains_dir = playbook_root / "domains"
@@ -419,7 +453,22 @@ def check_k01_keyword_coverage(root: Path, playbook_root: Path) -> CheckResult:
             continue
 
         desc_content = desc_m.group(1).strip()
-        # 空或 TODO 占位或内容太少
+
+        # chg-C：优先检查 LLM:DOMAIN_DESC 区段内容（若存在）
+        llm_desc_m = re.search(
+            r"<!--\s*LLM:DOMAIN_DESC\s*-->(.*?)<!--\s*/LLM:DOMAIN_DESC\s*-->",
+            desc_content, re.DOTALL
+        )
+        if llm_desc_m:
+            inner = llm_desc_m.group(1)
+            if _is_llm_section_empty(inner):
+                issues.append(
+                    f"empty keywords (K-01): {domain_dir.name}/README.md LLM:DOMAIN_DESC 内容为空或仅 TODO "
+                    f"→ KEYWORD_COVERAGE（建议填写真实职责描述）"
+                )
+            continue
+
+        # 旧式：区段外的职责描述内容
         is_empty = len(desc_content) <= 10
         is_todo = desc_content.startswith("<!--") and "TODO" in desc_content
         is_only_todo = bool(re.match(r'^<!--\s*TODO', desc_content))

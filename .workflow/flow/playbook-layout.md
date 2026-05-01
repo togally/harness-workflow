@@ -242,13 +242,47 @@ AUTO 区段使用 HTML 注释配对定界：
 
 ---
 
-## §6 区段级只读语义注释（req-56 / chg-05 OQ-4=D1 决策）
+## §6 区段级只读语义注释（req-56 / chg-05 OQ-4=D1 决策 / chg-C 三分类扩展）
 
-> 引用：`.workflow/context/roles/base-role.md` 硬门禁十 §4（req-56 / chg-05 修订）
+> 引用：`.workflow/context/roles/base-role.md` 硬门禁十 §4（req-56 / chg-05 / chg-C 修订）
 
-路书文件中存在两类机器维护区段，**playbook-check 均纳入漂移检测**：
+路书文件中存在**三类区段**，按维护方和 check 行为分类：
 
-- `<!-- AUTO:* -->...<!-- /AUTO:* -->`：由 `harness playbook-refresh` 脚本统一维护（§4 AUTO 区段表已列全部标记）
-- `<!-- LLM:* -->...<!-- /LLM:* -->`：由 `harness install` / `harness playbook-refresh` 调用 LLM 填充（req-56 / chg-04 引入）
+### 区段类型规范
 
-两类区段**语法相同、命名空间分离、check 行为相同**：`playbook-check` 的 `_AUTO_OPEN_RE` / `_AUTO_CLOSE_RE` 正则覆盖 `(AUTO|LLM)` 两个命名空间，配对检测（`SEGMENT_UNPAIRED`）与哈希漂移检测（`AUTO_SECTION_HASH_DRIFT`）均生效。区段外的 TODO 占位不受漂移检测影响（agent 默认不改，用户 explicit 指令后可改）。
+#### AUTO 区段（脚本维护）
+
+- **marker 语法**：`<!-- AUTO:NAME -->...<!-- /AUTO:NAME -->`
+- **维护方**：`harness playbook-refresh` 脚本统一维护，刷新时自动覆写
+- **refresh 行为**：每次执行时覆写区段内容（字节级替换）
+- **check 行为**：哈希漂移检测（`AUTO_SECTION_HASH_DRIFT`）+ 配对完整性校验（`SEGMENT_UNPAIRED`）
+- **用户使用场景**：只读，不要手动改；内容不对时跑 `harness playbook-refresh`
+- **区段名清单**：STACK / LAYOUT / SCRIPTS / DOMAIN_FILES / DOMAIN_LIST
+
+#### LLM 区段（模型填充）
+
+- **marker 语法**：`<!-- LLM:NAME -->...<!-- /LLM:NAME -->`
+- **维护方**：`harness install` / `harness playbook-refresh` 调用 LLM 填充；NoopProvider 时由 agent（Claude Code / Codex）在当前会话接力填充
+- **refresh 行为**：有 LLM provider 时覆写；NoopProvider 时输出强提示句让 agent 接力
+- **check 行为**：配对完整性校验（`SEGMENT_UNPAIRED`）；不做哈希漂移（因模型输出每次不同）
+- **用户使用场景**：初始为 TODO 占位，由 agent / LLM 填充；填充后不要手动改（会被 refresh 覆写）
+- **区段名清单**：PROJECT_NAME / OVERVIEW_DESC / TECH_DECISIONS / COMPONENT_RELATIONS / KEY_DEPENDENCIES / QUICK_START / TEST_COMMANDS / DEPLOY_STEPS / FAQ / CODE_MAP_KEYWORDS / ENTRY_POINTS / CONFIG_FILES / TEST_DIRS / DOMAIN_DESC / KEYWORDS / KEY_FILES / DEPENDENCIES / DATA_STRUCTURES / DB_TABLES / DATA_FLOW / CROSS_DOMAIN_NOTES
+
+#### USER 区段（人工维护）
+
+- **marker 语法**：`<!-- USER:NAME -->...<!-- /USER:NAME -->`
+- **维护方**：用户 / 团队，随时可编辑
+- **refresh 行为**：不刷新（`harness playbook-refresh` 完全跳过 USER 区段）
+- **check 行为**：仅配对完整性校验（`SEGMENT_UNPAIRED`）；**永不报漂移**（用户随时可改内容）
+- **用户使用场景**：团队历史背景、待决策事项、最近变更等人工记录，全权归用户维护
+- **区段名清单**：RECENT_CHANGES / PENDING_DECISIONS / HISTORY
+
+### 三类区段对照表
+
+| 类型 | marker 语法 | 维护方 | refresh 行为 | check 漂移检测 | 配对校验 |
+|------|------------|--------|-------------|--------------|---------|
+| **AUTO** | `<!-- AUTO:* -->` | 脚本 | 自动覆写 | 哈希漂移（`AUTO_SECTION_HASH_DRIFT`） | 必须（`SEGMENT_UNPAIRED`） |
+| **LLM**  | `<!-- LLM:* -->` | LLM/agent | LLM 填充 | 仅配对（不哈希） | 必须（`SEGMENT_UNPAIRED`） |
+| **USER** | `<!-- USER:* -->` | 用户/团队 | 不刷新 | **永不报漂移** | 必须（`SEGMENT_UNPAIRED`） |
+
+**注意**：所有三类区段的 marker 必须配对（`<!-- X:NAME -->` 与 `<!-- /X:NAME -->` 同时存在），否则 `playbook-check` 报 `SEGMENT_UNPAIRED`。区段外的 TODO 占位不受任何漂移检测影响。

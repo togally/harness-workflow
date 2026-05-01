@@ -66,24 +66,28 @@ def _make_playbook_with_llm_section(root: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 def test_tc01_base_role_text_lint():
-    """TC-01 base-role 文字 lint: 命中三个语义关键词
+    """TC-01 base-role 文字 lint: 命中四个语义关键词（chg-C 三分类扩展后更新）
 
     grep 命中：
-      1. "AUTO 区段只读"
-      2. "TODO 区域可改"
-      3. "agent 默认不改"
+      1. "AUTO 区段" (脚本维护区)
+      2. "LLM 区段" (模型填充区)
+      3. "USER 区段" (人工维护区)
+      4. "agent 不要手动编辑"
     """
     assert _BASE_ROLE_PATH.exists(), f"base-role.md not found at {_BASE_ROLE_PATH}"
     text = _BASE_ROLE_PATH.read_text(encoding="utf-8")
 
-    assert "AUTO 区段只读" in text, (
-        f"Expected 'AUTO 区段只读' in base-role.md §4"
+    assert "AUTO 区段" in text, (
+        f"Expected 'AUTO 区段' in base-role.md §4"
     )
-    assert "TODO 区域可改" in text, (
-        f"Expected 'TODO 区域可改' in base-role.md §4"
+    assert "LLM 区段" in text, (
+        f"Expected 'LLM 区段' in base-role.md §4"
     )
-    assert "agent 默认不改" in text, (
-        f"Expected 'agent 默认不改' in base-role.md §4"
+    assert "USER 区段" in text, (
+        f"Expected 'USER 区段' in base-role.md §4"
+    )
+    assert "不要手动编辑" in text, (
+        f"Expected '不要手动编辑' in base-role.md §4"
     )
 
 
