@@ -1,0 +1,31 @@
+# Regression Required Inputs
+
+When compilation fails, startup fails, or user-supplied data is required before the investigation can continue, the AI must fill out this file first and only then ask the human to complete it.
+If startup logs, compile output, test failures, or stack traces are already available locally, the AI should collect and analyze them first instead of asking the human for those local artifacts.
+
+## 1. Current Problem
+
+- Issue summary:
+- Related regression:
+- Linked change:
+
+## 2. Required Human Inputs
+
+| Item | Required | Notes |
+| --- | --- | --- |
+| Configuration | yes/no | env vars, config fields, secrets, etc. |
+| Test data | yes/no | sample requests, records, fixtures |
+| Account details | yes/no | test account, permissions, scopes |
+| External dependency details | yes/no | endpoints, callback params, third-party settings |
+
+## 3. Human Response Section
+
+- Configuration:
+- Test data:
+- Account details:
+- External dependency details:
+
+## 4. Next Step
+
+- After the human fills this file, read it again
+- Return to the current regression and continue confirmation or repair

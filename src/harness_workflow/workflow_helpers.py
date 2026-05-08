@@ -318,6 +318,24 @@ def _parse_simple_yaml_scalar(value: str) -> object:
             return json.loads(text)
         except json.JSONDecodeError:
             return text.strip('"')
+    # bugfix-11 / B1 self-heal：剥除被 pyyaml 单引号包裹并与 simple_yaml double-quote
+    # round-trip 累积的多重单引号污染层。pyyaml 用 '...' 包字符串；simple_yaml 读不剥
+    # 单引号，再写时 json.dumps 加双引号，成 "'...'"；下次 pyyaml safe_load 又转义
+    # 字面单引号变 '''...'''，如此循环。修复：load 时成对剥除外层单引号，直到剥不动为止。
+    if text.startswith("'") and text.endswith("'") and len(text) >= 2:
+        # 成对剥层：每次剥一对外层单引号
+        inner = text
+        while inner.startswith("'") and inner.endswith("'") and len(inner) >= 2:
+            candidate = inner[1:-1]
+            # pyyaml 用 '' 表示字面单引号，所以剥后内容不应再有首尾单引号时停止
+            # 但若剥后变成空串也停止
+            if candidate == inner:
+                break
+            inner = candidate
+            if not (inner.startswith("'") and inner.endswith("'")):
+                break
+        # inner 是剥干净的字符串
+        text = inner
     if text.lower() == "true":
         return True
     if text.lower() == "false":
@@ -344,14 +362,27 @@ def load_simple_yaml(path: Path) -> dict[str, object]:
         if not stripped or stripped.startswith("#"):
             continue
         indent = len(line) - len(line.lstrip())
-        if current_collection_key and indent > collection_indent:
+        # bugfix-11 / B3：兼容 pyyaml block-seq 0 缩进（list item 与父 key 同 indent=0）。
+        # 原判定 indent > collection_indent 不兼容 pyyaml 默认的 0 缩进 dash 行；
+        # 改为 indent >= collection_indent，让 dash 行在与父 key 同缩进时也被识别。
+        if current_collection_key and indent >= collection_indent:
             if stripped.startswith("- "):
-                if not isinstance(payload.get(current_collection_key), list):
-                    payload[current_collection_key] = []
-                payload[current_collection_key].append(_parse_simple_yaml_scalar(stripped[2:].strip()))
-                current_sub_key = ""
+                item_val = _parse_simple_yaml_scalar(stripped[2:].strip())
+                parent = payload.get(current_collection_key)
+                if current_sub_key and isinstance(parent, dict):
+                    # 嵌套 dict 内 list（如 gstack_status.installed_skills: [...]）：
+                    # - item 行追加到 dict[sub_key]，而非父 dict 本身。
+                    sub_list = parent.get(current_sub_key)
+                    if not isinstance(sub_list, list):
+                        parent[current_sub_key] = []
+                    parent[current_sub_key].append(item_val)
+                else:
+                    if not isinstance(payload.get(current_collection_key), list):
+                        payload[current_collection_key] = []
+                    payload[current_collection_key].append(item_val)
+                    current_sub_key = ""
                 continue
-            if ":" in stripped:
+            if ":" in stripped and indent > collection_indent:
                 if not isinstance(payload.get(current_collection_key), dict):
                     payload[current_collection_key] = {}
                 # 若当前有子 dict key 且 indent 更深，写入子 dict
@@ -662,6 +693,9 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
     # req-30 / chg-01：*_title 字段紧邻对应 id 字段，保持字段顺序稳定可读。
     # req-38 / chg-03：stage_pending_user_action 字段——值为 None 或 {type, details} dict；
     # 旧 runtime.yaml 无该键时 load 返回 None，不抛异常（用 .get 读取）。
+    # bugfix-11 / B2：ordered_keys 白名单补全 gstack_status / gstack_run_log。
+    # 原白名单遗漏这两个 chg-01 新增字段，导致 save_requirement_runtime 调用时
+    # 静默裁剪 _write_gstack_status 写入的 gstack_status 段。
     save_simple_yaml(
         root / STATE_RUNTIME_PATH,
         payload,
@@ -682,6 +716,8 @@ def save_requirement_runtime(root: Path, runtime: dict[str, object]) -> None:
             "ff_stage_history",
             "active_requirements",
             "stage_pending_user_action",
+            "gstack_status",
+            "gstack_run_log",
         ],
     )
 
@@ -8351,25 +8387,30 @@ def _write_gstack_status(root: Path, status: dict) -> None:
     """Write gstack_status (and optionally gstack_run_log) to runtime.yaml.
 
     req-55 / chg-01 / Step 5: runtime.yaml schema 扩展
+    bugfix-11 / 方案 B（统一 writer）：改为走 save_requirement_runtime 单一写盘点。
+    原实现用 yaml.safe_load + yaml.dump 直写，与 simple_yaml writer 不兼容，造成
+    B1（多重 quote 累积）/ B2（gstack_status 被裁剪）/ B3（active_requirements 清空）
+    三个 bug。现在统一走 load_requirement_runtime → 修改字段 → save_requirement_runtime
+    路径，消除双 writer round-trip 不闭合问题。
     """
     runtime_path = root / STATE_RUNTIME_PATH
     if not runtime_path.exists():
         return
     try:
-        data = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+        # 用 simple_yaml 单一读路径加载（自带 self-heal 剥单引号污染）
+        runtime = load_requirement_runtime(root)
+        # 分离 gstack_run_log（允许 status 含 gstack_run_log 键）
         run_log = status.pop("gstack_run_log", None)
-        data["gstack_status"] = status
+        runtime["gstack_status"] = status
         if run_log:
-            existing_log = data.get("gstack_run_log") or []
+            existing_log = runtime.get("gstack_run_log") or []
             if isinstance(existing_log, list):
-                existing_log.extend(run_log)
+                existing_log = list(existing_log) + list(run_log)
             else:
-                existing_log = run_log
-            data["gstack_run_log"] = existing_log
-        runtime_path.write_text(
-            yaml.dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False),
-            encoding="utf-8",
-        )
+                existing_log = list(run_log)
+            runtime["gstack_run_log"] = existing_log
+        # 走统一 writer，ordered_keys 白名单已包含 gstack_status / gstack_run_log
+        save_requirement_runtime(root, runtime)
     except Exception as exc:  # noqa: BLE001
         print(f"[gstack] WARN: failed to write gstack_status to runtime.yaml: {exc}", file=sys.stderr)
 

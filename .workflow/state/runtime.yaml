@@ -1,9 +1,9 @@
-operation_type: "requirement"
-operation_target: "req-55"
-current_requirement: "req-54"
-current_requirement_title: "硬门禁体系简化-砍4条降级-加1条项目级brief强约束"
+operation_type: "bugfix"
+operation_target: "bugfix-11"
+current_requirement: "bugfix-11"
+current_requirement_title: "install runtime.yaml 反写 3 bug：gstack_status 丢失 + 多重 quote + active_requirements 清空"
 stage: "done"
-stage_entered_at: "2026-05-08T03:30:00.000000+00:00"
+stage_entered_at: "2026-05-08T09:00:17.741413+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -13,4 +13,56 @@ current_regression_title: ""
 ff_mode: false
 ff_stage_history: []
 active_requirements:
-  - req-54
+  - bugfix-11
+gstack_status:
+  installed_skills:
+    - autoplan
+    - benchmark
+    - benchmark-models
+    - browse
+    - canary
+    - careful
+    - codex
+    - connect-chrome
+    - context-restore
+    - context-save
+    - cso
+    - design-consultation
+    - design-html
+    - design-review
+    - design-shotgun
+    - devex-review
+    - document-release
+    - freeze
+    - gstack-upgrade
+    - guard
+    - health
+    - investigate
+    - land-and-deploy
+    - landing-report
+    - learn
+    - make-pdf
+    - office-hours
+    - open-gstack-browser
+    - pair-agent
+    - plan-ceo-review
+    - plan-design-review
+    - plan-devex-review
+    - plan-eng-review
+    - plan-tune
+    - qa
+    - qa-only
+    - retro
+    - review
+    - scrape
+    - setup-browser-cookies
+    - setup-deploy
+    - setup-gbrain
+    - ship
+    - skillify
+    - sync-gbrain
+    - unfreeze
+  vendor_version: "c7aefc1abd57733848f24ee84b85d691b2973155"
+  last_install: "2026-05-08T08:58:39.110598+00:00"
+  agent_kind_compatible: true
+gstack_run_log: []
