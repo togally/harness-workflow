@@ -181,11 +181,20 @@ def main() -> int:
         action="store_true",
         help="Refresh all agents/platforms (compatibility escape hatch; overrides active_agent).",
     )
+    parser.add_argument(
+        "--force-gstack",
+        action="store_true",
+        help=(
+            "Overwrite existing gstack skills in ~/.claude/skills/ even when SKILL.md hash differs. "
+            "By default, conflicting skills are skipped with a warning. "
+            "(req-55 / chg-01: gstack install 自动装载冲突处理)"
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
     # 1) install_agent：写入 agent 配置 + skill 文件
-    rc = install_agent(root, args.agent)
+    rc = install_agent(root, args.agent, force_gstack=getattr(args, "force_gstack", False))
     if rc != 0:
         return rc
     # 2) install_repo：同步契约的真入口（reg-02 根因 A 收口）

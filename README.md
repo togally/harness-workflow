@@ -217,3 +217,73 @@ harness pad
 | tool | `artifacts/project/tools/{slug}.md` |
 
 命令成功后会自动 `git add`；user 仅需 `git commit -m "..."`（按 stdout 提示）。
+
+---
+
+## Third-party Vendored Skills
+
+harness-workflow bundles a vendored snapshot of **[gstack](https://github.com/garrytan/gstack)** — a YC-style engineering assist skill collection (MIT license, 46 skills). When you run `harness install --agent claude`, all gstack skills are automatically pushed to `~/.claude/skills/` so you can invoke any gstack skill directly in Claude Code without additional setup.
+
+### Bundled Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `office-hours` | YC-style startup/project brainstorming with forcing questions |
+| `investigate` | Deep technical investigation and root-cause analysis |
+| `qa` | Quality assurance and test-case driven reviews |
+| `review` | Code review with opinionated feedback |
+| `codex` | Autonomous multi-step coding with a scratchpad |
+| `plan-eng-review` | Engineering manager–mode plan review and architecture lock-in |
+| `plan-ceo-review` | CEO-mode product review with strategic alignment check |
+| `plan-design-review` | Design review for UI/UX decisions |
+| `ship` | End-to-end ship workflow (build → test → deploy) |
+| `canary` | Canary release and gradual rollout management |
+| `land-and-deploy` | Landing and deployment pipeline helper |
+| `retro` | Sprint retrospective facilitation |
+| `browse` | Structured web browsing with scraping |
+| `scrape` | Web scraping for data extraction |
+| `design-consultation` | Design thinking consultation |
+| `design-html` | Rapid HTML/CSS prototyping |
+| `design-review` | Visual design review |
+| `design-shotgun` | Multi-option design exploration |
+| `devex-review` | Developer experience review |
+| `autoplan` | Automatic planning from a spec or requirements |
+| `benchmark` | Performance benchmarking |
+| `benchmark-models` | LLM model benchmarking |
+| `careful` | Careful, step-by-step execution with safety gates |
+| `freeze` / `unfreeze` | Freeze/unfreeze repository state |
+| `guard` | Guard rails and safety checks |
+| `health` | Project health check |
+| `learn` | Structured learning and knowledge capture |
+| `make-pdf` | PDF generation from markdown |
+| `pair-agent` | Pair-programming with a second agent |
+| `context-save` / `context-restore` | Save and restore agent context |
+| `gstack-upgrade` | Upgrade gstack to latest version |
+| `setup-deploy` | Deployment setup wizard |
+| `setup-gbrain` | gbrain integration setup |
+| `setup-browser-cookies` | Browser cookie configuration |
+| `sync-gbrain` | Sync with gbrain knowledge base |
+| `document-release` | Release note documentation |
+| `landing-report` | Landing page analysis report |
+| `cso` | Chief strategy officer–mode strategic review |
+| `open-gstack-browser` | Open gstack browser integration |
+| `connect-chrome` | Connect to a Chrome DevTools Protocol instance |
+| `plan-devex-review` | Developer experience plan review |
+| `plan-tune` | Plan tuning and refinement |
+| `qa-only` | QA-only mode without code changes |
+| `skillify` | Convert a prompt into a reusable skill |
+
+### Attribution
+
+```
+gstack — MIT License
+Copyright (c) 2026 Garry Tan
+https://github.com/garrytan/gstack
+
+Vendored snapshot: commit c7aefc1 (2026-05-07)
+Full license: src/harness_workflow/assets/gstack-skills/_shared/LICENSE-gstack
+```
+
+> The vendored copy includes only `SKILL.md` files and supporting `references/`/`scripts/` subdirectories, plus shared `bin/`, `agents/`, and `scripts/` runtime resources. Build artifacts, `node_modules`, `.git`, and `contrib/` are excluded.
+>
+> To re-vendor or upgrade: `scripts/vendor-gstack.sh --all <commit> --from-local <path>`

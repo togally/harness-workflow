@@ -7,3 +7,9 @@ current_regression: ""
 ff_mode: false
 ff_stage_history: []
 active_requirements: []
+gstack_status:
+  installed_skills: []
+  vendor_version: ""
+  last_install: ""
+  agent_kind_compatible: false
+gstack_run_log: []

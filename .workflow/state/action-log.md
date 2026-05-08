@@ -63,3 +63,31 @@
 - sug 入池 0 条: chg-02 executing §3.6.2 虚报（同 sug-67/68/69 同型，第 7+ 次复发，不重复入池） / acceptance subagent 写错 checklist 路径（同型变种，不重复入池） / archive CLI bug runtime 异常切换（与 sug-65 同型第 2 次复发，不重复入池）。建议将 sug-67/68/69/70 + 本周期 2 次同型合并升级为专项 req（硬门禁九成文化）；建议将 sug-65 升级为 bugfix（archive CLI 多 active 推进异常清空 runtime）。
 - archive 建议: bugfix-11 + bugfix-12 + bugfix-13 + req-51 + req-52 + req-53 + req-54 七件均已 done，建议**一起 archive**；done 阶段不动，等用户后续显式触发 `harness archive`。
 
+
+## [2026-05-07] /harness-requirement 路由 + req-55 创建 + analyst 派发
+
+- **命令**: harness requirement "gstack 和 harness 工作流融合（开发承载分支 harness-gstack）"
+- **结果**: 成功
+- **详情**:
+  - 用户操作层指令：main checkout -b harness-gstack ✓（已执行）
+  - CLI 创建 req-55 骨架 ✓（requirement.md 模板 + state yaml）
+  - runtime.yaml 切到 current_requirement=req-55, stage=analysis ✓
+  - 派发 analyst（Opus 4.7）做需求澄清 ✓
+  - briefing 含硬门禁八项目级加载链段 ✓
+  - 产出核查（硬门禁九）通过，发现 1 处轻微表述偏差（已记入 session-memory）
+  - analyst 抛出 Q1~Q5 + default-pick，按 stage_policies analysis=user 停下
+- **session-memory**: .workflow/flow/requirements/req-55-.../session-memory.md
+- **下一步**: 等用户答 Q1~Q5，analyst 据此正式落 requirement.md + change.md + plan.md
+
+## [2026-05-07] chg-05 候选 R → P 修正（第 8 轮用户洞察）
+
+- **命令**: 用户对话内修正（非 harness CLI 命令）
+- **结果**: 成功
+- **详情**:
+  - 用户提问 "那我是不是不应该用 /office-hours 而是应该用 harness-requirement" 暴露 chg-05 候选 R 设计 bug
+  - 候选 R（用 req-55 自适用）跳过融合入口（/harness-requirement → harness-manager → analyst Step A1.5 主动触发链），只验证 office-hours + adapter 函数本身
+  - 候选 P（用下一个真实 /harness-requirement 触发的 req-56+ 端到端兑现）才是融合机制真活证
+  - 修正：chg-05 change.md / plan.md 重写为候选 P；落地形态 = req-55 周期内仅做 deferred 承诺 + retro 模板段预埋；真活证由下一个真实 req 自然兑现
+  - 主 session-memory.md §8.B.第 8 轮段已追加修正记录
+  - chg-01/02/04 已落地产物不受影响（恰是候选 P 要验证的产物）
+- **影响**: 不需 enter regression（文档级修正，不涉及代码）；executing stage 进度仍 3/4，chg-05 待派发

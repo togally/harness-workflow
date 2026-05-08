@@ -1,0 +1,14 @@
+# .workflow/context/integrations/gstack/role-command-map.yaml
+# gstack-harness 角色映射表（req-55 chg-02 立柱；后续 req 渐进扩展）
+# 格式：role_key → primary_skill: gstack skill 名（无 / 前缀）+ alternates: [备选 skill 列表]
+
+roles:
+  analyst:
+    primary_skill: office-hours
+    alternates: []  # 后续可加 plan-ceo-review / plan-eng-review
+
+# 渐进扩展计划（路标，不在本 req 落地）：
+# - req-56: executing → /investigate
+# - req-57: testing → /qa
+# - req-58: acceptance → /review
+# - req-59: regression → /codex

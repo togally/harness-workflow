@@ -1,9 +1,9 @@
 operation_type: "requirement"
-operation_target: "req-54"
-current_requirement: "req-54"
-current_requirement_title: "硬门禁体系简化-砍4条降级-加1条项目级brief强约束"
+operation_target: "req-55"
+current_requirement: "req-55"
+current_requirement_title: "gstack 和 harness 工作流融合（开发承载分支 harness-gstack）"
 stage: "done"
-stage_entered_at: "2026-04-30T11:16:37.623997+00:00"
+stage_entered_at: "2026-05-08T03:30:00.000000+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -14,3 +14,10 @@ ff_mode: false
 ff_stage_history: []
 active_requirements:
   - req-54
+  - req-55
+gstack_status:
+  installed_skills: []
+  vendor_version: ""
+  last_install: ""
+  agent_kind_compatible: false
+gstack_run_log: []

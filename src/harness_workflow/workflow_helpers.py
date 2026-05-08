@@ -38,6 +38,8 @@ PACKAGE_FS_ROOT = Path(__file__).resolve().parent
 SKILL_ROOT = PACKAGE_ROOT.joinpath("assets", "skill")
 TEMPLATE_ROOT = SKILL_ROOT.joinpath("assets", "templates")
 SCAFFOLD_V2_ROOT = PACKAGE_FS_ROOT / "assets" / "scaffold_v2"
+# req-55 / chg-01: gstack vendored skills root
+GSTACK_SKILLS_ROOT = PACKAGE_FS_ROOT / "assets" / "gstack-skills"
 HARNESS_DIR = Path(".codex") / "harness"
 MANAGED_STATE_PATH = HARNESS_DIR / "managed-files.json"
 CONFIG_PATH = HARNESS_DIR / "config.json"
@@ -74,6 +76,14 @@ DEFAULT_STATE_RUNTIME = {
     "ff_mode": False,
     "ff_stage_history": [],
     "active_requirements": [],
+    # req-55 / chg-01: gstack install 状态追踪
+    "gstack_status": {
+        "installed_skills": [],
+        "vendor_version": "",
+        "last_install": "",
+        "agent_kind_compatible": False,
+    },
+    "gstack_run_log": [],
 }
 # bugfix-11（PetMallPlatform-artifacts误放机器型流程文档）/ 方向C（废弃三段式分水岭）：
 # 三级布局常量（数字阈值分水岭）已被删除。
@@ -7963,12 +7973,177 @@ def get_agent_skill_path(root: Path, agent: str) -> Path:
     return agent_dir_map.get(agent, root / f".{agent}" / "skills" / "harness")
 
 
-def install_agent(root: Path, agent: str) -> int:
+# ---------------------------------------------------------------------------
+# req-55 / chg-01: gstack skills push logic
+# ---------------------------------------------------------------------------
+
+def _file_md5(path: Path) -> str:
+    """Return hex MD5 of a file's content (for conflict detection)."""
+    import hashlib as _hashlib
+    h = _hashlib.md5()
+    h.update(path.read_bytes())
+    return h.hexdigest()
+
+
+def _install_gstack_skills(
+    target_root: Path,
+    force: bool = False,
+) -> dict:
+    """Push vendored gstack skills to target_root (~/.claude/skills/).
+
+    req-55 / chg-01: vendor 全 skill + harness install 自动装载
+
+    Behaviour:
+    - Copies each skill directory from GSTACK_SKILLS_ROOT to target_root/<skill-name>/
+    - Copies _shared/{bin,agents,scripts,LICENSE-gstack,VERSION-gstack} to
+      target_root/gstack/{bin,agents,scripts,...} (matching SKILL.md hardcoded paths)
+    - Conflict detection: if SKILL.md already exists at destination with a different
+      MD5 hash, default = warn + skip; force=True = overwrite
+    - Failure isolation: single-skill copy failure → warn + record in gstack_failures;
+      does NOT block install of remaining skills
+
+    Args:
+        target_root: Destination root (default caller: Path.home() / ".claude" / "skills")
+        force: If True, overwrite existing SKILL.md even when hash differs
+
+    Returns:
+        dict with keys:
+            installed_skills: list[str]   — skill names successfully pushed
+            skipped_skills: list[str]     — skills skipped due to conflict (force=False)
+            gstack_failures: list[dict]   — failures {skill, reason, timestamp}
+            vendor_version: str           — commit hash from _shared/VERSION-gstack
+            agent_kind_compatible: bool   — always True when this function is called
+    """
+    from datetime import datetime, timezone
+
+    result: dict = {
+        "installed_skills": [],
+        "skipped_skills": [],
+        "gstack_failures": [],
+        "vendor_version": "",
+        "agent_kind_compatible": True,
+    }
+
+    if not GSTACK_SKILLS_ROOT.exists():
+        print(
+            "[gstack] WARN: GSTACK_SKILLS_ROOT not found; skipping gstack skill push. "
+            f"Expected: {GSTACK_SKILLS_ROOT}",
+            file=sys.stderr,
+        )
+        return result
+
+    # Read vendor_version from _shared/VERSION-gstack
+    shared_root = GSTACK_SKILLS_ROOT / "_shared"
+    version_file = shared_root / "VERSION-gstack"
+    if version_file.exists():
+        for line in version_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("commit:"):
+                result["vendor_version"] = line.split(":", 1)[1].strip()
+                break
+
+    # 1) Push each skill directory
+    for skill_src in sorted(GSTACK_SKILLS_ROOT.iterdir()):
+        if skill_src.name == "_shared" or not skill_src.is_dir():
+            continue
+        skill_md = skill_src / "SKILL.md"
+        if not skill_md.exists():
+            continue
+        skill_name = skill_src.name
+        dest_dir = target_root / skill_name
+        dest_skill_md = dest_dir / "SKILL.md"
+        try:
+            # Conflict check
+            if dest_skill_md.exists():
+                src_hash = _file_md5(skill_md)
+                dst_hash = _file_md5(dest_skill_md)
+                if src_hash == dst_hash:
+                    # Identical — no-op, count as installed (idempotent)
+                    result["installed_skills"].append(skill_name)
+                    continue
+                if not force:
+                    print(
+                        f"[gstack] WARN: ~/.claude/skills/{skill_name}/SKILL.md already exists "
+                        f"with different content; skipping (use harness install --force-gstack to overwrite)",
+                        file=sys.stderr,
+                    )
+                    result["skipped_skills"].append(skill_name)
+                    continue
+                # force=True: remove existing skill dir to do a clean copy
+                # Protect user's .git / build / node_modules (plan.md default-pick)
+                for entry in dest_dir.iterdir():
+                    if entry.name in {".git", "build", "node_modules", "dist"}:
+                        continue  # preserve user work-tree artifacts
+                    if entry.is_dir():
+                        shutil.rmtree(entry)
+                    else:
+                        entry.unlink()
+
+            # Copy skill directory content
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            for item in skill_src.iterdir():
+                dest_item = dest_dir / item.name
+                if item.is_dir():
+                    if dest_item.exists():
+                        shutil.rmtree(dest_item)
+                    shutil.copytree(item, dest_item)
+                else:
+                    shutil.copy2(item, dest_item)
+            # Also push LICENSE-gstack to each skill dir for per-skill attribution
+            license_src = shared_root / "LICENSE-gstack"
+            if license_src.exists():
+                shutil.copy2(license_src, dest_dir / "LICENSE-gstack")
+            result["installed_skills"].append(skill_name)
+        except Exception as exc:  # noqa: BLE001
+            ts = datetime.now(timezone.utc).isoformat()
+            print(f"[gstack] WARN: failed to push skill '{skill_name}': {exc}", file=sys.stderr)
+            result["gstack_failures"].append(
+                {"skill": skill_name, "reason": str(exc), "timestamp": ts}
+            )
+
+    # 2) Push shared resources to target_root/gstack/{bin,agents,scripts,...}
+    # SKILL.md files hard-code ~/.claude/skills/gstack/bin/gstack-* paths
+    if shared_root.exists():
+        gstack_shared_dest = target_root / "gstack"
+        try:
+            gstack_shared_dest.mkdir(parents=True, exist_ok=True)
+            for item in shared_root.iterdir():
+                dest_item = gstack_shared_dest / item.name
+                if item.is_dir():
+                    if dest_item.exists() and not force:
+                        pass  # leave existing bin/agents/scripts intact unless forced
+                    else:
+                        if dest_item.exists():
+                            shutil.rmtree(dest_item)
+                        shutil.copytree(item, dest_item)
+                else:
+                    if not dest_item.exists() or force:
+                        shutil.copy2(item, dest_item)
+        except Exception as exc:  # noqa: BLE001
+            ts = datetime.now(timezone.utc).isoformat()
+            print(f"[gstack] WARN: failed to push shared resources: {exc}", file=sys.stderr)
+            result["gstack_failures"].append(
+                {"skill": "_shared", "reason": str(exc), "timestamp": ts}
+            )
+
+    pushed_count = len(result["installed_skills"])
+    skipped_count = len(result["skipped_skills"])
+    failed_count = len(result["gstack_failures"])
+    print(
+        f"[gstack] Pushed {pushed_count} skills to {target_root}"
+        + (f"; {skipped_count} skipped (conflict)" if skipped_count else "")
+        + (f"; {failed_count} failed (see gstack_run_log)" if failed_count else "")
+    )
+    return result
+
+
+def install_agent(root: Path, agent: str, force_gstack: bool = False) -> int:
     """Install harness skill to target agent directory.
 
     Args:
         root: Repository root
         agent: Target agent (kimi, claude, codex, qoder)
+        force_gstack: If True, overwrite existing gstack SKILL.md even on hash conflict
+                      (req-55 / chg-01: --force-gstack flag)
 
     Returns:
         0 on success, non-zero on failure
@@ -8135,7 +8310,68 @@ def install_agent(root: Path, agent: str) -> int:
         # 持久化失败不应中断 install（已完成的 skill 安装有效），打印警告即可
         print(f"Warning: failed to persist active_agent={agent} to platforms.yaml: {exc}")
 
+    # req-55 / chg-01: push gstack skills to ~/.claude/skills/ for claude agents
+    gstack_status: dict | None = None
+    if agent == "claude":
+        claude_skills_root = Path.home() / ".claude" / "skills"
+        gstack_result = _install_gstack_skills(
+            target_root=claude_skills_root,
+            force=force_gstack,
+        )
+        # Write gstack_status to runtime.yaml
+        gstack_status = {
+            "installed_skills": gstack_result["installed_skills"],
+            "vendor_version": gstack_result["vendor_version"],
+            "last_install": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
+            "agent_kind_compatible": True,
+        }
+        if gstack_result["gstack_failures"]:
+            gstack_status["gstack_run_log"] = gstack_result["gstack_failures"]
+        _write_gstack_status(root, gstack_status)
+    else:
+        print(
+            f"[gstack] INFO: gstack skills only push to claude agents, skipping (agent={agent})",
+            file=sys.stderr,
+        )
+        _write_gstack_status(root, {
+            "installed_skills": [],
+            "vendor_version": "",
+            "last_install": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
+            "agent_kind_compatible": False,
+        })
+
     return 0
+
+
+def _write_gstack_status(root: Path, status: dict) -> None:
+    """Write gstack_status (and optionally gstack_run_log) to runtime.yaml.
+
+    req-55 / chg-01 / Step 5: runtime.yaml schema 扩展
+    """
+    runtime_path = root / STATE_RUNTIME_PATH
+    if not runtime_path.exists():
+        return
+    try:
+        data = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+        run_log = status.pop("gstack_run_log", None)
+        data["gstack_status"] = status
+        if run_log:
+            existing_log = data.get("gstack_run_log") or []
+            if isinstance(existing_log, list):
+                existing_log.extend(run_log)
+            else:
+                existing_log = run_log
+            data["gstack_run_log"] = existing_log
+        runtime_path.write_text(
+            yaml.dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False),
+            encoding="utf-8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[gstack] WARN: failed to write gstack_status to runtime.yaml: {exc}", file=sys.stderr)
 
 
 def scan_project(root: Path) -> int:

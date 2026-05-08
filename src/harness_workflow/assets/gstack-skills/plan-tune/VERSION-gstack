@@ -1,0 +1,4 @@
+upstream_url: https://github.com/garrytan/gstack
+commit: c7aefc1abd57733848f24ee84b85d691b2973155
+vendor_timestamp: 2026-05-07T13:51:19Z
+notes: "Vendored by scripts/vendor-gstack.sh into harness-workflow assets."
