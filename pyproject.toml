@@ -57,5 +57,11 @@ harness_workflow = [
   # 易漏（reg-02 实证 14 类漏装），统一改为 `**/*` 全量 glob，setuptools >= 69
   # 原生支持。配套契约测试 tests/test_package_data_completeness.py。
   "assets/scaffold_v2/.workflow/**/*",
+  # req-55（gstack 和 harness 工作流融合（开发承载分支 harness-gstack））/ chg-01
+  # 漏装事故修复（archive 后发现）：vendor 副本 assets/gstack-skills/（含 _shared/
+  # 顶层共享 + 46 个 skill 子目录）必须打入 wheel，否则 install_agent 推送时
+  # _install_gstack_skills 找不到 GSTACK_SKILLS_ROOT 走 fallback warn skip。
+  # 与 chg-08 / reg-02（packaging 漏装 14 类）同型病；统一 **/* 全量 glob。
+  "assets/gstack-skills/**/*",
   "harness_workflow/tools/*.py",
 ]
