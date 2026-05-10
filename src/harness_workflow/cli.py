@@ -140,7 +140,16 @@ def prompt_requirement_selection(requirements: list[dict], preselect: str | None
         }
         for r in requirements
     ]
-    default_value = preselect if preselect and any(r["req_id"] == preselect for r in requirements) else requirements[0]["req_id"]
+    if preselect and not any(r["req_id"] == preselect for r in requirements):
+        available = ", ".join(r["req_id"] for r in requirements)
+        print(
+            f"[archive] 输入的 {preselect!r} 不在 done 列表中。\n"
+            f"  当前可归档候选: {available}\n"
+            f"  请检查 id 拼写、确认 stage='done'、或不带参数运行 `harness archive` 看交互列表。",
+            file=sys.stderr,
+        )
+        return None
+    default_value = preselect if preselect else requirements[0]["req_id"]
 
     if not sys.stdin.isatty():
         return default_value
@@ -614,19 +623,18 @@ def main() -> int:
                 if runtime_path.exists():
                     rt_data = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
                     preselect_value = str(rt_data.get("current_requirement", "")).strip() or None
-                    # 若 current_requirement 不在 done 列表，仍传 preselect=None
-                    # 让用户面对原始候选，避免悄悄选了一个 stage != done 的 id。
-                    if preselect_value and not any(
-                        r["req_id"] == preselect_value for r in done_reqs
-                    ):
-                        print(
-                            f"[archive] current_requirement {preselect_value!r} 不在 done 列表中，"
-                            "默认改为提示用户选择。",
-                            file=sys.stderr,
-                        )
-                        preselect_value = None
             except Exception:
                 preselect_value = None
+
+        # 始终跑 validate（不区分 args / runtime 路径）
+        if preselect_value and not any(r["req_id"] == preselect_value for r in done_reqs):
+            print(
+                f"[archive] {preselect_value!r} 不在 done 列表中。\n"
+                f"  当前可归档候选: {', '.join(r['req_id'] for r in done_reqs)}\n"
+                f"  请检查 id 拼写或 stage='done'。",
+                file=sys.stderr,
+            )
+            return 1
         selected = prompt_requirement_selection(done_reqs, preselect=preselect_value)
         if not selected:
             print("No requirement selected.")

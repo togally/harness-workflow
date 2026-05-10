@@ -1,0 +1,13 @@
+id: "bugfix-12"
+title: "harness archive 输入未识别时误归档首个 done req（sug-74 同型病活证强化）"
+stage: "done"
+status: "done"
+created_at: "2026-05-10"
+started_at: "2026-05-10"
+completed_at: "2026-05-10"
+stage_timestamps:
+  executing: "2026-05-10T03:21:26.569613+00:00"
+  testing: "2026-05-10T08:29:33.335342+00:00"
+  acceptance: "2026-05-10T08:29:33.337401+00:00"
+  done: "2026-05-10T08:42:10.266240+00:00"
+description: ""
