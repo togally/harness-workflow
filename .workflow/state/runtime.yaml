@@ -1,7 +1,7 @@
 operation_type: "bugfix"
-operation_target: "bugfix-12"
-current_requirement: "bugfix-11"
-current_requirement_title: "install runtime.yaml 反写 3 bug：gstack_status 丢失 + 多重 quote + active_requirements 清空"
+operation_target: "bugfix-11"
+current_requirement: ""
+current_requirement_title: ""
 stage: "done"
 stage_entered_at: "2026-05-10T08:42:10.264649+00:00"
 conversation_mode: "open"
@@ -12,8 +12,7 @@ current_regression: ""
 current_regression_title: ""
 ff_mode: false
 ff_stage_history: []
-active_requirements:
-  - bugfix-11
+active_requirements: []
 gstack_status:
   installed_skills:
     - autoplan
