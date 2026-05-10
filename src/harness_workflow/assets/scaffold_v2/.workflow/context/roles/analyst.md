@@ -38,26 +38,34 @@
 - 读取 `requirement.md`（如存在）、session-memory、相关历史变更。
 - 确认用户当前意图和已有约束。
 
-**Step A1.5: gstack 强映射触发协议（路径 α）**
+**Step A1.5: gstack /office-hours 强映射执行（按 office_hours_mode 字段直跑）**
 
-本角色与 gstack `/office-hours` 强映射（[req-55:gstack-harness 融合] chg-02 落地）。在进入需求深谈（Step A2）前，优先触发 office-hours；触发不成功时走 fallback。
+本角色与 gstack `/office-hours` 强映射（[req-55:gstack-harness 融合] chg-02 落地，[req-56:--fallback 默认改造] chg-02 改为读字段直跑，删 offer 选择句式）。
 
-**触发流程：**
+**模式判定**：读取本 req 的 `.workflow/state/requirements/{req-id}-{slug}.yaml.office_hours_mode`：
+
+- `office_hours_mode == "required"`（默认 / 用户未传 `--fallback` / agent 兼容）→ 走 path α（office-hours 触发流程）
+- `office_hours_mode == "fallback"`（用户显式 `--fallback` / agent 不兼容时 CLI 已自动落字段）→ 跳过 path α 直接进 Step A2，在 batched-report 第一行加一句 `[mode] fallback：office-hours 已 opt-out，本 req requirement.md 由 analyst 手工填实`
+- 字段缺失（老 req 兼容）→ 视同 `required`
+
+> 注：原"询问/offer 选择"句式已删；mode 判定由 chg-01 落地的 CLI argparse + state schema 一次性决定，analyst 不再主动 offer。
+
+**path α 触发流程（mode == required 时）：**
 
 ```
-1. 读取 .workflow/state/runtime.yaml.gstack_status.agent_kind_compatible
-   - false 或 gstack_status 字段不存在 → 跳到 Step A1.5.fallback
-2. 输出 batched-report 给主 agent：
+1. 输出 batched-report 给主 agent：
    "本 req 已配置 analyst → /office-hours 强映射；
     请在 Claude Code 主对话执行：/office-hours
     主题：<本 req 标题>
     完成后把 design doc path 反馈给我（格式：
     ~/.gstack/projects/{slug}/{user}-{branch}-design-{datetime}.md）"
-3. 暂停，等主 agent / 用户配合完成 /office-hours，把 path 回传
-4. 接到 path 后跳到 Step A1.5.adapter
+2. 暂停，等主 agent / 用户配合完成 /office-hours，把 path 回传
+3. 接到 path 后跳到 Step A1.5.adapter
 ```
 
-**Step A1.5.adapter: design doc → requirement.md 重组 SOP**
+**Step A1.5.adapter: design doc → requirement.md 重组 SOP（必经环节）**
+
+> **必经环节**：office-hours 路径必须经 adapter 重组覆盖到 `.workflow/flow/requirements/{req-id}-{slug}/requirement.md`，**不允许** design doc 直接当 requirement.md 使用绕道。原位 `~/.gstack/projects/{slug}/...md` 仅作 lineage 留底。
 
 接到 office-hours design doc path 后，按下表把 design doc 重组覆盖本 req 的 `requirement.md`：
 
@@ -84,22 +92,29 @@
 
 > 如某段缺失则 skip + 记 warn 到 `## Office Hours Notes`（"段 X 未出现在 design doc 中，已跳过"）。
 
-重组完成后，执行 `harness validate --human-docs`（exit 0 才允许推进）。**不需要移动 design doc**——原位 `~/.gstack/projects/{slug}/...` 自动成为 design lineage 留底。
+**Step A1.5 退出门（office-hours 路径必经，[req-56:--fallback 默认改造] chg-02）**：
 
-**Step A1.5.fallback: gstack 不可用时的退出协议**
+adapter 重组完成后立即跑：
 
-触发场景：
+- `harness validate --human-docs`（exit 0）
+- `harness validate --contract artifact-placement`（exit 0）
 
-- 场景 1：`runtime.yaml.gstack_status.agent_kind_compatible == false`（用户用的不是 Claude Code agent）
-- 场景 2：`runtime.yaml.gstack_status` 不存在（gstack 未装载，[chg-01:gstack 内置发布契约] 还未 ship 或装载失败）
-- 场景 3：主 agent 拒派发 / 用户拒跑 `/office-hours`
+任一非 0 → ABORT 不得推进；analyst 必须修正 requirement.md 直到双绿才离开 Step A1.5。**不需要移动 design doc**——原位 `~/.gstack/projects/{slug}/...` 自动成为 design lineage 留底。
+
+**Step A1.5.escape: 用户/主 agent 中途拒派发**
+
+触发场景：`office_hours_mode == required`，但主 agent / 用户在执行中明确拒绝跑 `/office-hours`。
 
 行为：
 
-- analyst 走原生 Step A1 → A2 → A3 手工填实 `requirement.md`
-- 在 batched-report 写入：`/office-hours 未启用，本 req requirement.md 由 analyst 手工填实（fallback 模式）`
-- **不阻塞** stage 推进
-- recovery hint：后续 req 装载 gstack 后通过 [chg-05:dogfood 活证] 模式补 office-hours 自适用证据
+- 不阻塞推进；analyst 转 Step A2 手工填实 `requirement.md`
+- 在 batched-report 写入：`/office-hours 派发被拒，本 req requirement.md 由 analyst 手工填实（escape 路径，与 fallback 模式同效果）`
+- **不修改** `office_hours_mode` 字段（保持 `required`，作 lineage 留底）
+- recovery hint：用户后悔想转 fallback 时，先 `harness regression "想换 fallback 模式"` 走 regression 重置 mode（mode 切换 CLI 不在 req-56 范围，记 sug 候选）
+
+> 原 fallback 子段已 [req-56:--fallback 默认改造] chg-02 重命名为 escape：
+> - 场景 1（`agent_kind_compatible=false`）+ 场景 2（`gstack_status` 不存在）已由 chg-01 在 CLI 入口自动兜底为 `office_hours_mode: fallback`，analyst 此处不再判断；
+> - 仅保留场景 3 作 escape hatch。
 
 ---
 

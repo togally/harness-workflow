@@ -399,3 +399,21 @@ bugfix-12（runtime-block.yaml-误判用户野文件-白名单漏配）：req-48
 ### 来源
 
 bugfix-12（runtime-block.yaml-误判用户野文件-白名单漏配）— regression 阶段 10 类同型病对照表 + executing 白名单 +1 行 + 4 TC dogfood 反例覆盖
+
+---
+
+## 经验：shell exit code 经管道丢失 + chg plan path 错估（req-56 done 复盘）
+
+### 教训
+
+1. **shell exit code 拼管道陷阱**：`cmd 2>&1 | tail -N; echo "EXIT=$?"` 报的是 `tail` 的 exit（永远 0），**不是** cmd 的真实 exit。executing / testing / acceptance 在自检 `harness validate ...` 等脚本时若用此 pattern 会被骗。改用直接拼接：`cmd; echo "REAL EXIT=$?"` 或 `cmd > /tmp/out 2>&1; rc=$?; cat /tmp/out; echo "EXIT=$rc"`。
+2. **chg plan 阶段对工程层级文件路径错估**：req-56 chg-03 plan 写"3 mirror skills/"，实际仓库是 4 平台分布（claude/qoder 用 commands/，kimi/codex 用 skills/）。executing 阶段实施细节修正合规（属"按实际落地的微调"，不算扩大变更），但应在 session-memory 留痕。**改进**：analyst Step A2 拆 chg 前应先 grep 实际路径，不要凭印象写 plan。
+
+### 反例
+
+- analyst Part B 报告"`harness validate --human-docs` exit 0"——实测 REAL exit 1（被 tail 骗了）；耽误了 acceptance 阶段对 AC-06/07 措辞的对齐工作
+- chg-03 plan 写 `.claude/skills/harness-requirement/SKILL.md` 实际是 `.claude/commands/harness-requirement.md`；executing 子 agent 接受 plan 后才发现 path 错估
+
+### 来源
+
+req-56（harness requirement 默认调 /office-hours，--fallback 走原生 analyst，产出强制对齐 harness 文档规范）— done 阶段复盘

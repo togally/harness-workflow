@@ -279,6 +279,12 @@ def build_parser() -> argparse.ArgumentParser:
     req_parser.add_argument("--root", default=".", help="Repository root.")
     req_parser.add_argument("--id", help="Optional explicit requirement id.")
     req_parser.add_argument("--title", dest="title_flag", help="Legacy title flag.")
+    req_parser.add_argument(
+        "--fallback",
+        dest="fallback",
+        action="store_true",
+        help="跳过 gstack /office-hours 强映射，analyst 走原生 Step A2 手工 SOP（req-56）。",
+    )
 
     bugfix_parser = subparsers.add_parser("bugfix", help="Create a bugfix workspace and enter regression stage.")
     bugfix_parser.add_argument("title", nargs="?", help="Bugfix title.")
@@ -544,6 +550,8 @@ def main() -> int:
             cmd_args.extend(["--id", args.id])
         if args.title_flag:
             cmd_args.extend(["--title-flag", args.title_flag])
+        if args.fallback:
+            cmd_args.append("--fallback")
         return _run_tool_script("harness_requirement.py", cmd_args, root)
     if args.command == "bugfix":
         cmd_args = []

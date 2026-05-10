@@ -4880,7 +4880,7 @@ def apply_all_suggestions(root: Path, pack_title: str = "") -> int:
     return 0 if not failed_delete else 1
 
 
-def create_requirement(root: Path, name: str | None, requirement_id: str | None = None, title: str | None = None) -> int:
+def create_requirement(root: Path, name: str | None, requirement_id: str | None = None, title: str | None = None, fallback: bool = False) -> int:
     config = ensure_config(root)
     runtime = load_requirement_runtime(root)
     repo_name = root.name
@@ -4918,6 +4918,19 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
         # req-50/chg-01: req-id >= 50 使用新 5-stage sequence（analysis 起始）；
         # req-id < 50 保持历史兼容（requirement_review 起始）。
         _initial_stage = "analysis" if _use_new_workflow_sequence(req_num_id) else "requirement_review"
+        # req-56 / chg-01：计算 office_hours_mode。
+        # 读取 runtime.yaml 中 gstack_status.agent_kind_compatible；缺字段视同 false。
+        _runtime_state = load_requirement_runtime(root)
+        _gstack_status = _runtime_state.get("gstack_status") or {}
+        _compat = bool(_gstack_status.get("agent_kind_compatible", False))
+        if fallback or not _compat:
+            office_hours_mode = "fallback"
+        else:
+            office_hours_mode = "required"
+        if not _compat and not fallback:
+            print("[gstack] agent 不兼容，本 req 自动 fallback 模式")
+        if fallback:
+            print("[mode] fallback")
         save_simple_yaml(
             state_file,
             {
@@ -4930,8 +4943,9 @@ def create_requirement(root: Path, name: str | None, requirement_id: str | None 
                 "completed_at": "",
                 "stage_timestamps": {},
                 "description": "",
+                "office_hours_mode": office_hours_mode,
             },
-            ordered_keys=["id", "title", "stage", "status", "created_at", "started_at", "completed_at", "stage_timestamps", "description"],
+            ordered_keys=["id", "title", "stage", "status", "created_at", "started_at", "completed_at", "stage_timestamps", "description", "office_hours_mode"],
         )
         created.append(str(state_file.relative_to(root)))
 

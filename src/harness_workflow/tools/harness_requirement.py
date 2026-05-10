@@ -19,12 +19,14 @@ def main() -> int:
     parser.add_argument("--root", default=".", help="Repository root.")
     parser.add_argument("--id", help="Optional explicit requirement id.")
     parser.add_argument("--title-flag", dest="title_flag", help="Legacy title flag.")
+    parser.add_argument("--fallback", dest="fallback", action="store_true",
+                        help="opt-out gstack office-hours 强映射 (req-56)")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
     # Handle both positional and legacy --title flag
     title = args.title or args.title_flag
-    return create_requirement(root, title, requirement_id=args.id, title=title)
+    return create_requirement(root, title, requirement_id=args.id, title=title, fallback=args.fallback)
 
 
 if __name__ == "__main__":

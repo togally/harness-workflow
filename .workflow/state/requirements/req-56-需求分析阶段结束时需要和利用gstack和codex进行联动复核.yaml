@@ -1,0 +1,13 @@
+id: "req-56"
+title: "harness requirement 默认调 /office-hours，--fallback 走原生 analyst，产出强制对齐 harness 文档规范"
+stage: "done"
+status: "done"
+created_at: "2026-05-09"
+started_at: "2026-05-09"
+completed_at: "2026-05-10"
+stage_timestamps:
+  executing: "2026-05-09T08:43:42.299909+00:00"
+  testing: "2026-05-09T09:09:10.717765+00:00"
+  acceptance: "2026-05-09T09:28:13.247286+00:00"
+  done: "2026-05-10T01:20:41.949030+00:00"
+description: ""

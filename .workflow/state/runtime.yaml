@@ -1,9 +1,9 @@
-operation_type: "bugfix"
-operation_target: "bugfix-11"
-current_requirement: "bugfix-11"
-current_requirement_title: "install runtime.yaml 反写 3 bug：gstack_status 丢失 + 多重 quote + active_requirements 清空"
+operation_type: "requirement"
+operation_target: "req-56"
+current_requirement: "req-56"
+current_requirement_title: "harness requirement 默认调 /office-hours，--fallback 走原生 analyst，产出强制对齐 harness 文档规范"
 stage: "done"
-stage_entered_at: "2026-05-08T09:00:17.741413+00:00"
+stage_entered_at: "2026-05-10T01:20:41.945336+00:00"
 conversation_mode: "open"
 locked_requirement: ""
 locked_requirement_title: ""
@@ -14,6 +14,7 @@ ff_mode: false
 ff_stage_history: []
 active_requirements:
   - bugfix-11
+  - req-56
 gstack_status:
   installed_skills:
     - autoplan
